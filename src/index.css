@@ -1,1 +1,93 @@
 @import "tailwindcss";
+
+/*
+ * The rich text surface. Tailwind's preflight resets list and heading styling,
+ * so the editor restates what a Writer expects from a document. These are the
+ * rendered forms the Writer edits; the Markdown that Core derives is separate.
+ */
+.obelus-editor {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #1c1917;
+}
+
+.obelus-editor > * + * {
+  margin-top: 0.75rem;
+}
+
+.obelus-editor h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 1.5rem;
+}
+
+.obelus-editor h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 1.25rem;
+}
+
+.obelus-editor h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1rem;
+}
+
+.obelus-editor ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.obelus-editor ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.obelus-editor li > ul,
+.obelus-editor li > ol {
+  margin-top: 0.25rem;
+}
+
+.obelus-editor blockquote {
+  border-left: 3px solid #d6d3d1;
+  padding-left: 1rem;
+  color: #57534e;
+  font-style: italic;
+}
+
+.obelus-editor code {
+  background: #f5f5f4;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.obelus-editor pre {
+  background: #1c1917;
+  color: #f5f5f4;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875rem;
+}
+
+.obelus-editor pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.obelus-editor a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.obelus-editor:focus {
+  outline: none;
+}
