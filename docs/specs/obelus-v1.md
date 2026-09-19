@@ -1,0 +1,582 @@
+# Spec — Obelus v1
+
+The implementation contract for the whole of v1. The design record is `DESIGN.md`; where the two
+disagree, `DESIGN.md` is the reasoning and this is the requirement.
+
+## Problem Statement
+
+Writers who use frontier models to improve a draft get quietly worse. Two things cause it, and
+neither feels like a problem while it is happening:
+
+1. Models are supernaturally good at selecting pleasing turns of phrase. Accept one and the draft
+   stops sounding like its author — readers detect it instantly even when they cannot name it.
+2. Models praise. Told that a weak first draft is strong, a writer doubles down on first-draft
+   impulses instead of rethinking the paragraphs that needed rethinking. The rethinking was the
+   voice.
+
+So the writer is left with a choice between two bad options: an LLM that improves the prose and
+dissolves the voice, or no LLM at all, which means doing the tedious error-finding by hand — the
+exact work a model never gets tired of.
+
+There is a method that gets the labor without the damage: the model finds flaws, the writer
+rewrites, and a model with no knowledge of the editing process judges old against new. It works,
+and it is exhausting to run by hand — multiple tabs, per-pass prompt juggling, and an endless
+argument with the model about whether it is the author.
+
+## Solution
+
+Obelus: a writing tool that uses models as a copyeditor and a judge and never as a ghostwriter. It
+marks. It never holds the pen.
+
+The writer drafts in a Notion-style editor. Rule-based passes run free and instantly on every save,
+flagging mechanical problems. Model passes run on demand and return findings anchored to exact
+quotes in the text, listed beside the prose in a sidebar grouped by pass. The writer rewrites in
+their own words, marks findings addressed or declined, and steps forward and back through what is
+left. When a paragraph has been rewritten, the writer asks the judge: two versions of the passage,
+labels randomised, no document, no history, no mention that anyone edited anything. The judge runs
+twice with the labels swapped; if it changes its mind, the tool says so.
+
+Three properties make this safe rather than merely convenient. There is no insert button anywhere —
+the only way text enters a document is the writer's keyboard. Praise is prompt-banned and then
+linted on the way in, and when it appears it is shown struck through rather than hidden, so prompt
+drift is visible. Tier 1 passes are regular expressions, which cannot flatter or rewrite anyone.
+
+Everything runs in the browser. Drafts, revisions, findings and API keys live in IndexedDB; the
+only outbound requests go to the model provider the writer configured. There is no account, no
+sync, no telemetry, and no server of ours — because there is no server. The privacy page does not
+ask to be trusted; it explains how to check.
+
+## User Stories
+
+### Getting set up
+
+1. As a writer, I want to open a URL and start writing immediately, so that I do not have to create an account to use a tool that stores nothing about me.
+2. As a writer, I want to configure an OpenAI-compatible provider by supplying only an API key and a model, so that the base URL, auth header and protocol are not my problem.
+3. As a writer, I want to configure Anthropic by supplying only an API key and a model, so that the required version header and browser-access header are handled for me.
+4. As a writer, I want to configure Google Gemini by supplying only an API key and a model, so that I do not need to know whether it takes a header or a query parameter.
+5. As a writer, I want to configure OpenRouter by supplying only an API key and a model, so that I can reach many models through one provider.
+6. As a writer, I want to configure a local Ollama instance, so that I can run passes with no key and no cost.
+7. As a writer, I want to add a custom OpenAI-compatible endpoint, so that I can point Obelus at my own self-hosted proxy or an unusual provider.
+8. As a writer, I want the model field to accept free text, so that a model released this morning works without waiting for an app update.
+9. As a writer, I want a "list models" action that queries my provider, so that I can discover a model id without leaving the app.
+10. As a writer, I want a "test connection" action on every provider, so that I learn about a bad URL or key immediately rather than in the middle of a critique.
+11. As a writer, I want my API keys stored in this browser only, so that no third party ever holds them.
+12. As a writer, I want an option to keep my key in memory only and re-enter it each session, so that I can choose the more secure mode when I need it.
+13. As a writer, I want a clear statement that my key is sent only to the provider I configured, so that I know what the app does with it.
+14. As a writer, I want to choose which provider and model acts as the critic and which acts as the judge, so that I can pair a cheap critic with a strong judge or the reverse.
+15. As a writer, I want to be warned when the critic and the judge are the same model, so that I understand why the judge may not be independent.
+
+### Writing
+
+16. As a writer, I want a rich text editor with headings, emphasis, lists and quotes, so that I can structure a piece without fighting markup.
+17. As a writer, I want my work saved automatically, so that I never lose a paragraph to a closed tab.
+18. As a writer, I want to import an existing draft as markdown, so that I can bring work I started elsewhere.
+19. As a writer, I want to export any document as markdown, so that my words are never trapped in this tool.
+20. As a writer, I want a library of my documents showing title, word count, last edited and how many findings are still open, so that I can see at a glance what needs attention.
+21. As a writer, I want to search my documents by title and body text, so that I can find a piece I half-remember.
+22. As a writer, I want to tag documents and filter by tag, so that I can group related pieces without a folder hierarchy.
+23. As a writer, I want to mark a document draft, revising or done, so that I know where I left it.
+24. As a writer, I want a scratchpad document to exist automatically, so that I have somewhere to put a thought without naming a file.
+25. As a writer, I want the document outline derived from my headings, so that I can jump between sections and so that passes can reason about sections.
+
+### Rule-based passes
+
+26. As a writer, I want hedges and intensifiers flagged as I write, so that the sawdust gets swept without me reading for it.
+27. As a writer, I want nominalizations flagged, so that I notice where an action has been buried in a noun.
+28. As a writer, I want expletive and throat-clearing openers flagged, so that sentences start where the content starts.
+29. As a writer, I want wordy constructions flagged, so that "in order to" becomes "to".
+30. As a writer, I want repeated words and repeated sentence openers flagged, so that I catch the tics I cannot hear.
+31. As a writer, I want sentence length and variance and adverb density shown, so that I can see a monotone rhythm rather than feel vaguely uneasy about it.
+32. As a writer, I want rule passes to run automatically on save, so that the cheapest class of problem is always current.
+33. As a writer, I want rule passes to run with no API key at all, so that the tool is useful before I have configured anything.
+34. As a writer, I want to edit the word lists and patterns behind rule passes, so that the tool flags the words I actually overuse.
+35. As a writer, I want to disable any individual rule pass, so that I can ignore advice I deliberately reject.
+
+### Model passes
+
+36. As a writer, I want to run a single pass on demand, so that I can work one kind of problem at a time.
+37. As a writer, I want to run the structural set in one action, so that I do not have to trigger six passes by hand.
+38. As a writer, I want the list of passes to ship with a starter pack, so that I have something to run before I have invented my own.
+39. As a writer, I want to enable or disable any pass, so that the default set matches how I work.
+40. As a writer, I want a pass that flags characters and actions, so that I can see where the actor is missing from the subject position.
+41. As a writer, I want a pass that examines topic strings and stress position, so that I can see where consecutive sentences fail to cohere.
+42. As a writer, I want a pass that proposes paragraphs which could move, so that I get the satisfying structural wins without hunting for them.
+43. As a writer, I want a pass that questions paragraph unity, so that paragraphs carrying two ideas get split.
+44. As a writer, I want a pass that proposes sentences which add nothing, so that I can find the words I do not need.
+45. As a writer, I want a pass that flags cliché and headline-ese, so that the tool catches the specific failure of sounding like a magazine headline on every line.
+46. As a writer, I want a pass that distinguishes undercutting hedges from unsupported confidence, so that I know whether to commit or to substantiate.
+47. As a writer, I want local passes to receive my paragraph plus one paragraph either side and the heading outline, so that judgments about wordiness or cliché are made in context.
+48. As a writer, I want structural passes to receive the whole document, so that advice about paragraph order is not given by something that cannot see the order.
+49. As a writer, I want findings that fall outside the paragraph a pass was asked about to be discarded, so that running six passes does not produce six copies of one finding.
+50. As a writer, I want a warning and a chunked alternative when a document is too long for a single call, so that long pieces still get structural passes.
+51. As a writer, I want an estimate of the cost of a run before I trigger it, so that I am never surprised by a bill.
+52. As a writer, I want a running total of what this session has cost, so that I can tell when to stop.
+53. As a writer, I want repeated runs of the same pass on unchanged text not to be re-billed, so that re-running costs nothing.
+54. As a writer, I want a run to be cancellable, so that a slow model does not hold the tool hostage.
+55. As a writer, I want provider errors shown to me verbatim, so that I can act on what the provider actually said.
+56. As a writer, I want a failed call to retry on rate limits and server errors, so that a transient failure does not lose me a run.
+57. As a writer, I want no more than a small number of requests in flight per provider, so that I do not trip rate limits by running passes in parallel.
+
+### Findings
+
+58. As a writer, I want every finding anchored to a highlight over the exact text it concerns, so that I can see what is being talked about.
+59. As a writer, I want the anchor to follow the text when I rewrite it, so that comments do not go stale the moment I act on them.
+60. As a writer, I want the sidebar grouped by pass rather than by location, so that I can complete one pass over the work before starting the next.
+61. As a writer, I want findings listed in document order within a pass, so that I can work top to bottom.
+62. As a writer, I want to step forward and back through open findings with the keyboard, so that reviewing is not a mouse hunt.
+63. As a writer, I want to mark a finding addressed, so that resolved problems leave the queue.
+64. As a writer, I want to decline a finding without justifying it, so that rejecting advice stays cheap.
+65. As a writer, I want declined findings remembered, so that a pass does not raise the same objection twice.
+66. As a writer, I want each finding to record which pass, which model, when and which revision produced it, so that I can tell whether advice came from a model I now distrust.
+
+### The constitution
+
+67. As a writer, I want no apply, accept or insert button anywhere in the app, so that there is no moment of weakness at eleven at night when I paste in a model's sentence.
+68. As a writer, I want model responses constrained to a findings schema with no field for rewritten prose, so that the tool cannot hand me a sentence even if it wants to.
+69. As a writer, I want a diagnostic rewrite available only behind an explicit reveal, so that I can see what the model would have written without it being usable.
+70. As a writer, I want the diagnostic rewrite pane to be unselectable and to offer no insertion path, so that the only way its text enters my document is if I type it myself.
+71. As a writer, I want praise detected and struck through rather than silently removed, so that I can see when a model ignores the instruction and can tell that my prompts have drifted.
+72. As a writer, I want to reject a finding whose text was praise or a smuggled rewrite, so that polluted findings leave my queue.
+73. As a writer, I want to view the raw provider response for any finding, so that I can debug a prompt or a provider rather than guess.
+74. As a writer, I want no generation features at all — no continue writing, no rewrite, no title or outline generation — so that the tool has exactly one job.
+75. As a writer, I want no paste policing and no minimum-length gate, so that the tool does not treat me as a suspect or a student.
+76. As a writer, I want the critic to be framed as an editor screening a submission, so that it evaluates the piece rather than flattering the author.
+77. As a writer, I want that screening frame to be switchable off, so that I can compare how the model behaves with and without it.
+
+### The judge
+
+78. As a writer, I want to compare two versions of a passage and get a verdict, so that I can tell whether my rewrite is actually better.
+79. As a writer, I want the judge to receive nothing but the two passages and a neutral question, so that it cannot know I wrote either one.
+80. As a writer, I want the judge to be told never to assume which passage is newer, so that recency does not masquerade as quality.
+81. As a writer, I want the labels A and B randomised per call, so that position bias is not mistaken for a preference.
+82. As a writer, I want the judge to run a second time with the labels swapped, so that a biased or indifferent verdict can be detected.
+83. As a writer, I want a verdict that flips when the labels swap to be surfaced as unstable rather than reported as a preference, so that I am not fooled by a coin toss.
+84. As a writer, I want the judge to receive no document, no history, no authorship and none of the findings, so that it cannot be anchored by the editing process.
+85. As a writer, I want the judge to explain itself with quoted evidence from each passage, so that I can evaluate the reasoning rather than the verdict.
+86. As a writer, I want the judge to list problems in each version separately, so that a single verdict still gives me actionable detail.
+87. As a writer, I want to pick the two versions being compared from any two revisions, so that I can compare before a pass against now rather than only consecutive saves.
+88. As a writer, I want to select a span or a section to judge, so that the comparison is the unit I am actually working on.
+89. As a writer, I want to see both extracted passages before anything is sent, so that no text I have not read goes to a model.
+90. As a writer, I want the judge to use a different model from the critic by default, so that independent judgment is the default rather than something I have to arrange.
+
+### The reader
+
+91. As a writer, I want a reader's account of what each section communicates, so that I can see the gap between what I meant and what arrives.
+92. As a writer, I want that account to name what a distracted reader would miss, so that I find the places where I assumed too much.
+93. As a writer, I want reader output shown in its own tab, so that it does not get mixed up with findings that need resolving.
+
+### Revisions
+
+94. As a writer, I want automatic snapshots of my document over time, so that I can return to a version from before a bad afternoon.
+95. As a writer, I want to flag a major revision with a note, so that milestones in the draft are findable later.
+96. As a writer, I want to view a word-level diff between any two revisions, so that I can see what actually changed.
+97. As a writer, I want to judge any two revisions, so that the comparison I care about is available.
+
+### The pass workbench
+
+98. As a writer, I want to write my own critique prompts, so that my own list of passes beats anyone else's default.
+99. As a writer, I want to edit prompt text with placeholders for the document, target, context and outline, so that custom passes receive the right material.
+100. As a writer, I want an unknown placeholder rejected on save, so that a typo does not silently send the wrong text to a model.
+101. As a writer, I want to choose a pass's scope and output shape, so that a custom pass can be local or structural, and can return findings or a summary.
+102. As a writer, I want to import and export my pass set as JSON, so that my prompt work is portable and backed up.
+103. As a writer, I want to restore the default pass set, so that I can recover from an experiment.
+104. As a writer, I want help authoring critique prompts from a model, so that writing a good pass is easier than staring at a blank field.
+105. As a writer, I want that assistant to work on my prompts and never on my prose, so that the assistance is legal under the tool's own rules.
+
+### Privacy and durability
+
+106. As a writer, I want a privacy page in plain language, so that I understand what happens to my words without reading a policy.
+107. As a writer, I want instructions for verifying those claims myself, so that I do not have to take anyone's word for it.
+108. As a writer, I want to open browser devtools and read my own drafts out of IndexedDB, so that I can confirm my work is on my machine.
+109. As a writer, I want to watch the network tab and see that requests go only to my provider, so that I can confirm nothing is phoning home.
+110. As a writer, I want the app to make zero outbound requests before I configure a provider, so that a fresh install is provably silent.
+111. As a writer, I want a whole-workspace backup as a single file, so that clearing my browser does not destroy months of work.
+112. As a writer, I want API keys excluded from backups unless I explicitly opt in, so that I do not accidentally publish my keys.
+113. As a writer, I want a visible reminder of when I last backed up, so that an eviction is not the thing that teaches me to back up.
+114. As a writer, I want a single-document export that includes revisions and findings, so that I can move one piece intact.
+115. As a writer, I want the app to open offline with my existing drafts, so that I can write on a plane.
+116. As a writer, I want the app to refuse to open a database newer than the running code, so that a stale deployment cannot corrupt my drafts.
+117. As a writer, I want no analytics, no crash reporting and no usage counters, so that the privacy page describes the whole system.
+
+## Implementation Decisions
+
+### Module boundaries
+
+Six modules, defined by responsibility. No file paths here; they will move.
+
+- **Provider layer.** Holds the protocol table (base URL, auth header, required extra headers) and one adapter per wire format — OpenAI-shaped, Anthropic-shaped, Gemini native. Translates a provider-agnostic request into a wire request and a wire response into text. Also exposes model listing and connection testing.
+- **Transport.** The single seam. `send(ModelRequest) -> Promise<string>`. Real implementation delegates to the provider layer; the test implementation is a fixture player. Nothing above this boundary knows which provider is in use.
+- **Core loop.** Parses model output into findings, runs the praise linter, enforces scope, consults the cache, and returns a critique result. Separately implements the judge protocol. Contains no provider knowledge and no storage knowledge.
+- **Rule engine.** Pure functions from document text plus rule configuration to findings. Deterministic. Never touches the transport.
+- **Storage.** Dexie repositories for documents, revisions, passes, provider configs, findings, judge runs and the pass-result cache. Forward-only migrations. One database, versioned.
+- **Editor integration.** TipTap wiring plus the anchoring layer that maps a quote anchor to a live document range and survives edits.
+
+### Wire formats — verified facts
+
+These were probed against live endpoints on 2026-09-19. Full detail, including streaming shapes and listing endpoints, is in `notes/provider-api-facts.md`. **Re-verify before implementing, and never hardcode a model list.**
+
+| Provider | Base URL | Protocol | Auth | Extra headers |
+|---|---|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | openai | `Authorization: Bearer` | — |
+| Anthropic | `https://api.anthropic.com/v1` | anthropic | `x-api-key` | `anthropic-version: 2023-06-01`, `anthropic-dangerous-direct-browser-access: true` |
+| Gemini | `https://generativelanguage.googleapis.com/v1beta` | gemini | `x-goog-api-key` | — |
+| OpenRouter | `https://openrouter.ai/api/v1` | openai | `Authorization: Bearer` | optional `HTTP-Referer`, `X-OpenRouter-Title` |
+| Ollama local | `http://localhost:11434/v1` | openai | none | user sets `OLLAMA_ORIGINS` to the app origin |
+| Custom | user-supplied | openai | user-supplied | — |
+
+Gemini and Ollama both expose an OpenAI-compatible surface as well as their native one. Prefer the
+native Gemini surface for `responseSchema` fidelity; the OpenAI-compatible surfaces of OpenRouter
+and Ollama are handled by the OpenAI adapter.
+
+**Ollama Cloud is deliberately excluded.** `ollama.com` returns `405` to CORS preflight with no
+`Access-Control-Allow-Origin`, so a browser `fetch` is blocked, and Ollama's own documentation says
+to keep API keys out of browser code. Cloud models remain reachable through a local Ollama daemon
+after signing in, using the `:cloud` model suffix, with no key in the browser at all. A writer who
+wants the hosted endpoint can point a Custom provider at their own proxy. **No proxy is hosted by
+this project** — a proxy that handles a user's key would falsify the central privacy claim.
+
+### Provider-agnostic request
+
+This shape is the contract between the core loop and the transport, and it is where the
+provider differences are absorbed.
+
+```
+ModelRequest {
+  protocol: "openai" | "anthropic" | "gemini"
+  baseUrl: string
+  model: string
+  apiKey: string | null
+  extraHeaders: Record<string, string>
+  system?: string
+  messages: { role: "user" | "assistant"; content: string }[]
+  maxOutputTokens: number
+  temperature?: number
+  jsonSchema?: object
+}
+```
+
+The transport returns **text only**. No streaming in v1: a critique result is a parsed object and a
+partial object is not useful, so runs show a spinner, an elapsed timer and a cancel button.
+
+### Passes are data
+
+Passes are records, editable in the app, exported and imported as JSON, shipped with a read-only
+starter pack and a restore-defaults action.
+
+```
+Pass {
+  id: string
+  name: string
+  description: string
+  tier: "rule" | "model"
+  scope: "document" | "section" | "paragraph"
+  output: "findings" | "section-summary" | "note"
+  prompt?: string
+  modelSlot: "critic"
+  promptVersion: number
+  enabled: boolean
+  ruleConfig?: {
+    hedges?: string[]
+    wordiness?: [string, string][]
+    repetitionWindow?: number
+    openers?: string[]
+    nominalizationSuffixes?: string[]
+  }
+}
+```
+
+Prompt placeholders are `{{title}}`, `{{outline}}`, `{{document}}`, `{{target}}`,
+`{{context_above}}`, `{{context_below}}`. An unknown placeholder is a hard error on save. Output
+shapes are the three fixed ones above — a user-editable JSON Schema is explicitly not supported.
+
+Rule passes carry their word lists and patterns as editable data, so the writer extends the hedge
+list rather than the developer.
+
+### Scope enforcement
+
+Local passes receive the target paragraph, one paragraph either side, and the heading outline
+(headings only, never body text). Structural passes receive the whole document. Two rules are
+implemented in the core loop, not in the prompt:
+
+- The prompt states that surrounding text is context and not target.
+- **Any finding whose anchor falls outside the target is dropped**, and the count of dropped
+  anchors is reported.
+
+Without the second rule, running six passes on one document produces six copies of one finding.
+
+### Finding shape
+
+```
+Finding {
+  id: string
+  passId: string
+  promptVersion: number
+  anchor: { quote: string; offset: number }
+  issue: string
+  diagnosis: string
+  pattern?: string
+  status: "open" | "addressed" | "declined"
+  provenance: { providerId: string; model: string; at: number; revisionId: string }
+  violations?: Violation[]
+}
+```
+
+Anchoring is by **quote match with the offset as a hint**, never by offset alone. Offsets rot on the
+first keystroke; quotes survive. Anchoring re-resolves on every document change, and a finding whose
+quote can no longer be found becomes `orphaned` rather than silently pointing at the wrong text.
+
+### Critique result
+
+```
+CritiqueResult {
+  findings: Finding[]
+  violations: Violation[]
+  droppedAnchors: number
+  rawResponse: string
+  fromCache: boolean
+  usage?: { inputTokens?: number; outputTokens?: number }
+}
+```
+
+`violations` carries praise and rewrite-shaped strings detected by the linter. They are **rendered
+struck through, not removed**, so prompt drift stays visible. A global "show raw response" toggle
+exposes `rawResponse` for any finding.
+
+### Judge protocol
+
+The judge is the mechanism the whole tool is built to protect, so its inputs are specified as a
+closed list.
+
+**The judge request contains:** two passages labelled `A` and `B`; a neutral instruction — "Two
+versions of the same passage. Which is clearer and more effective prose? Do not assume either is
+newer or better."; a `jsonSchema` for the response.
+
+**The judge request contains none of:** the document, the surrounding context, prior turns, the
+findings, the pass that produced them, any statement that an edit occurred, any statement about who
+wrote either passage, any statement that a model was involved, the screening frame, and any
+publication or persona.
+
+**Response shape and the double call:**
+
+```
+JudgeResult {
+  first:   { preference: "A"|"B"|"tie"; confidence: number; reasons: Reason[];
+             problemsInA: string[]; problemsInB: string[] }
+  swapped: { same shape, labels swapped }
+  stable: boolean            // false => surfaced as "unstable"
+  labelOrder: ["A"|"B", "A"|"B"]   // local mapping; never revealed to the model
+}
+```
+
+The second call swaps the labels, then the result is unmapped back to the writer's view. If the two
+calls disagree, `stable` is false and the UI reports **unstable** rather than a preference — a judge
+that flips with the labels is telling the writer the passages are equivalent or that it is
+position-biased. Both extracted passages are displayed before either call is made.
+
+The judge defaults to a different provider and model from the critic; a same-model pairing raises a
+soft warning, never a block.
+
+### The constitution, mechanically
+
+- The findings schema has no field for rewritten prose. This is a schema decision, not a prompt
+  instruction.
+- No UI affordance inserts model-derived text. There is no exception and no debug build that adds
+  one.
+- Diagnosis text is selectable; the diagnostic-rewrite pane is `user-select: none` and reachable
+  only behind an explicit reveal.
+- Praise and rewrite-shaped content is prompt-banned and then linted client-side, struck through on
+  display, with a per-finding reject and a global raw-response toggle.
+- There is no clipboard policing and no minimum-length gate.
+- The screening frame applies to critic passes only, and is a settable toggle.
+
+### Caching, concurrency, cost, failure
+
+- Findings are cached under hash(document text) + pass id + prompt version + model. A repeat run on
+  unchanged text costs nothing and returns `fromCache: true`.
+- Runs are on demand, one pass at a time, with "run local passes" (free, no key) and "run structural
+  set" shortcuts. Concurrency is capped per provider, default three, configurable, with a visible
+  queue.
+- A pre-run estimate (characters ÷ 4 for tokens, times an editable per-model price table) and a
+  running session total are always shown and never block.
+- Retries use exponential backoff honouring `Retry-After` on 429 and 5xx. Provider error text is
+  surfaced verbatim. Errors are never swallowed.
+- The parser is tolerant: extract JSON from surrounding prose, validate, then lint. `strict: true`
+  is a promise models still break, and OpenRouter's schema support is a passthrough requiring
+  `require_parameters: true`.
+
+### Key handling
+
+Plaintext in IndexedDB by default, with a session-only mode that holds the key in memory and never
+persists it. No passphrase encryption in v1 — the decryption code would ship to the same browser
+that holds the drafts, which makes it largely theatre, while "never persisted" is the honest form of
+more secure. Regardless of mode: keys are never logged, never placed in a URL, and never sent to any
+origin other than the provider's configured base URL. Keys are excluded from exports by default.
+
+### Revisions and durability
+
+- Auto-snapshot on debounce (roughly sixty seconds idle, or N saved keystrokes), pruned; plus a
+  manual "flag major revision" carrying an optional note.
+- A snapshot stores full text plus metadata: parent id, timestamp, word count, flag, findings
+  resolved, active pass run.
+- Word-level diff between any two revisions, in v1.
+- The judge can compare any two revisions. The comparison unit is a selected span or a
+  heading-delimited section; the app fuzzy-aligns the selection across revisions and displays both
+  extracted strings before sending.
+- Markdown export always. A single-document JSON bundle carries the document, revisions, findings
+  and pass results. A whole-workspace JSON backup excludes keys unless explicitly opted in, with a
+  visible last-backed-up indicator.
+- Migrations are forward-only and versioned. A database newer than the running code refuses to open
+  and says so, rather than risking drafts.
+
+### Privacy surface
+
+A plain-language privacy page plus a "verify this yourself" section containing actual steps: read
+your own data at devtools → application → IndexedDB; watch requests at devtools → network with
+preserve-log enabled and see that they go only to the configured provider; confirm the
+worker-supplied CSP header means no third-party script origin can load. Zero analytics, zero crash
+reporting, zero counters. **A fresh install makes no outbound request at all before a provider is
+configured**, and that property is testable at the single seam.
+
+### Stack and hosting
+
+Vite, React, TypeScript, Tailwind, TipTap, Dexie. Markdown is the import and export format, not the
+internal source of truth — internal positions come from the rich text model, which is what makes
+anchors survive rewriting. Deployed to Cloudflare Workers static assets with a thin Worker that sets
+CSP and security headers and nothing else. No Astro. GPLv3. PWA manifest and service worker so the
+shell and existing drafts open offline; no push and no background sync.
+
+### Build order
+
+- **Stage 0 — Shell.** No AI. Editor, library, Dexie schema, markdown import/export, provider config
+  with all prefills, custom provider, test connection, key storage, deployed with CSP. Usable as a
+  plain writing app.
+- **Stage 1 — Constitution core.** Findings schema, tolerant parser, praise linter, raw-response
+  toggle, transport seam, pass engine at paragraph scope, two model passes, sidebar with
+  quote-anchoring, statuses, keyboard stepping.
+- **Stage 2 — Rule engine.** All Tier 1 passes, editable rule configuration, auto-run on save,
+  metrics panel. Useful with zero API keys.
+- **Stage 3 — Structure.** Section model, outline, document-scope passes, chunking and limits.
+- **Stage 4 — Judge.** Revisions, snapshots, diff, swapped-order double call, unstable surfacing,
+  screening-frame toggle.
+- **Stage 5 — Workbench.** Pass editor, rule config editor, prompt-authoring assistant.
+- **Stage 6 — Reader.** Reader tab and its schema.
+- **Stage 7 — Durability.** Workspace backup, PWA service worker, migrations, backup reminder.
+
+## Testing Decisions
+
+### What makes a good test here
+
+Tests assert on **external behaviour observed through the core entry points**, never on internal
+structure. A good test says "given this document and this pass, with the model returning this text,
+the writer sees these findings" — not "the parser called `parseFindings` once". Anything that can
+only be asserted by reaching into a module's internals is a sign the seam is in the wrong place.
+
+Two properties get special treatment because they are the product:
+
+- **The constitution is a test suite, not a style guide.** No test may permit model-derived text to
+  reach a document, and no test may assert on a UI affordance that would insert it.
+- **The privacy claim is asserted, not asserted about.** Through the single seam we can prove that
+  the transport is never invoked with a base URL other than the configured provider's.
+
+### The single seam
+
+One seam: **the transport**, `send(ModelRequest) -> Promise<string>`. Everything above it is pure
+and exercised through `critique(documentText, pass, config)` and `judge(beforeText, afterText,
+config)`. The test implementation records every request it receives and replays fixture responses.
+This is preferred to any new seam, and it is deliberately the *highest* useful one: it sits above all
+provider differences and below all reasoning about prose.
+
+Two boundaries are deliberately **not** seams, to keep the count at one:
+
+- **IndexedDB.** Dexie repositories are exercised against an in-memory IndexedDB implementation
+  installed in test setup. No injected interface, so no production code is shaped by testing.
+- **The DOM.** No browser-driving test layer in v1. It would be a second seam, it would be slower
+  and flakier, and it would test the constitution no better than the core-loop seam already does.
+
+### Modules under test
+
+- **Core loop.** Tolerant parsing of messy model output, praise detection and struck-through
+  surfacing, rejection of smuggled rewrites, scope enforcement including the dropped-anchor count,
+  anchoring by quote after an edit, orphaning when a quote disappears, cache hits returning
+  `fromCache: true` on unchanged text, and verbatim propagation of provider errors.
+- **Judge protocol.** That the request contains a closed list of inputs and none of the forbidden
+  ones (document, history, authorship, findings, screening frame); that label order is randomised
+  and the local mapping is never revealed to the model; that a swapped disagreement yields
+  `stable: false`; that both extracted strings are produced before the call.
+- **Rule engine.** Pure-function tests: a fixture document and a rule configuration in, a known set
+  of findings out. Determinism asserted by running twice and comparing.
+- **Storage.** Document, revision, pass, provider-config and cache repositories against in-memory
+  IndexedDB, including forward migration behaviour and the refusal to open a newer schema.
+- **Provider adapters.** Request construction and response parsing per wire format, with no network:
+  correct header names and auth placement per the table above, correct system-prompt placement per
+  protocol, and correct extraction of text from each response shape.
+
+### Constitution regression harness
+
+The constitution lives in prompt text, and prompt text drifts silently when a pass is edited. The
+harness is **three fixture documents × three model passes**, run manually before any prompt change,
+with results stored locally and timestamped. It asserts that output parses; that no un-flagged praise
+token survives the linter; that no rewrite field ever appears in a response; and that findings anchor
+inside their scope. It never ships to the UI.
+
+This is the most valuable test in the project, because it is the only thing standing between "the
+tool cannot do that" and "the tool cannot do that today".
+
+### Prior art
+
+None. This is the first code in the repository, so there are no existing test patterns to follow and
+the constitution harness is the seed of that prior art. The rule engine's pure-function tests and the
+storage tests against in-memory IndexedDB are the two patterns later work should copy.
+
+## Out of Scope
+
+- Any generation of prose: continue-writing, rewriting, expanding, summarising for insertion, titles,
+  outlines. The diagnostic rewrite pane is display-only and is the sole exception anywhere in the app.
+- Streaming responses. A parsed object is the unit of value.
+- Prompt-editable JSON Schema. Three fixed output shapes only.
+- Hosting any proxy that handles a user's API key, including one for Ollama Cloud.
+- Direct calling of Ollama Cloud from the browser.
+- Accounts, authentication, sync, sharing, collaboration, or any multi-user concept.
+- Folders and nested workspaces; the library is flat with tags.
+- PDF, DOCX or HTML export in v1.
+- Clipboard policing, paste quarantine, attribution tracking, authorship disclosure, and any
+  minimum-length or draft-completeness gating.
+- Prompt-injection defences beyond treating model output as untrusted data. This app sends the
+  writer's own text to the writer's own provider; injection theatre would be disproportionate.
+- Analytics, telemetry, crash reporting, usage counters, and any request to any origin other than
+  the configured provider.
+- Browser-driving (DOM/E2E) tests, and any second test seam.
+- Localisation, theming beyond a single considered default, and keybinding remapping.
+
+## Further Notes
+
+**Relationship to the design record.** `DESIGN.md` holds the reasoning, including why the constitution
+is enforced structurally rather than by prompt, why Tier 1 passes are regular expressions, why
+Ollama Cloud is excluded, and why pass scoping is enforced in code rather than trusted to the model.
+Read it before arguing with a decision here.
+
+**Domain vocabulary.** The repo has no `CONTEXT.md` and no glossary. The vocabulary used throughout
+this spec — pass, finding, anchor, critic, judge, reader, revision, screening frame, Tier 1 / Tier 2,
+the constitution, diagnostic rewrite, praise linter, transport — is currently defined only inside
+`DESIGN.md`. It should be extracted into a `CONTEXT.md` before implementation begins, so the
+implementation and the tests use one language.
+
+**Decisions that warrant ADRs.** Four decisions are load-bearing, externally visible, and expensive to
+reverse: (1) the constitution is enforced structurally, with no insertion affordance anywhere;
+(2) no project-hosted proxy that touches an API key; (3) Ollama Cloud is excluded and local Ollama is
+the supported path; (4) Tier 1 passes are rule-based rather than model-based, making the tool useful
+with no API key. Each deserves an ADR before the code that depends on it.
+
+**Facts that will drift.** The protocol table, the required headers and the model identifiers were
+verified against live endpoints on 2026-09-19 and are recorded with sources in
+`notes/provider-api-facts.md`. Anthropic's required version string, the browser-access header, and
+every model id are the things most likely to change first. Re-verify at the start of implementation
+rather than trusting this spec.
+
+**Repository naming.** The app is Obelus; the repository is `writing-tool`. Renaming to `obelus` is
+optional and cheap now, and progressively less cheap later.
+
+**Process note.** The issue tracker configuration (`docs/agents/issue-tracker.md`) and the canonical
+triage labels do not exist yet, because `/setup-matt-pocock-skills` has not been run for this repo.
+The `triage` skill is installed. Running setup will record the tracker and create the canonical label
+set so the other engineering skills can find them.
