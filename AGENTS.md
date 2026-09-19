@@ -33,6 +33,8 @@ Reasoning for both: `DESIGN.md` §1–2.
 - **Decisions** — `docs/adr/`. Before contradicting one: surface the conflict instead of quietly
   overriding it.
 - **Process** — `docs/agents/`. When creating or reading tickets, specs or triage state.
+- **Build order** — `docs/build-order.md`. Before picking up a ticket: which one can start now, what it
+delivers, and what it is waiting on.
 
 ## Build discipline
 
