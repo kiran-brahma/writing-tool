@@ -1,5 +1,6 @@
 import type { Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
+import { groupFindingsByPass } from "./findingsGroups";
 
 /**
  * The sidebar is grouped by Pass rather than by location, because the Writer
@@ -12,7 +13,7 @@ export interface FindingsSidebarProps {
 }
 
 export function FindingsSidebar({ findings, passes }: FindingsSidebarProps) {
-  const groups = groupByPass(findings, passes);
+  const groups = groupFindingsByPass(findings, passes);
 
   if (groups.length === 0) {
     return (
@@ -60,20 +61,4 @@ function FindingRow({ finding }: { finding: Finding }) {
       </p>
     </li>
   );
-}
-
-interface PassGroup {
-  id: string;
-  name: string;
-  findings: Finding[];
-}
-
-function groupByPass(findings: Finding[], passes: Pass[]): PassGroup[] {
-  return passes
-    .map((pass) => ({
-      id: pass.id,
-      name: pass.name,
-      findings: findings.filter((finding) => finding.passId === pass.id),
-    }))
-    .filter((group) => group.findings.length > 0);
 }

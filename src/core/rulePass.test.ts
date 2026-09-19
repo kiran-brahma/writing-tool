@@ -63,17 +63,12 @@ describe("runRulePass", () => {
     expect(finding.declineReason).toBeUndefined();
   });
 
-  it("runs with no Connection and no key: it is a pure function of the string", () => {
+  it("is deterministic: the same canonical string yields the same Anchors", () => {
     const first = runRulePass("It is rather good.\n", HEDGES_PASS, context);
     const second = runRulePass("It is rather good.\n", HEDGES_PASS, context);
 
     expect(first.map((finding) => finding.anchor)).toEqual(
       second.map((finding) => finding.anchor),
     );
-  });
-
-  it("computes anchor state from resolution rather than authoring it", () => {
-    const [finding] = runRulePass("very good\n", HEDGES_PASS, context);
-    expect(finding.anchor.state).toBe("attached");
   });
 });

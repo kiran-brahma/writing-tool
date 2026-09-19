@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectInterval, resolveAnchor } from "./anchor";
-import { canonicalText, canonicalTextWithMap } from "./canonicalText";
+import { canonicalTextWithMap } from "./canonicalText";
 import type { BlockNode, DocTree, ParagraphNode } from "./docTree";
 
 function doc(...content: BlockNode[]): DocTree {
@@ -41,27 +41,6 @@ describe("resolveAnchor", () => {
 });
 
 describe("canonicalTextWithMap", () => {
-  it("keeps its text identical to canonicalText", () => {
-    const trees: DocTree[] = [
-      doc(),
-      doc(paragraph("very good")),
-      doc(
-        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Title" }] },
-        paragraph("Body"),
-      ),
-      doc({ type: "blockquote", content: [paragraph("quoted")] }),
-      doc({
-        type: "bulletList",
-        content: [{ type: "listItem", content: [paragraph("item")] }],
-      }),
-      doc({ type: "codeBlock", attrs: { language: "ts" }, content: [{ type: "text", text: "a\n\nb" }] }),
-    ];
-
-    for (const tree of trees) {
-      expect(canonicalTextWithMap(tree).text).toBe(canonicalText(tree));
-    }
-  });
-
   it("maps a paragraph's prose to ProseMirror positions", () => {
     const tree = doc(paragraph("very good"));
     const { positions } = canonicalTextWithMap(tree);

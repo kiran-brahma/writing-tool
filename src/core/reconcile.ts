@@ -1,5 +1,5 @@
 import { resolveAnchor } from "./anchor";
-import type { Finding } from "./finding";
+import type { Finding, Interval } from "./finding";
 
 /**
  * Merges a fresh Run's Findings with the Findings already stored for the same
@@ -16,8 +16,10 @@ import type { Finding } from "./finding";
  * `provenance`): the anchor's offset and its `provenance.revisionId` must name
  * the same canonical string, or #5's diff-projection projects in the wrong
  * coordinates. The Run-derived prose (`issue`, `diagnosis`, `pattern`,
- * `promptHash`) refreshes, so an edited Rule config is reflected. `anchor.state`
- * is recomputed by resolution, never carried over.
+ * `promptHash`) refreshes, so an edited Rule config is reflected. A matched
+ * Finding is `attached` by construction — the match required its stored Anchor
+ * to resolve to the same span — and an unmatched one has its `anchor.state`
+ * recomputed by resolution.
  *
  * Findings the Run did not re-produce are kept — an Orphaned Finding stays open
  * and actionable — except a duplicate that resolves onto a span the Run did
@@ -52,8 +54,8 @@ export function reconcileFindings(
       ...match,
       issue: finding.issue,
       diagnosis: finding.diagnosis,
+      pattern: finding.pattern,
       promptHash: finding.promptHash,
-      ...(finding.pattern === undefined ? {} : { pattern: finding.pattern }),
       anchor: { ...match.anchor, state: "attached" },
     });
   }
@@ -75,31 +77,8 @@ export function reconcileFindings(
   return documentOrder(result, canonical);
 }
 
-function sameInterval(
-  a: { start: number; end: number } | null,
-  b: { start: number; end: number } | null,
-): boolean {
+function sameInterval(a: Interval | null, b: Interval | null): boolean {
   return a !== null && b !== null && a.start === b.start && a.end === b.end;
-}
-
-/**
- * Whether any candidate span is not already represented by a stored Finding.
- * A Run only needs a Revision when it has something new to attribute; a Run
- * that re-finds spans already stored leaves their provenance untouched.
- */
-export function hasUnmatchedSpan(
-  candidates: { quote: string; offset: number }[],
-  existing: Finding[],
-  canonical: string,
-): boolean {
-  const existingIntervals = existing
-    .map((finding) => resolveAnchor(finding.anchor, canonical))
-    .filter((interval): interval is { start: number; end: number } => interval !== null);
-
-  return candidates.some((candidate) => {
-    const interval = resolveAnchor(candidate, canonical);
-    return interval !== null && !existingIntervals.some((entry) => sameInterval(entry, interval));
-  });
 }
 
 /** Findings within a Pass in document order, Orphaned ones last. */

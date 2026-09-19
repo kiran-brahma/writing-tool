@@ -15,10 +15,13 @@ export type DeclineReason = "advice" | "violation";
 
 export type AnchorState = "attached" | "orphaned";
 
-export interface Anchor {
+export interface AnchorDraft {
   quote: string;
   /** A hint for resolution; never the sole basis. */
   offset: number;
+}
+
+export interface Anchor extends AnchorDraft {
   state: AnchorState;
 }
 

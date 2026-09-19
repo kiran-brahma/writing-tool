@@ -1,18 +1,18 @@
 import { resolveAnchor } from "./anchor";
-import type { Finding } from "./finding";
-import { hashPass, type Pass, type RuleConfig } from "./pass";
+import type { AnchorDraft, Finding } from "./finding";
+import { hashPass, type Pass } from "./pass";
 
 /**
  * The rule engine's contract: a pure function from the canonical string plus a
- * Pass to Findings. Deterministic and free — it never touches the Transport, a
- * Connection or a key, so it is useful before the Writer has configured
- * anything, and it can neither praise nor rewrite.
+ * Pass to Findings. The analysis is deterministic — the same string and config
+ * yield the same matches — and it never touches the Transport, a Connection or a
+ * key, so it is useful before the Writer has configured anything, and it can
+ * neither praise nor rewrite. Finding ids are minted per run; identity across
+ * runs is reconciled in Core, not claimed here.
  */
 
 /** One deterministic problem a rule found, before it is shaped into a Finding. */
-export interface RuleMatch {
-  quote: string;
-  offset: number;
+export interface RuleMatch extends AnchorDraft {
   issue: string;
   diagnosis: string;
   pattern?: string;
@@ -34,7 +34,7 @@ export function runRulePass(canonical: string, pass: Pass, context: RuleRunConte
 
 /** The deterministic matches a rule Pass finds, with no provenance attached. */
 export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
-  return matchRulePass(canonical, pass.ruleConfig ?? {});
+  return matchHedges(canonical, pass.ruleConfig?.hedges ?? []);
 }
 
 /** Shapes matches into Findings, computing each Anchor's state by resolution. */
@@ -72,10 +72,6 @@ function findingsFromMatches(
       },
     } satisfies Finding;
   });
-}
-
-function matchRulePass(canonical: string, ruleConfig: RuleConfig): RuleMatch[] {
-  return matchHedges(canonical, ruleConfig.hedges ?? []);
 }
 
 /**

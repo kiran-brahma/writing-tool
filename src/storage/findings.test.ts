@@ -85,7 +85,7 @@ describe("runRulePasses", () => {
     expect(await listRevisions(database, document.id)).toEqual([]);
   });
 
-  it("attributes a new Finding to a Revision of the canonical it was measured against", async () => {
+  it("records the Revision current when the Finding was produced", async () => {
     const database = await openTestDatabase();
     const document = await loadOrCreateDocument(database, 1_000);
     const saved = await save(database, document, paragraphDoc("This is very good."), 1_100);
@@ -128,6 +128,18 @@ describe("runRulePasses", () => {
     expect(second[0].status).toBe("open");
     expect(second[0].anchor.state).toBe("orphaned");
     expect((await listFindings(database, document.id))[0].anchor.state).toBe("orphaned");
+  });
+
+  it("does not mint a Revision on the fast save debounce", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const first = await save(database, document, paragraphDoc("very good"), 1_100);
+    await runRulePasses(database, first, { passes: [HEDGES_PASS], now: 1_200 });
+
+    const second = await save(database, first, paragraphDoc("very good quite good"), 1_300);
+    await runRulePasses(database, second, { passes: [HEDGES_PASS], now: 1_400 });
+
+    expect(await listRevisions(database, document.id)).toHaveLength(1);
   });
 
   it("replaces only the Pass's Findings, leaving another Pass's intact", async () => {

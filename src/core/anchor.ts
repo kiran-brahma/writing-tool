@@ -1,6 +1,6 @@
 import { canonicalTextWithMap } from "./canonicalText";
 import type { DocTree } from "./docTree";
-import type { EditorRange, Interval } from "./finding";
+import type { AnchorDraft, EditorRange, Interval } from "./finding";
 
 /**
  * Anchors resolve in Core, never in the Editor. Resolution is quote-first with
@@ -13,7 +13,7 @@ import type { EditorRange, Interval } from "./finding";
  * string of the Document as it stands now.
  */
 export function resolveAnchor(
-  anchor: { quote: string; offset: number },
+  anchor: AnchorDraft,
   canonical: string,
 ): Interval | null {
   const { quote, offset } = anchor;

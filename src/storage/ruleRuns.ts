@@ -1,10 +1,10 @@
 import type { Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
-import { hasUnmatchedSpan, reconcileFindings } from "../core/reconcile";
+import { reconcileFindings } from "../core/reconcile";
 import { ruleMatches, runRulePass, type RuleMatch } from "../core/rulePass";
 import { listFindingsForPass, replaceFindingsForPass } from "./findings";
 import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
-import { ensureRevisionForCanonical } from "./revisions";
+import { ensureRevision } from "./revisions";
 
 /**
  * Runs the enabled rule Passes over a Document's canonical string, reconciles
@@ -61,13 +61,11 @@ async function runRulePassesNow(
     });
   }
 
-  // A Finding must name the Revision whose canonical its Anchor was measured
-  // against, so a Revision is taken only when the Run has a span the stored
-  // Findings do not already cover. Re-finding a stored span changes nothing.
-  const hasNew = runs.some((run) =>
-    hasUnmatchedSpan(run.matches, run.existing, document.canonical),
-  );
-  const revision = hasNew ? await ensureRevisionForCanonical(database, document, now) : null;
+  // A Finding must name the Revision current when it was produced, so a Run
+  // that found something needs one; re-running over clean prose takes nothing
+  // and so never mints an empty baseline Revision.
+  const needsRevision = runs.some((run) => run.matches.length > 0);
+  const revision = needsRevision ? await ensureRevision(database, document, now) : null;
   const findings: Finding[] = [];
 
   for (const { pass, existing } of runs) {
