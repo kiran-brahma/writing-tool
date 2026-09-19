@@ -43,10 +43,6 @@ function nativeVersionFor(declaredVersion: number): number {
 }
 
 export class NewerDatabaseError extends Error {
-  readonly databaseName: string;
-  readonly existingVersion: number;
-  readonly requiredVersion: number;
-
   constructor(databaseName: string, existingVersion: number, requiredVersion: number) {
     super(
       `This browser holds a newer Obelus database ("${databaseName}", schema version ` +
@@ -55,9 +51,6 @@ export class NewerDatabaseError extends Error {
         `delete your Library.`,
     );
     this.name = "NewerDatabaseError";
-    this.databaseName = databaseName;
-    this.existingVersion = existingVersion;
-    this.requiredVersion = requiredVersion;
   }
 }
 

@@ -147,24 +147,21 @@ function Separator() {
 interface ToolbarButtonProps {
   label: string;
   active?: boolean;
-  disabled?: boolean;
   onClick: () => void;
   children: ReactNode;
 }
 
-function ToolbarButton({ label, active = false, disabled = false, onClick, children }: ToolbarButtonProps) {
+function ToolbarButton({ label, active = false, onClick, children }: ToolbarButtonProps) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
       aria-pressed={active}
-      disabled={disabled}
       onClick={onClick}
       className={[
         "rounded px-2 py-1 text-sm transition-colors",
         active ? "bg-stone-900 text-stone-50" : "text-stone-700 hover:bg-stone-100",
-        disabled ? "cursor-not-allowed opacity-40" : "",
       ].join(" ")}
     >
       {children}

@@ -30,12 +30,12 @@ export interface TakeRevisionOptions {
 }
 
 /**
- * Revision writes are serialised through this queue. `takeRevision` reads the
- * latest Revision then writes its child; without ordering, the idle
- * auto-Revision and a Writer-flagged milestone can overlap and fork the lineage
- * that diff and Judge work depend on.
+ * Revision writes are serialised per database. `takeRevision` reads the latest
+ * Revision then writes its child; without ordering, the idle auto-Revision and a
+ * Writer-flagged milestone can overlap and fork the lineage that diff and Judge
+ * work depend on.
  */
-let revisionQueue: Promise<void> = Promise.resolve();
+const revisionQueues = new WeakMap<ObelusDatabase, Promise<void>>();
 
 /**
  * Takes a Revision from the Document's current canonical text. An auto-Revision
@@ -50,12 +50,16 @@ export function takeRevision(
   document: DocumentRecord,
   options: TakeRevisionOptions = {},
 ): Promise<RevisionRecord | null> {
-  const queued = revisionQueue.then(() => takeRevisionNow(database, document, options));
+  const previous = revisionQueues.get(database) ?? Promise.resolve();
+  const queued = previous.then(() => takeRevisionNow(database, document, options));
   // Keep later Revisions ordered even if this one fails; the failure is still
   // returned to this call's caller.
-  revisionQueue = queued.then(
-    () => undefined,
-    () => undefined,
+  revisionQueues.set(
+    database,
+    queued.then(
+      () => undefined,
+      () => undefined,
+    ),
   );
   return queued;
 }

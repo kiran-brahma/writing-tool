@@ -41,12 +41,16 @@ export function canonicalText(tree: DocTree): string {
 }
 
 /**
- * Word count over a canonical string. Markdown markers such as `#` and `-` are
- * syntax, not prose, and escapes are not words, so only tokens carrying a letter
- * or a digit are counted.
+ * Word count over a canonical string. Block markers (`#`, `>`, `-`, `N.`) are
+ * syntax, not prose, and escapes are not words, so a line's leading marker is
+ * removed before tokens carrying a letter or a digit are counted.
  */
 export function wordCount(canonical: string): number {
-  return canonical
+  const prose = canonical
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:#{1,6}\s+|>\s?|-\s+|\d+\.\s+)/, ""))
+    .join("\n");
+  return prose
     .trim()
     .split(/\s+/)
     .filter((token) => /[\p{L}\p{N}]/u.test(token.replace(/\\/g, ""))).length;
@@ -187,7 +191,14 @@ function escapeBlockStart(line: string): string {
 function renderInlineCode(text: string): string {
   if (text === "") return "";
   const delimiter = "`".repeat(longestRun(text, "`") + 1);
-  return `${delimiter} ${text} ${delimiter}`;
+  // Pad only when needed for the code span to be unambiguous, so ordinary code
+  // is emitted as its source (`` `foo` `` rather than `` ` foo ` ``) and a quote
+  // from the model's view exists verbatim. The parser strips one padded space
+  // from each end on exactly these cases.
+  const needsPadding =
+    text.trim() !== "" &&
+    (text.startsWith(" ") || text.endsWith(" ") || text.startsWith("`") || text.endsWith("`"));
+  return needsPadding ? `${delimiter} ${text} ${delimiter}` : `${delimiter}${text}${delimiter}`;
 }
 
 function longestRun(text: string, character: string): number {

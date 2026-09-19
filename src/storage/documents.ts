@@ -9,15 +9,19 @@ import type { ObelusDatabase } from "./obelusDatabase";
  */
 export const DEFAULT_DOCUMENT_ID = "default";
 
+/** The derived fields of a Document: canonical text and its word count. */
+function derive(tree: DocTree): Pick<DocumentRecord, "canonical" | "wordCount"> {
+  const canonical = canonicalText(tree);
+  return { canonical, wordCount: wordCount(canonical) };
+}
+
 export function createDocument(now: number = Date.now()): DocumentRecord {
   const tree = emptyDocTree();
-  const canonical = canonicalText(tree);
   return {
     id: DEFAULT_DOCUMENT_ID,
     title: "Untitled",
     tree,
-    canonical,
-    wordCount: wordCount(canonical),
+    ...derive(tree),
     createdAt: now,
     updatedAt: now,
   };
@@ -46,12 +50,10 @@ export function withTree(
   tree: DocTree,
   now: number = Date.now(),
 ): DocumentRecord {
-  const canonical = canonicalText(tree);
   return {
     ...document,
     tree,
-    canonical,
-    wordCount: wordCount(canonical),
+    ...derive(tree),
     updatedAt: now,
   };
 }

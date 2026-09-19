@@ -52,7 +52,7 @@ describe("canonicalText", () => {
     });
 
     expect(canonicalText(tree)).toBe(
-      "plain *italic* **strong** ***both*** ` code ` [link](https://example.com)\n",
+      "plain *italic* **strong** ***both*** `code` [link](https://example.com)\n",
     );
   });
 
@@ -109,7 +109,20 @@ describe("canonicalText", () => {
       },
     );
 
+    expect(canonicalText(tree)).toBe("## H\n\n3. item\n");
     expect(canonicalText(tree)).toBe(canonicalText(tree));
+  });
+
+  it("emits inline code as its source, padding only when needed", () => {
+    const codeParagraph = (code: string): DocTree =>
+      doc({ type: "paragraph", content: [{ type: "text", text: code, marks: [{ type: "code" }] }] });
+
+    expect(canonicalText(codeParagraph("foo"))).toBe("`foo`\n");
+
+    for (const code of ["foo", " foo ", "a`b", "`", "foo `bar` baz"]) {
+      const once = canonicalText(codeParagraph(code));
+      expect(canonicalText(parseCanonical(once))).toBe(once);
+    }
   });
 
   it("returns a lone newline for an empty document", () => {
@@ -273,5 +286,7 @@ describe("wordCount", () => {
     expect(wordCount("   \n  ")).toBe(0);
     expect(wordCount("# Title\n\nBody words here.")).toBe(4);
     expect(wordCount("- one\n- two")).toBe(2);
+    expect(wordCount("1. one\n2. two\n")).toBe(2);
+    expect(wordCount("> quoted words here")).toBe(3);
   });
 });

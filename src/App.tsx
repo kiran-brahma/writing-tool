@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { DocumentEditor } from "./editor/DocumentEditor";
-import { useDocumentSession } from "./useDocumentSession";
+import { useDocument } from "./useDocument";
 
 /**
  * The Obelus shell. It opens the one Document of record and puts the Writer
@@ -9,7 +9,7 @@ import { useDocumentSession } from "./useDocumentSession";
  */
 export default function App() {
   const { status, openError, saveError, document, revisions, handleChange, flagMilestone } =
-    useDocumentSession();
+    useDocument();
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
 

@@ -42,8 +42,10 @@ describe("createPersistence", () => {
     const takeRevision = vi.fn(async () => {});
     const controller = createPersistence({ save: async () => {}, takeRevision, onError: () => {} });
 
-    for (let change = 0; change < REVISION_CHANGE_LIMIT; change++) controller.markDirty();
+    for (let change = 0; change < REVISION_CHANGE_LIMIT - 1; change++) controller.markDirty();
+    expect(takeRevision).not.toHaveBeenCalled();
 
+    controller.markDirty();
     expect(takeRevision).toHaveBeenCalledTimes(1);
   });
 

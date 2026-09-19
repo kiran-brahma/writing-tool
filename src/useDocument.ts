@@ -10,10 +10,8 @@ import {
 } from "./storage/obelusDatabase";
 import { listRevisions, takeRevision } from "./storage/revisions";
 
-export type SessionStatus = "loading" | "ready" | "error";
-
-export interface DocumentSession {
-  status: SessionStatus;
+export interface DocumentHandle {
+  status: "loading" | "ready" | "error";
   openError: string;
   saveError: string | null;
   document: DocumentRecord | null;
@@ -29,12 +27,12 @@ export interface DocumentSession {
  * ref is reserved for callbacks that must read the latest value synchronously
  * (a `pagehide` save must not wait for a re-render).
  */
-export function useDocumentSession(): DocumentSession {
+export function useDocument(): DocumentHandle {
   const databaseRef = useRef<ObelusDatabase | null>(null);
   const documentRef = useRef<DocumentRecord | null>(null);
   const persistenceRef = useRef<PersistenceController | null>(null);
 
-  const [status, setStatus] = useState<SessionStatus>("loading");
+  const [status, setStatus] = useState<DocumentHandle["status"]>("loading");
   const [openError, setOpenError] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [documentRecord, setDocumentRecord] = useState<DocumentRecord | null>(null);

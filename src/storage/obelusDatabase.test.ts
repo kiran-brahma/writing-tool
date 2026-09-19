@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { canonicalText } from "../core/canonicalText";
 import type { DocTree } from "../core/docTree";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
 import {
@@ -100,6 +99,7 @@ describe("openObelusDatabase", () => {
     await createRawDatabase(name, 20, "future-prose");
 
     await expect(openObelusDatabase(name)).rejects.toBeInstanceOf(NewerDatabaseError);
+    await expect(openObelusDatabase(name)).rejects.toThrow(/newer Obelus database[\s\S]*will not downgrade/);
     await expect(readRawSeed(name)).resolves.toBe("future-prose");
   });
 });
@@ -229,23 +229,21 @@ describe("Revisions", () => {
     expect(again?.note).toBeNull();
   });
 
-  it("stores the canonical string, not a join to mutable state", async () => {
+  it("stores immutable prose with no join to mutable state", async () => {
     const database = await openTestDatabase();
     const document = await loadOrCreateDocument(database, 1_000);
-    const tree = paragraphDoc("immutable");
-    const saved = await saveDocument(database, document, tree, 1_100);
+    const saved = await saveDocument(database, document, paragraphDoc("immutable"), 1_100);
     const revision = await takeRevision(database, saved, { now: 1_200 });
 
-    expect(revision?.canonical).toBe(canonicalText(tree));
-    expect(Object.keys(revision ?? {}).sort()).toEqual([
-      "canonical",
-      "createdAt",
-      "documentId",
-      "flagged",
-      "id",
-      "note",
-      "parentId",
-      "wordCount",
-    ]);
+    expect(revision?.canonical).toBe("immutable\n");
+
+    // Editing the live Document afterwards must not change the Revision.
+    await saveDocument(database, saved, paragraphDoc("changed"), 1_300);
+    const stored = await database.revisions.get(revision?.id ?? "");
+    expect(stored?.canonical).toBe("immutable\n");
+
+    // No field joins the Revision to mutable or ephemeral state.
+    expect(Object.keys(stored ?? {})).not.toContain("findings");
+    expect(Object.keys(stored ?? {})).not.toContain("run");
   });
 });

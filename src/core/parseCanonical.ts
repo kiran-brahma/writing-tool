@@ -377,7 +377,11 @@ function countRun(text: string, start: number, character: string): number {
 }
 
 function stripCodePadding(raw: string): string {
-  if (raw.length >= 2 && raw.startsWith(" ") && raw.endsWith(" ")) return raw.slice(1, -1);
+  // Matches the padding `canonicalText` adds only when a code span would
+  // otherwise be ambiguous. All-space content is never padded.
+  if (raw.length >= 2 && raw.startsWith(" ") && raw.endsWith(" ") && raw.trim() !== "") {
+    return raw.slice(1, -1);
+  }
   return raw;
 }
 

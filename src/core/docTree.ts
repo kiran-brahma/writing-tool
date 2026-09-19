@@ -1,8 +1,8 @@
 /**
  * `DocTree` is Obelus's editor-agnostic document model, and the input to
  * `canonicalText`. Its shape is the JSON that the rich text editor serialises to
- * (ProseMirror's node form), so the Editor can hand its document straight to Core
- * without Core knowing TipTap exists. Core is pure and DOM-free; these are plain
+ * (ProseMirror's node form), so the Editor hands Core its document as data and
+ * Core stays free of TipTap types. Core is pure and DOM-free; these are plain
  * data, so they are testable with no browser.
  */
 
