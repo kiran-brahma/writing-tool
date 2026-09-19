@@ -1,3 +1,4 @@
+import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
@@ -87,16 +88,49 @@ function readRawSeed(name: string): Promise<unknown> {
 }
 
 describe("openObelusDatabase", () => {
-  it("creates migration 1 and is forward-only", async () => {
+  it("creates the current schema with Findings as its own repository", async () => {
     const database = await openTestDatabase();
 
-    expect(database.verno).toBe(1);
-    expect(database.tables.map((table) => table.name).sort()).toEqual(["documents", "revisions"]);
+    expect(database.verno).toBe(2);
+    expect(database.tables.map((table) => table.name).sort()).toEqual([
+      "documents",
+      "findings",
+      "revisions",
+    ]);
+  });
+
+  it("upgrades migration 1 to migration 2 without touching existing data", async () => {
+    const name = uniqueName();
+    const legacy = new Dexie(name);
+    legacy.version(1).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+    });
+    await legacy.open();
+    await legacy.table("documents").put({
+      id: "default",
+      title: "Legacy prose",
+      tree: { type: "doc", content: [{ type: "paragraph" }] },
+      canonical: "legacy\n",
+      wordCount: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    legacy.close();
+
+    const database = await openObelusDatabase(name);
+    openedDatabases.push(database);
+
+    expect(database.verno).toBe(2);
+    await expect(database.documents.get("default")).resolves.toMatchObject({
+      title: "Legacy prose",
+    });
+    expect(database.tables.map((table) => table.name)).toContain("findings");
   });
 
   it("refuses a database newer than the running code, leaving it intact", async () => {
     const name = uniqueName();
-    await createRawDatabase(name, 20, "future-prose");
+    await createRawDatabase(name, 30, "future-prose");
 
     await expect(openObelusDatabase(name)).rejects.toBeInstanceOf(NewerDatabaseError);
     await expect(openObelusDatabase(name)).rejects.toThrow(/newer Obelus database[\s\S]*will not downgrade/);

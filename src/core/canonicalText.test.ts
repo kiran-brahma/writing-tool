@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalText, wordCount } from "./canonicalText";
+import { canonicalText, canonicalTextWithMap, wordCount } from "./canonicalText";
 import type { BlockNode, DocTree, ParagraphNode } from "./docTree";
 import { parseCanonical } from "./parseCanonical";
 
@@ -277,6 +277,17 @@ describe("canonicalText", () => {
     const reparsed = canonicalText(parseCanonical(once));
     expect(reparsed).toBe(once);
     expect(once).toContain("  a\n\n  b");
+  });
+
+  it("handles a large document without quadratic work or a stack overflow", () => {
+    const tree = doc(
+      ...Array.from({ length: 2_000 }, (_, index) => paragraph(`Paragraph ${index} `.repeat(8).trim())),
+    );
+    const canonical = canonicalText(tree);
+    const { positions } = canonicalTextWithMap(tree);
+
+    expect(canonical.length).toBeGreaterThan(120_000);
+    expect(positions).toHaveLength(canonical.length);
   });
 });
 

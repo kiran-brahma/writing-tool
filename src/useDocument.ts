@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveAnchor } from "./core/anchor";
 import type { DocTree } from "./core/docTree";
+import type { Finding, Interval } from "./core/finding";
+import { STARTER_PASSES } from "./core/starterPasses";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
 import { loadOrCreateDocument, persistDocument, withTree } from "./storage/documents";
 import {
@@ -9,6 +12,7 @@ import {
   type RevisionRecord,
 } from "./storage/obelusDatabase";
 import { listRevisions, takeRevision } from "./storage/revisions";
+import { runRulePasses } from "./storage/ruleRuns";
 
 export interface DocumentHandle {
   status: "loading" | "ready" | "error";
@@ -16,6 +20,9 @@ export interface DocumentHandle {
   saveError: string | null;
   document: DocumentRecord | null;
   revisions: RevisionRecord[];
+  findings: Finding[];
+  /** Canonical intervals of attached Findings, for the Editor to draw. */
+  highlights: Interval[];
   handleChange: (tree: DocTree) => void;
   flagMilestone: (note: string) => Promise<void>;
 }
@@ -37,6 +44,22 @@ export function useDocument(): DocumentHandle {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [documentRecord, setDocumentRecord] = useState<DocumentRecord | null>(null);
   const [revisions, setRevisions] = useState<RevisionRecord[]>([]);
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [highlights, setHighlights] = useState<Interval[]>([]);
+
+  /**
+   * The Findings and the intervals the Editor should draw. The interval is
+   * resolved here, in Core-adjacent code, against the canonical string the Run
+   * saw; the Editor only projects and draws it.
+   */
+  const applyFindings = useCallback((run: Finding[], canonical: string) => {
+    setFindings(run);
+    setHighlights(
+      run
+        .map((finding) => resolveAnchor(finding.anchor, canonical))
+        .filter((interval): interval is Interval => interval !== null),
+    );
+  }, []);
 
   const refreshRevisions = useCallback(async () => {
     const database = databaseRef.current;
@@ -67,6 +90,9 @@ export function useDocument(): DocumentHandle {
             if (current === null) return;
             await persistDocument(database, current);
             setSaveError(null);
+            const run = await runRulePasses(database, current, { passes: STARTER_PASSES });
+            applyFindings(run, current.canonical);
+            await refreshRevisions();
           },
           takeRevision: async () => {
             const current = documentRef.current;
@@ -79,6 +105,8 @@ export function useDocument(): DocumentHandle {
           },
         });
 
+        const run = await runRulePasses(database, opened, { passes: STARTER_PASSES });
+        applyFindings(run, opened.canonical);
         await refreshRevisions();
         setStatus("ready");
       } catch (error) {
@@ -96,7 +124,7 @@ export function useDocument(): DocumentHandle {
       databaseRef.current?.close();
       databaseRef.current = null;
     };
-  }, [refreshRevisions]);
+  }, [refreshRevisions, applyFindings]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -150,6 +178,8 @@ export function useDocument(): DocumentHandle {
     saveError,
     document: documentRecord,
     revisions,
+    findings,
+    highlights,
     handleChange,
     flagMilestone,
   };

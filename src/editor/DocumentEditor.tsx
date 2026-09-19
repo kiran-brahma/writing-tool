@@ -1,19 +1,25 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useReducer, type ReactNode } from "react";
+import { useEffect, useReducer, type ReactNode } from "react";
+import { projectIntervals } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
+import type { Interval } from "../core/finding";
+import { HighlightExtension, setHighlightRanges } from "./highlight";
 
 export interface DocumentEditorProps {
   initialContent: DocTree;
   onChange: (tree: DocTree) => void;
+  /** Canonical intervals Core resolved; the Editor only draws them. */
+  highlights: Interval[];
 }
 
 /**
  * The Writer's WYSIWYG surface. It never shows markup: Markdown is emitted by
  * Core for model Passes, Anchors and Revisions, and is never what the Writer
- * edits. The editor owns no anchoring and never sees model output.
+ * edits. The editor owns no anchoring: Core resolves an Anchor to a canonical
+ * interval and projects it to an Editor range; this component draws the range.
  */
-export function DocumentEditor({ initialContent, onChange }: DocumentEditorProps) {
+export function DocumentEditor({ initialContent, onChange, highlights }: DocumentEditorProps) {
   const [, refresh] = useReducer((count: number) => count + 1, 0);
 
   const editor = useEditor({
@@ -21,6 +27,7 @@ export function DocumentEditor({ initialContent, onChange }: DocumentEditorProps
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
+      HighlightExtension,
     ],
     content: initialContent,
     editorProps: {
@@ -36,6 +43,12 @@ export function DocumentEditor({ initialContent, onChange }: DocumentEditorProps
     },
     onSelectionUpdate: () => refresh(),
   });
+
+  useEffect(() => {
+    if (editor === null) return;
+    const ranges = projectIntervals(editor.getJSON() as unknown as DocTree, highlights);
+    setHighlightRanges(editor, ranges);
+  }, [editor, highlights]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

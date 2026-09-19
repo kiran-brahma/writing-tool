@@ -88,6 +88,17 @@
   text-decoration: underline;
 }
 
+/*
+ * A Highlight is the visual rendering of an Anchor. Amber so it reads as a mark
+ * the Writer works through, not as an error; the underline keeps it legible
+ * over bold and code.
+ */
+.obelus-highlight {
+  background-color: #fde68a;
+  box-shadow: inset 0 -0.15em 0 #d97706;
+  border-radius: 0.15rem;
+}
+
 .obelus-editor:focus {
   outline: none;
 }

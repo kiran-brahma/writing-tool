@@ -1,0 +1,147 @@
+import { afterEach, describe, expect, it } from "vitest";
+import type { DocTree } from "../core/docTree";
+import { HEDGES_PASS } from "../core/starterPasses";
+import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
+import { listFindings, listFindingsForPass, replaceFindingsForPass } from "./findings";
+import { openObelusDatabase, type DocumentRecord, type ObelusDatabase } from "./obelusDatabase";
+import { listRevisions } from "./revisions";
+import { runRulePasses } from "./ruleRuns";
+
+const openedDatabases: ObelusDatabase[] = [];
+
+function uniqueName(): string {
+  return `obelus-findings-${crypto.randomUUID()}`;
+}
+
+async function openTestDatabase(): Promise<ObelusDatabase> {
+  const database = await openObelusDatabase(uniqueName());
+  openedDatabases.push(database);
+  return database;
+}
+
+afterEach(async () => {
+  for (const database of openedDatabases.splice(0)) database.close();
+});
+
+function paragraphDoc(text: string): DocTree {
+  return { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] };
+}
+
+async function save(
+  database: ObelusDatabase,
+  document: DocumentRecord,
+  tree: DocTree,
+  now: number,
+): Promise<DocumentRecord> {
+  const updated = withTree(document, tree, now);
+  await persistDocument(database, updated);
+  return updated;
+}
+
+describe("runRulePasses", () => {
+  it("stores a Finding in the published shape with its provenance", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("This is very good."), 1_100);
+
+    const findings = await runRulePasses(database, saved, {
+      passes: [HEDGES_PASS],
+      now: 1_200,
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      passId: "hedges",
+      status: "open",
+      anchor: { quote: "very", state: "attached" },
+      provenance: { providerId: "local", model: "rule", at: 1_200 },
+    });
+    expect(findings[0].provenance.revisionId).toEqual(expect.any(String));
+
+    const stored = await listFindings(database, document.id);
+    expect(stored).toHaveLength(1);
+    expect(Object.keys(stored[0])).not.toContain("documentId");
+  });
+
+  it("takes a baseline Revision so a Finding can name one", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+
+    await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+
+    const revisions = await listRevisions(database, document.id);
+    expect(revisions).toHaveLength(1);
+  });
+
+  it("takes no Revision when the Run finds nothing", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("clean prose only"), 1_100);
+
+    const findings = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+
+    expect(findings).toEqual([]);
+    expect(await listRevisions(database, document.id)).toEqual([]);
+  });
+
+  it("attributes a new Finding to a Revision of the canonical it was measured against", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("This is very good."), 1_100);
+
+    await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+
+    const revisions = await listRevisions(database, document.id);
+    const findings = await listFindingsForPass(database, document.id, HEDGES_PASS.id);
+    const revision = revisions.find((entry) => entry.id === findings[0].provenance.revisionId);
+    expect(revision?.canonical).toBe(saved.canonical);
+  });
+
+  it("does not duplicate a Finding when the same text is saved again", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+
+    const first = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    const second = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 });
+
+    expect(second).toHaveLength(1);
+    expect(second[0].id).toBe(first[0].id);
+    expect(await listFindings(database, document.id)).toHaveLength(1);
+  });
+
+  it("re-resolves and orphans a Finding whose hedge is gone, keeping it open", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const withHedge = await save(database, document, paragraphDoc("very good"), 1_100);
+    const first = await runRulePasses(database, withHedge, { passes: [HEDGES_PASS], now: 1_200 });
+
+    const withoutHedge = await save(database, withHedge, paragraphDoc("good"), 1_300);
+    const second = await runRulePasses(database, withoutHedge, {
+      passes: [HEDGES_PASS],
+      now: 1_400,
+    });
+
+    expect(second).toHaveLength(1);
+    expect(second[0].id).toBe(first[0].id);
+    expect(second[0].status).toBe("open");
+    expect(second[0].anchor.state).toBe("orphaned");
+    expect((await listFindings(database, document.id))[0].anchor.state).toBe("orphaned");
+  });
+
+  it("replaces only the Pass's Findings, leaving another Pass's intact", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+
+    const otherPass = { ...HEDGES_PASS, id: "other" };
+    await runRulePasses(database, saved, { passes: [HEDGES_PASS, otherPass], now: 1_200 });
+
+    await replaceFindingsForPass(database, document.id, HEDGES_PASS.id, []);
+
+    const remaining = await listFindings(database, document.id);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].passId).toBe("other");
+  });
+});

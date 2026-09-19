@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
+import type { Finding } from "../core/finding";
 
 /**
  * Storage is one database, versioned, with forward-only migrations. A database
@@ -34,7 +35,12 @@ export interface RevisionRecord {
   canonical: string;
 }
 
-export const OBELUS_DATABASE_VERSION = 1;
+export interface FindingRecord extends Finding {
+  /** The join key storage needs; the domain Finding shape does not carry it. */
+  documentId: string;
+}
+
+export const OBELUS_DATABASE_VERSION = 2;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -57,14 +63,23 @@ export class NewerDatabaseError extends Error {
 export class ObelusDatabase extends Dexie {
   documents!: Table<DocumentRecord, string>;
   revisions!: Table<RevisionRecord, string>;
+  findings!: Table<FindingRecord, string>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
-    // Migration 1. Forward-only: there is no upgrade function that rewrites
-    // existing data, and no delete-and-recreate fallback anywhere.
+    // Migration 1: Documents and Revisions. Forward-only: there is no upgrade
+    // function that rewrites existing data, and no delete-and-recreate fallback.
+    this.version(1).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+    });
+    // Migration 2: Findings, the repository #14 introduces. Additive (a new
+    // store and nothing rewritten), which is the safe kind of migration; the
+    // Writer's Documents and Revisions are untouched by the upgrade.
     this.version(OBELUS_DATABASE_VERSION).stores({
       documents: "id, updatedAt",
       revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
     });
   }
 }

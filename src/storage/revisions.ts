@@ -30,6 +30,32 @@ export interface TakeRevisionOptions {
 }
 
 /**
+ * A Revision whose canonical string is exactly the Document's. A Finding's
+ * `provenance.revisionId` and its Anchor offset must name the same canonical, so
+ * a Run that has something new to attribute takes a Revision when the latest
+ * one is stale rather than reusing it. `takeRevision` skips an unchanged one, so
+ * an idle re-run takes nothing.
+ */
+export async function ensureRevisionForCanonical(
+  database: ObelusDatabase,
+  document: DocumentRecord,
+  now: number = Date.now(),
+): Promise<RevisionRecord> {
+  const latest = await latestRevision(database, document.id);
+  if (latest !== undefined && latest.canonical === document.canonical) return latest;
+
+  const created = await takeRevision(database, document, { now });
+  if (created !== null) return created;
+
+  // A queued write changed the latest Revision first; re-read rather than guess.
+  const again = await latestRevision(database, document.id);
+  if (again === undefined) {
+    throw new Error(`Could not take a Revision for Document "${document.id}".`);
+  }
+  return again;
+}
+
+/**
  * Revision writes are serialised per database. `takeRevision` reads the latest
  * Revision then writes its child; without ordering, the idle auto-Revision and a
  * Writer-flagged milestone can overlap and fork the lineage that diff and Judge

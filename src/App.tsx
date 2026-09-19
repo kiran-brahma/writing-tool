@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
+import { STARTER_PASSES } from "./core/starterPasses";
 import { DocumentEditor } from "./editor/DocumentEditor";
+import { FindingsSidebar } from "./editor/FindingsSidebar";
 import { useDocument } from "./useDocument";
 
 /**
@@ -8,7 +10,7 @@ import { useDocument } from "./useDocument";
  * adds no Connection and makes no outbound request.
  */
 export default function App() {
-  const { status, openError, saveError, document, revisions, handleChange, flagMilestone } =
+  const { status, openError, saveError, document, revisions, findings, highlights, handleChange, flagMilestone } =
     useDocument();
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
@@ -62,68 +64,83 @@ export default function App() {
               key={document.id}
               initialContent={document.tree}
               onChange={handleChange}
+              highlights={highlights}
             />
           )}
         </main>
 
-        <aside className="flex w-80 flex-col border-l border-stone-200 bg-stone-100/60">
-          <div className="space-y-3 border-b border-stone-200 p-4">
-            <h2 className="text-sm font-semibold">Milestones</h2>
-            <textarea
-              value={milestoneNote}
-              onChange={(event) => setMilestoneNote(event.target.value)}
-              placeholder="Note for this milestone (optional)"
-              rows={2}
-              className="w-full resize-none rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => void onFlagMilestone()}
-              className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
-            >
-              Flag this Revision
-            </button>
-          </div>
+        <aside className="flex w-96 flex-col border-l border-stone-200 bg-stone-100/60">
+          <section className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
+              <h2 className="text-sm font-semibold">Findings</h2>
+              <span className="text-xs text-stone-500">
+                {findings.filter((finding) => finding.status === "open").length} open
+              </span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <FindingsSidebar findings={findings} passes={STARTER_PASSES} />
+            </div>
+          </section>
 
-          <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
-            <h2 className="text-sm font-semibold">Revisions</h2>
-            <label className="flex items-center gap-1.5 text-xs text-stone-600">
-              <input
-                type="checkbox"
-                checked={milestonesOnly}
-                onChange={(event) => setMilestonesOnly(event.target.checked)}
+          <section className="flex min-h-0 flex-1 flex-col border-t border-stone-300">
+            <div className="space-y-3 border-b border-stone-200 p-4">
+              <h2 className="text-sm font-semibold">Milestones</h2>
+              <textarea
+                value={milestoneNote}
+                onChange={(event) => setMilestoneNote(event.target.value)}
+                placeholder="Note for this milestone (optional)"
+                rows={2}
+                className="w-full resize-none rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
               />
-              Milestones only
-            </label>
-          </div>
+              <button
+                type="button"
+                onClick={() => void onFlagMilestone()}
+                className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
+              >
+                Flag this Revision
+              </button>
+            </div>
 
-          <ol className="min-h-0 flex-1 overflow-y-auto">
-            {visibleRevisions.length === 0 && (
-              <li className="px-4 py-4 text-sm text-stone-500">
-                {milestonesOnly
-                  ? "No milestones yet. Flag one to make it findable later."
-                  : "Revisions appear as you write."}
-              </li>
-            )}
-            {visibleRevisions.map((revision) => (
-              <li key={revision.id} className="border-b border-stone-200/70 px-4 py-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-stone-700">
-                    {new Date(revision.createdAt).toLocaleString()}
-                  </span>
-                  {revision.flagged && (
-                    <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-medium text-amber-900">
-                      Milestone
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
+              <h2 className="text-sm font-semibold">Revisions</h2>
+              <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                <input
+                  type="checkbox"
+                  checked={milestonesOnly}
+                  onChange={(event) => setMilestonesOnly(event.target.checked)}
+                />
+                Milestones only
+              </label>
+            </div>
+
+            <ol className="min-h-0 flex-1 overflow-y-auto">
+              {visibleRevisions.length === 0 && (
+                <li className="px-4 py-4 text-sm text-stone-500">
+                  {milestonesOnly
+                    ? "No milestones yet. Flag one to make it findable later."
+                    : "Revisions appear as you write."}
+                </li>
+              )}
+              {visibleRevisions.map((revision) => (
+                <li key={revision.id} className="border-b border-stone-200/70 px-4 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-stone-700">
+                      {new Date(revision.createdAt).toLocaleString()}
                     </span>
+                    {revision.flagged && (
+                      <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                        Milestone
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-stone-500">{revision.wordCount} words</p>
+                  {revision.note !== null && revision.note !== "" && (
+                    <p className="mt-1 text-stone-700">{revision.note}</p>
                   )}
-                </div>
-                <p className="mt-0.5 text-xs text-stone-500">{revision.wordCount} words</p>
-                {revision.note !== null && revision.note !== "" && (
-                  <p className="mt-1 text-stone-700">{revision.note}</p>
-                )}
-              </li>
-            ))}
-          </ol>
+                </li>
+              ))}
+            </ol>
+          </section>
         </aside>
       </div>
     </div>
