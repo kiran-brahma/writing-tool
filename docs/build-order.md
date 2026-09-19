@@ -21,11 +21,10 @@ The sequence below is a topological sort of that graph, so it is safe to walk to
 
 ## Where we are
 
-**#2 Toolchain and shell** is closed. The build, the test runner, the in-memory IndexedDB setup,
-`scripts/agent-gates check`, the pre-commit hook and the Workers deploy with CSP all landed, so
-AGENTS.md's two build-discipline rules are enforceable from here on.
-
-The frontier is **row 1**, #13. Nothing else can start.
+**#2 Toolchain and shell** and **#13 Document and its text** are closed. The Document of record
+lives in IndexedDB under migration 1, the rich-text editor is live, `canonicalText` is the one
+coordinate system, and auto- and flagged Revisions are taken. The frontier is **row 2**: #14
+(Marking the prose) is first in the sequence, with #3 and #8 unblocked alongside it.
 
 ## How to work a ticket
 
