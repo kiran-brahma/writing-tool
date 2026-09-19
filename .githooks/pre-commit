@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs the repository's build-discipline gates before every commit.
+# Installed by `npm install` (scripts/install-hooks.mjs sets core.hooksPath).
+set -eu
+exec scripts/agent-gates check

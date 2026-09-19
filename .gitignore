@@ -1,2 +1,19 @@
 # Local issue-tracker mirror and scratch work (derived from GitHub Issues)
 .scratch/
+
+# Node
+node_modules/
+
+# Build output
+dist/
+
+# Cloudflare Wrangler state
+.wrangler/
+
+# Test coverage
+coverage/
+
+# Editor and OS noise
+.DS_Store
+*.local
+*.tsbuildinfo

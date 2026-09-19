@@ -1,0 +1,40 @@
+{
+  "name": "obelus",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Obelus — a browser-only writing tool that uses models as a copyeditor and a judge, never as a ghostwriter.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gates": "scripts/agent-gates check",
+    "deploy": "npm run build && wrangler deploy",
+    "prepare": "node scripts/install-hooks.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260919.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "fake-indexeddb": "^6.2.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "wrangler": "^4.135.0"
+  }
+}

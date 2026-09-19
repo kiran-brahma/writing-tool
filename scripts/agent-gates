@@ -1,0 +1,8 @@
+#!/bin/sh
+# The command named in ticket #2: `scripts/agent-gates check`.
+# A thin wrapper so the gate has the path the ticket asks for.
+if ! command -v node >/dev/null 2>&1; then
+  echo "agent-gates: node is not on PATH; install Node 22 or newer and retry." >&2
+  exit 1
+fi
+exec node "$(dirname "$0")/agent-gates.mjs" "$@"
