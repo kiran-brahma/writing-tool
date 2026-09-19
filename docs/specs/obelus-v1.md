@@ -113,7 +113,7 @@ ask to be trusted; it explains how to check.
 52. As a writer, I want a running total of what this session has cost, so that I can tell when to stop.
 53. As a writer, I want repeated runs of the same pass on unchanged text not to be re-billed, so that re-running costs nothing.
 54. As a writer, I want a run to be cancellable, so that a slow model does not hold the tool hostage.
-55. As a writer, I want provider errors shown to me verbatim, so that I can act on what the provider actually said.
+55. As a writer, I want provider errors shown to me verbatim wherever the browser can read them, so that I can act on what the provider actually said — and an unreadable auth failure reported honestly as such, so that I am not shown a guess.
 56. As a writer, I want a failed call to retry on rate limits and server errors, so that a transient failure does not lose me a run.
 57. As a writer, I want no more than a small number of requests in flight per provider, so that I do not trip rate limits by running passes in parallel.
 
@@ -202,16 +202,28 @@ ask to be trusted; it explains how to check.
 
 ### Module boundaries
 
-Six modules, defined by responsibility. No file paths here; they will move.
+Five modules, defined by responsibility. No file paths here; they will move.
 
-- **Provider layer.** Holds the protocol table (base URL, auth header, required extra headers) and one adapter per wire format — OpenAI-shaped, Anthropic-shaped, Gemini native. Translates a provider-agnostic request into a wire request and a wire response into text. Also exposes model listing and connection testing.
-- **Transport.** The single seam. `send(ModelRequest) -> Promise<string>`. Real implementation delegates to the provider layer; the test implementation is a fixture player. Nothing above this boundary knows which provider is in use.
-- **Core loop.** Parses model output into findings, runs the praise linter, enforces containment, consults the cache, and returns a Run result. Separately implements the judge protocol. Contains no provider knowledge and no storage knowledge.
-- **Rule engine.** Pure functions from document text plus rule configuration to findings. Deterministic. Never touches the transport.
-- **Storage.** Dexie repositories for documents, revisions, passes, Connections, findings, judge runs and the Run cache. Forward-only migrations. One database, versioned.
-- **Editor integration.** TipTap wiring plus the anchoring layer that maps a quote anchor to a live document range and survives edits.
+- **Transport.** The single seam, and the only module that knows a wire format. `send(ModelRequest) -> Promise<string>`. Owns the Protocol table, one adapter per Protocol (`openai-shaped`, `anthropic-shaped`, `gemini-native`), retry honouring `Retry-After`, connection testing and model listing. The test implementation is a fixture player that records every request. Nothing above this seam knows which Provider is in use — the Provider layer is deliberately *not* a separate module, because a boundary that only rearranged request construction would be incidental complexity.
+- **Core.** Everything that reasons about prose, with no wire shapes and no storage: `canonicalText`, tolerant parsing, the praise linter, Containment, the Run cache, `critique`, `judge`, `runRulePass`, `lintViolations`, `parseFindings`, and Anchor resolution (`resolveAnchor`, `projectInterval`). Pure and DOM-free.
+- **Rule engine.** Pure functions from the canonical string plus Rule config to findings. Deterministic. Never touches the Transport.
+- **Storage.** Dexie repositories for Documents, Revisions, Passes, Connections, Findings, judge runs and the Run cache. Forward-only migrations. One database, versioned.
+- **Editor.** TipTap wiring, and rendering a resolved interval as a Highlight. It does not own Anchoring, does not match quotes, and never sees model output.
 
-### Wire formats — verified facts
+Entry points above the seam:
+
+```
+critique(target: Target, pass: Pass, connection: Connection, config: RunConfig): Promise<RunResult>
+judge(before: string, after: string, connection: Connection, config: JudgeConfig): Promise<JudgeResult>
+resolveAnchor(anchor: Anchor, current: string, provenance: string): Interval | Orphaned
+projectInterval(tree: DocTree, interval: Interval): EditorRange
+canonicalText(tree: DocTree): string
+runRulePass(canonical: string, ruleConfig: RuleConfig): Finding[]
+lintViolations(raw: string): Violation[]
+parseFindings(raw: string, shape: OutputShape): Finding[]
+```
+
+### Protocols — verified facts
 
 These were probed against live endpoints on 2026-09-19. Full detail, including streaming shapes and listing endpoints, is in `notes/provider-api-facts.md`. **Re-verify before implementing, and never hardcode a model list.**
 
@@ -237,16 +249,13 @@ this project** — a proxy that handles a user's key would falsify the central p
 
 ### Provider-agnostic request
 
-This shape is the contract between the core loop and the transport, and it is where the
+This shape is the contract between Core and the Transport, and it is where the
 provider differences are absorbed.
 
 ```
 ModelRequest {
-  protocol: "openai-shaped" | "anthropic-shaped" | "gemini-native"
-  baseUrl: string
+  connection: Connection      // protocol, baseUrl, apiKey and extraHeaders live on the Connection
   model: string
-  apiKey: string | null
-  extraHeaders: Record<string, string>
   system?: string
   messages: { role: "user" | "assistant"; content: string }[]
   maxOutputTokens: number
@@ -254,6 +263,11 @@ ModelRequest {
   jsonSchema?: object
 }
 ```
+
+The request carries the **Connection**, not a loose protocol/base URL/key/header bag. That is what
+makes "nothing above this seam knows which Provider is in use" true rather than aspirational: the
+fixture player records the Connection's base URL, which is the property the privacy assertion
+actually tests.
 
 The transport returns **text only**. No streaming in v1: a Run result is a parsed object and a
 partial object is not useful, so runs show a spinner, an elapsed timer and a cancel button.
@@ -273,7 +287,6 @@ Pass {
   output: "findings" | "section-summary" | "note"
   prompt?: string
   slot: "critic"
-  promptVersion: number
   enabled: boolean
   ruleConfig?: {
     hedges?: string[]
@@ -292,11 +305,38 @@ shapes are the three fixed ones above — a user-editable JSON Schema is explici
 Rule passes carry their word lists and patterns as editable data, so the writer extends the hedge
 list rather than the developer.
 
+`promptHash` replaces a hand-bumped version integer: it is derived from the Pass's prompt, output
+shape and scope when the Pass is run, and recorded on the Finding. A version number that a human must
+remember to increment drifts silently; a hash cannot.
+
+### The canonical string
+
+`canonicalText(tree)` is the **one coordinate system** in Obelus. It is simultaneously what every
+model Pass receives as Target and context, what an Anchor's quote matches against, what Containment
+measures, what chunking splits, what a Revision stores, and what the Judge extracts from. **No second
+coordinate system may exist** — a second one lets a quote the model returned from formatted prose fail
+to match the string Anchors search, which drops valid Findings silently.
+
+It is Markdown source, and these rules are part of the contract:
+
+- Blocks in document order, each rendered as source Markdown, separated by exactly one blank line.
+- A Heading, a list item, a block quote, a code block and a Paragraph each start a new line.
+- Paragraph-internal line breaks collapse to single spaces.
+- Emphasis, strong emphasis, inline code and links are emitted as their Markdown source, so a quote
+taken from the model's view of formatted prose exists verbatim in the string Anchors match.
+- Sections are heading lines; a Section is its heading's text plus the body that follows it.
+- No trailing whitespace on any line, and the string ends with exactly one newline.
+- Deterministic: the same tree always produces the same string, and re-parsing the string and
+serializing it again produces it unchanged.
+
+Everything downstream — Containment, Anchor offsets, chunking, Judge extraction — is expressed
+against this string and nothing else.
+
 ### Containment
 
 Local passes receive the target paragraph, one paragraph either side, and the heading outline
 (headings only, never body text). Structural passes receive the whole document. Two rules are
-implemented in the core loop, not in the prompt:
+implemented in Core, not in the prompt:
 
 - The prompt states that surrounding text is context and not target.
 - **Any finding whose anchor falls outside the target is dropped**, and the count of dropped
@@ -310,8 +350,12 @@ Without the second rule, running six passes on one document produces six copies 
 Finding {
   id: string
   passId: string
-  promptVersion: number
-  anchor: { quote: string; offset: number }
+  promptHash: string
+  anchor: {
+    quote: string
+    offset: number                    // a hint for the first resolution; never the sole basis
+    state: "attached" | "orphaned"     // computed on re-resolution; never authored
+  }
   issue: string
   diagnosis: string
   pattern?: string
@@ -322,9 +366,26 @@ Finding {
 }
 ```
 
-Anchoring is by **quote match with the offset as a hint**, never by offset alone. Offsets rot on the
-first keystroke; quotes survive. Anchoring re-resolves on every document change, and a finding whose
-quote can no longer be found becomes `orphaned` rather than silently pointing at the wrong text.
+Anchors resolve in **Core**, never in the Editor, and never by offset alone. Three steps, in order:
+
+1. **Diff-projection.** Project the Anchor's interval from the canonical string of
+   `provenance.revisionId` to the current canonical string through a character diff. This is the
+   common case: the Writer edits *inside* the anchored span, so the quote no longer exists verbatim
+   and the Finding must still follow the text.
+2. **Quote match.** If projection fails, match the quote exactly. If it matches more than once,
+   prefer the occurrence nearest the projected position, then the first.
+3. **Orphaned.** If neither holds, the Finding is Orphaned.
+
+Quote match alone is not enough: it orphans a Finding the moment a single character changes inside the
+anchored span, which is exactly the case story 59 promises to handle.
+
+`resolveAnchor(anchor, currentCanonical, provenanceCanonical) -> Interval | Orphaned` is pure and
+DOM-free. `projectInterval(tree, interval) -> EditorRange` converts a resolved interval into something
+the Editor can render. The Editor draws the result and knows nothing else.
+
+An Orphaned Finding stays `open` and actionable; it simply has no Highlight. Its `anchor.state` is
+computed on every re-resolution and persisted for rendering — never authored by a model, never set by
+hand.
 
 ### Run result
 
@@ -381,8 +442,11 @@ soft warning, never a block.
 
 - The findings schema has no field for rewritten prose. This is a schema decision, not a prompt
   instruction.
-- No UI affordance inserts model-derived text. There is no exception and no debug build that adds
-  one.
+- No UI affordance inserts model-derived text. There is no exception and no debug build that adds one.
+- **A static source check fails the build** on the forbidden affordance names in the UI module. It
+  observes source, not behaviour, so it is not a second test seam — but without it the line above is
+  enforced by review alone, and a future contributor could add an Apply button and every test would
+  still pass.
 - Diagnosis text is selectable; the quarantined-rewrite pane is `user-select: none` and reachable
   only behind an explicit reveal.
 - Praise and rewrite-shaped content is prompt-banned and then linted client-side, struck through on
@@ -392,7 +456,8 @@ soft warning, never a block.
 
 ### Caching, concurrency, cost, failure
 
-- Findings are cached under hash(document text) + pass id + prompt version + model. A repeat run on
+- Findings are cached under hash(canonical string) + pass id + promptHash + Connection + model. The
+  Connection belongs in the key because two Connections can serve the same model id. A repeat run on
   unchanged text costs nothing and returns `fromCache: true`.
 - Runs are on demand, one pass at a time, with "run local passes" (free, no key) and "run structural
   set" shortcuts. Concurrency is capped per Connection, default three, configurable, with a visible
@@ -400,7 +465,11 @@ soft warning, never a block.
 - A pre-run estimate (characters ÷ 4 for tokens, times an editable per-model price table) and a
   running session total are always shown and never block.
 - Retries use exponential backoff honouring `Retry-After` on 429 and 5xx. Provider error text is
-  surfaced verbatim. Errors are never swallowed.
+  surfaced verbatim wherever the browser can read it. Errors are never swallowed.
+- **One case is unreadable, and is reported as such.** OpenAI returns `401` for a bad key without
+  `Access-Control-Allow-Origin`, so the browser surfaces an opaque network failure and the body cannot
+  be read. That is reported as an unreachable Connection pointing at "Test connection" — never as a
+  guess at what the Provider said.
 - The parser is tolerant: extract JSON from surrounding prose, validate, then lint. `strict: true`
   is a promise models still break, and OpenRouter's schema support is a passthrough requiring
   `require_parameters: true`.
@@ -415,28 +484,40 @@ origin other than the provider's configured base URL. Keys are excluded from exp
 
 ### Revisions and durability
 
-- An auto-revision on debounce (roughly sixty seconds idle, or N saved keystrokes), pruned; plus a
-  flagged revision the Writer marks as a milestone, carrying an optional note.
-- A Revision holds full text plus metadata: parent id, timestamp, word count, flag, Findings
-  addressed, and the Run in progress.
-- Word-level diff between any two revisions, in v1.
-- The judge can compare any two revisions. The comparison unit is a selected span or a
-  heading-delimited section; the app fuzzy-aligns the selection across revisions and displays both
-  extracted strings before sending.
-- Markdown export always. A single-Document JSON bundle carries the document, revisions, findings
-  and Run results. A whole-Library backup in JSON excludes keys unless explicitly opted in, with a
-  visible last-backed-up indicator.
-- Migrations are forward-only and versioned. A database newer than the running code refuses to open
-  and says so, rather than risking the Library.
+- **Document persistence and Revisions are different things, and the spec had them conflated.** The
+  Document is persisted on a short debounce **plus** `visibilitychange`/`pagehide`, so a closed tab
+  cannot lose a Paragraph — that is story 17. A Revision is a history point taken on a slower debounce
+  (roughly sixty seconds idle, or N saved keystrokes), pruned; plus a flagged Revision the Writer marks
+  as a milestone, carrying an optional note.
+- A Revision is immutable prose plus metadata: parent id, timestamp, word count, flag, and the
+  canonical string. It never carries a join to mutable or ephemeral state — no "Findings addressed",
+  no "Run in progress".
+- Call `navigator.storage.persist()` on first save. The last-backed-up reminder remains the real
+  defence against eviction, because `persist()` is a request, not a guarantee.
+- Word-level diff between any two Revisions, in v1.
+- The judge can compare any two Revisions. The comparison unit is a selected span or a heading-delimited
+  Section; the selection is projected across Revisions **by the same diff-projection that re-locates an
+  Anchor**, not by a separate fuzzy alignment. Both extracted strings are displayed before sending.
+- Markdown export always. A single-Document JSON bundle carries the Document, Revisions, Findings and
+  Run results. A whole-Library backup in JSON excludes keys unless explicitly opted in, with a visible
+  last-backed-up indicator — **and it must be importable, or it is not a recovery path.**
+- Migrations are forward-only and versioned. A database newer than the running code refuses to open and
+  says so, rather than risking the Library. **A migration is not rollback-safe**: a deploy that migrates
+  the Library cannot be reversed by code alone, so never ship a migration and a behaviour change
+  together.
 
 ### Privacy surface
 
-A plain-language privacy page plus a "verify this yourself" section containing actual steps: read
-your own data at devtools → application → IndexedDB; watch requests at devtools → network with
-preserve-log enabled and see that they go only to the configured provider; confirm the
-worker-supplied CSP header means no third-party script origin can load. Zero analytics, zero crash
-reporting, zero counters. **A fresh install makes no outbound request at all before a Connection is
-configured**, and that property is testable at the single seam.
+A plain-language privacy page plus a "verify this yourself" section containing actual steps: read your
+own data at devtools → application → IndexedDB; watch requests at devtools → network with preserve-log
+enabled; confirm `script-src 'self'` means no third-party script origin can load. Zero analytics, zero
+crash reporting, zero counters. **A fresh install makes no outbound request at all before a Connection
+is configured**, and that property is testable at the single seam.
+
+**Two claims must not be conflated.** `script-src 'self'` is enforced by the header. "Only your
+Connection" is **not** — `connect-src` cannot enumerate a Writer-supplied base URL or a local Ollama
+origin, so it must be broad, and the single-origin property is enforced by the code path and its test.
+The privacy page says which is which.
 
 ### Stack and hosting
 
@@ -448,20 +529,55 @@ shell and existing Documents open offline; no push and no background sync.
 
 ### Build order
 
-- **Stage 0 — Shell.** No AI. Editor, library, Dexie schema, markdown import/export, Connection
-  setup with all prefills, Custom Connection, test connection, key storage, deployed with CSP. Usable
-  as a plain writing app.
-- **Stage 1 — Constitution core.** Findings schema, tolerant parser, praise linter, raw-response
-  toggle, transport seam, pass engine at paragraph scope, two model passes, sidebar with
-  quote-anchoring, statuses, keyboard stepping.
-- **Stage 2 — Rule engine.** Every rule pass, editable rule configuration, auto-run on save,
-  metrics panel. Useful with zero API keys.
-- **Stage 3 — Structure.** Section model, outline, document-scope passes, chunking and limits.
-- **Stage 4 — Judge.** Revisions, word-level diff, swapped-order double call, unstable surfacing,
-  screening-frame toggle.
-- **Stage 5 — Workbench.** Pass editor, rule config editor, prompt-authoring assistant.
-- **Stage 6 — Reader pass.** The Reader tab and its schema.
-- **Stage 7 — Durability.** Library backup, PWA service worker, migrations, backup reminder.
+Vertical tracer bullets, each cutting a complete path through every layer it needs, demoable on its
+own, and sized for one fresh context window. This replaces the spec's original eight-stage order,
+which began with a horizontal slab that bundled the editor, Library, Dexie, Markdown, Connections,
+keys, CSP and deploy while landing none of the product's risk.
+
+**The toolchain is part of slice 1, not a separate stage.** There is no `package.json`, no test runner,
+no fixture transport, no harness scaffold, no `scripts/agent-gates` and no pre-commit hook, so AGENTS.md's
+"new behaviour has a test through the seam" and "the constitution harness runs before any pass-prompt
+change" are currently unenforceable. Slice 1 must produce the build and test toolchain, the in-memory
+IndexedDB test setup, the deploy pipeline with CSP, and Dexie migration 1 with the newer-database
+refusal. **Anchor survival is slice 4 rather than a late stage**, because it is the highest-risk and
+least-specified behaviour in the design.
+
+1. **Spine — write, mark, highlight, step.** Document of record in IndexedDB; TipTap with headings,
+   emphasis, lists and quotes; persistence on a short debounce plus `pagehide`; one Revision;
+   `canonicalText`; one rule Pass (hedges); Finding and Anchor; a Highlight; sidebar grouped by Pass;
+   Finding status; `j/k/a/x`; Markdown export; deployed with CSP. No Provider, no network.
+   *Blocked by: none.*
+2. **Connection and the seam.** Connection records with all prefills and Custom; both key modes;
+   connection test; model listing; `send` with the Protocol table and three adapters; the fixture
+   player; the privacy assertion that the seam never sees a base URL other than the Connection's.
+   *Blocked by: 1.*
+3. **Constitution core.** Findings schema and tolerant parser; praise linter; Containment with the
+   dropped-anchor count; one paragraph-scope model Pass end to end; Run cache with `promptHash`;
+   raw-response toggle; Quarantined rewrite pane; the affordance source check. *Blocked by: 2.*
+4. **Anchor survival.** `resolveAnchor` with diff-projection from `provenance.revisionId`, quote
+   fallback, ambiguous-quote tie-break, Orphaned state and its sidebar placement; `projectInterval`;
+   re-resolution on every change; pure tests for a rewrite inside the quote and for deletion.
+   *Blocked by: 1 (the pure function), 3 (the wiring).*
+5. **Rule engine.** Every rule Pass; editable Rule config; auto-run on save; metrics panel.
+   *Blocked by: 1.*
+6. **Structure.** Section model from headings; outline; document-scope Passes; chunking, limits and
+   the too-long-for-one-call path. *Blocked by: 3, 5.*
+7. **Library.** Many Documents; Scratchpad; tags; search; Document status; open-Finding count.
+   *Blocked by: 1.*
+8. **Judge.** Any two Revisions; word-level diff; span and Section extraction with both strings shown
+   before sending; swapped double call; `Unstable`; Screening frame toggle; same-model warning.
+   *Blocked by: 3, 4.*
+9. **Workbench.** Pass editor with placeholder validation and output shapes; Rule config editor;
+   pass-set JSON import and export; restore the Starter pack; the prompt-authoring assistant.
+   *Blocked by: 5, 6.*
+10. **Reader pass.** Reader account schema; the Reader tab. *Blocked by: 6.*
+11. **Durability.** Library backup with keys excluded by default and explicit opt-in; import;
+    last-backed-up indicator; single-Document JSON bundle; `storage.persist()`; the migration policy
+    and newer-database refusal; service worker and offline shell. *Blocked by: 1, 7.*
+
+Slices 3, 4, 6 and 8 cannot be implemented independently until the `canonicalText` contract and the
+Orphaned representation are settled, or each fresh context window will invent its own coordinate
+system and the seams will not meet.
 
 ## Testing Decisions
 
@@ -482,24 +598,41 @@ Two properties get special treatment because they are the product:
 ### The single seam
 
 One seam: **the transport**, `send(ModelRequest) -> Promise<string>`. Everything above it is pure
-and exercised through `critique(documentText, pass, config)` and `judge(beforeText, afterText,
-config)`. The test implementation records every request it receives and replays fixture responses.
-This is preferred to any new seam, and it is deliberately the *highest* useful one: it sits above all
-provider differences and below all reasoning about prose.
+and exercised through `critique(target, pass, connection, config)` and `judge(before, after,
+connection, config)`. The test implementation records every request it receives and replays fixture
+responses. This is preferred to any new seam, and it is deliberately the *highest* useful one: it sits
+above all Protocol differences and below all reasoning about prose.
 
 Two boundaries are deliberately **not** seams, to keep the count at one:
 
 - **IndexedDB.** Dexie repositories are exercised against an in-memory IndexedDB implementation
   installed in test setup. No injected interface, so no production code is shaped by testing.
 - **The DOM.** No browser-driving test layer in v1. It would be a second seam, it would be slower
-  and flakier, and it would test the constitution no better than the core-loop seam already does.
+  and flakier, and it would test the constitution no better than the seam already does.
+- **The UI source.** The affordance check reads source rather than observing behaviour, so it is a
+  build gate, not a seam.
+
+### What the seam cannot test
+
+Stated so nobody assumes coverage that does not exist:
+
+- Whether a Highlight lands on the right prose, and whether the Quarantined rewrite pane is genuinely
+  unselectable. `projectInterval` is testable; the rendered result is not.
+- The service worker, the CSP header and offline opening — deploy-time properties, verified by the
+  manual steps on the privacy page.
+- Migrations against a real browser IndexedDB. The in-memory implementation tests logic, not quota,
+  eviction or a partial migration.
+- Real Provider CORS behaviour. An auth failure whose body the browser cannot read is
+  indistinguishable at the adapter from a handled response.
 
 ### Modules under test
 
-- **Core loop.** Tolerant parsing of messy model output, praise detection and struck-through
-  surfacing, declining of smuggled rewrites, containment including the dropped-anchor count,
-  anchoring by quote after an edit, orphaning when a quote disappears, cache hits returning
-  `fromCache: true` on unchanged text, and verbatim propagation of provider errors.
+- **Core.** Tolerant parsing of messy model output; praise detection and struck-through surfacing;
+  declining of smuggled rewrites; Containment including the dropped-anchor count; cache hits returning
+  `fromCache: true` on unchanged text; the unreadable-auth-failure path. Plus the two pure functions the
+  whole loop rests on: `canonicalText` (determinism, and the round-trip that re-parsing its output
+  serializes back to the same string) and `resolveAnchor` (a rewrite inside the anchor's span, a move of
+  the containing Paragraph, a quote that appears twice, and a deletion that orphans it).
 - **Judge protocol.** That the request contains a closed list of inputs and none of the forbidden
   ones (document, history, authorship, findings, screening frame); that label order is randomised
   and the local mapping is never revealed to the model; that a swapped disagreement yields
@@ -508,7 +641,7 @@ Two boundaries are deliberately **not** seams, to keep the count at one:
   of findings out. Determinism asserted by running twice and comparing.
 - **Storage.** Document, revision, pass, Connection and Run-cache repositories against in-memory
   IndexedDB, including forward migration behaviour and the refusal to open a newer schema.
-- **Provider adapters.** Request construction and response parsing per wire format, with no network:
+- **Transport adapters.** Request construction and response parsing per Protocol, with no network:
   correct header names and auth placement per the table above, correct system-prompt placement per
   protocol, and correct extraction of text from each response shape.
 
@@ -577,3 +710,8 @@ optional and cheap now, and progressively less cheap later.
 
 **Process.** Setup is complete: `docs/agents/` records the issue tracker, the canonical triage labels
 and the domain-doc layout, and the five canonical labels exist in the tracker.
+
+**Goldilocks review.** The mandatory design gate before tickets ran against this spec and is recorded
+in `docs/decisions/obelus-v1-goldilocks.md`. It selected the shape this spec now describes — one
+canonical string, Anchor resolution in Core, five modules, diff-projection re-location — and found the
+genine flaws corrected above. Read it before reopening any of them.
