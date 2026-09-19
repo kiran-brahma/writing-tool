@@ -1,0 +1,183 @@
+# Obelus
+
+A browser-only writing tool that uses language models as a copyeditor and a judge, never as a
+ghostwriter. This glossary is the project's shared language: code, tests, issues and commits use
+these terms and no others.
+
+## The work
+
+**Writer**:
+The person using Obelus, and the author of everything in it.
+_Avoid_: user, author, owner, operator
+
+**Document**:
+One piece of writing. The only noun for a piece of work.
+_Avoid_: draft, piece, article, text, file
+
+**Section**:
+A heading-delimited division of a Document.
+_Avoid_: chapter, part
+
+**Paragraph**:
+A block of prose within a Section, and the unit a local pass is examined against.
+_Avoid_: block
+
+**Revision**:
+One saved point in a Document's history. An *auto-revision* is taken on a debounce; a *flagged
+revision* is marked by the Writer as a milestone and carries a note.
+_Avoid_: snapshot, version, save, checkpoint
+
+**Library**:
+Every Document held in this browser.
+_Avoid_: workspace, project, vault
+
+## Analysis
+
+**Pass**:
+A configured analysis of a Document — a rule pass or a model pass — with a scope and an output shape.
+_Avoid_: check, task, lint
+
+**Rule pass**:
+A Pass implemented as deterministic rules over text, so it can neither praise nor rewrite.
+_Avoid_: Tier 1, mechanical pass, lint
+
+**Model pass**:
+A Pass implemented as a call to a model.
+_Avoid_: Tier 2, AI pass, LLM pass
+
+**Rule config**:
+The editable data behind a rule pass: its word lists, patterns and windows.
+_Avoid_: settings, options, config
+
+**Pass scope**:
+How much of a Document a Pass is shown: `document`, `section` or `paragraph`.
+_Avoid_: range, coverage
+
+**Target**:
+The text a Run is asked about.
+_Avoid_: selection, focus, scope
+
+**Containment**:
+The rule that a Finding anchored outside the Target is discarded, with the count reported.
+_Avoid_: scope enforcement, filtering, pruning
+
+**Run**:
+One execution of a Pass against a Revision, producing Findings.
+_Avoid_: pass run, critique, job, analysis
+
+**Finding**:
+One problem a Run reports about the prose, anchored to the text it concerns.
+_Avoid_: comment, note, issue, suggestion, flag, error
+
+**Anchor**:
+The data tying a Finding to its text: the quoted span, with an offset as a hint.
+_Avoid_: position, range, mark
+
+**Highlight**:
+The visual rendering of an Anchor.
+_Avoid_: underline, marker
+
+**Orphaned**:
+The condition of a Finding whose quoted text can no longer be found, so it points nowhere. A
+condition, never a status.
+_Avoid_: lost, stale, dangling
+
+**Violation**:
+Praise or rewrite-shaped content caught in model output. About the model misbehaving, never about the
+prose.
+_Avoid_: breach, infraction, error
+
+**Praise**:
+Encouragement in model output. Rule 2 forbids it, and the praise linter is the check for it.
+_Avoid_: encouragement, positive feedback
+
+**Quarantined rewrite**:
+Model-written prose that is displayed but can never enter a Document.
+_Avoid_: diagnostic rewrite, proposed text, suggestion, draft
+
+**Starter pack**:
+The default Pass set that ships with Obelus.
+_Avoid_: presets, defaults, built-ins
+
+## Roles and connections
+
+**Provider**:
+A vendor that serves models: OpenAI, Anthropic, Google, OpenRouter, Ollama.
+_Avoid_: vendor, service, backend
+
+**Protocol**:
+A wire format: `openai-shaped`, `anthropic-shaped` or `gemini-native`.
+_Avoid_: API, dialect, provider API
+
+**Connection**:
+A configured entry the Writer creates: a Protocol, a base URL, a key and a model.
+_Avoid_: provider config, provider, endpoint, credentials
+
+**Slot**:
+A named place a Connection is assigned. There are two: `critic` and `judge`.
+_Avoid_: role, position, model slot
+
+**Critic**:
+The Slot that runs model passes and finds problems.
+_Avoid_: reviewer, editor, coach
+
+**Judge**:
+The Slot that compares two versions of a passage and answers which is clearer, receiving the two
+passages and nothing else.
+_Avoid_: evaluator, scorer, arbiter
+
+**Screening frame**:
+The Critic's standing instruction to read the piece as an editor screening a submission. It applies
+to the Critic only.
+_Avoid_: persona, system prompt
+
+**reader**:
+The human who reads the finished prose. Always the human.
+_Avoid_: audience, consumer
+
+**Reader pass**:
+The model pass that reconstructs what a reader takes away from a Section.
+_Avoid_: Reader, reconstruction, takeaway
+
+**Reader account**:
+A Reader pass's output: what a Section says, what a distracted reader would miss, and the gap
+between the two.
+_Avoid_: summary, reader report
+
+## The judge's answers
+
+**Verdict**:
+The Judge's answer: which passage is clearer, how confident it is, and its reasons with quoted
+evidence.
+_Avoid_: score, rating, result, judgment
+
+**Unstable**:
+The condition of a Verdict that changes when the passage labels are swapped. Reported as unstable
+rather than as a preference.
+_Avoid_: flaky, inconsistent, tie
+
+## Status
+
+**Finding status**:
+One of exactly three: `open`, `addressed`, `declined`. A declined Finding records why — the advice
+was rejected, or the model breached the constitution.
+_Avoid_: resolved, rejected, dismissed, closed, done
+
+**Document status**:
+One of exactly three: `draft`, `revising`, `done`.
+_Avoid_: state, stage, progress
+
+## The constitution
+
+**Constitution**:
+Obelus's standing constraints: model output is analysis and never prose, and every request leaves the
+Writer's browser.
+_Avoid_: invariants, principles, rules, guidelines
+
+**Rule 1**:
+The source method's first rule — the Writer may not use a single word a model suggests.
+_Avoid_: the rules, the suggestion ban
+
+**Rule 2**:
+The source method's second rule — avoid encouragement.
+_Avoid_: the rules, the praise ban
