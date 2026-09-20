@@ -172,6 +172,18 @@ const PARAGRAPH_REPORTING_CLAUSE =
   "paragraph. Do not praise the writing and do not suggest replacement prose.";
 
 /**
+ * The prompt clauses the constitution depends on. The harness checks them over
+ * every model Pass it runs, and the Starter-pack test checks them over every
+ * paragraph-scope prompt in the pack, so "constitution-safe" has one definition
+ * rather than a copy in each place that checks it.
+ */
+export const CONSTITUTION_PROMPT_CLAUSES: { name: string; pattern: RegExp }[] = [
+  { name: "analyze only the target", pattern: /analyze only this paragraph/i },
+  { name: "no praise", pattern: /do not praise/i },
+  { name: "no replacement prose", pattern: /do not suggest replacement prose/i },
+];
+
+/**
  * Story 40: the actor should be the subject and the action should be the verb.
  * Shipped disabled (DESIGN §4): it is the most opinionated pass in the pack, so
  * the Writer turns it on deliberately rather than meeting it on first Run.
@@ -263,10 +275,8 @@ export const CLICHE_PASS: Pass = {
     "Check one paragraph of a piece of writing for clichés and headline-ese.",
     [
       "Flag phrases in the TARGET PARAGRAPH that are clichés or that read like a magazine",
-      "headline: stock figures of speech, hype, and phrasing worn smooth by overuse. For each",
-      "problem, quote the exact span from the target, give its zero-based offset within the",
-      "target, a short issue label and a diagnosis. Report only problems in the target",
-      "paragraph. Do not praise the writing and do not suggest replacement prose.",
+      "headline: stock figures of speech, hype, and phrasing worn smooth by overuse.",
+      PARAGRAPH_REPORTING_CLAUSE,
     ].join("\n"),
   ),
 };

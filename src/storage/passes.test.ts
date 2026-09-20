@@ -92,6 +92,25 @@ describe("setPassEnabled", () => {
 
     expect(await setPassEnabled(database, "missing", false)).toBeNull();
   });
+
+  it("turns a model Pass on and off, and the flag survives a reload", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+
+    // Characters and actions ships disabled (DESIGN §4).
+    await expect(database.passes.get("characters-actions")).resolves.toMatchObject({
+      enabled: false,
+    });
+
+    const enabled = await setPassEnabled(database, "characters-actions", true);
+    expect(enabled?.enabled).toBe(true);
+
+    const reloaded = await loadOrCreatePasses(database);
+    expect(reloaded.find((pass) => pass.id === "characters-actions")?.enabled).toBe(true);
+
+    const disabled = await setPassEnabled(database, "characters-actions", false);
+    expect(disabled?.enabled).toBe(false);
+  });
 });
 
 describe("updateRuleConfig", () => {

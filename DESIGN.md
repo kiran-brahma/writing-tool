@@ -131,10 +131,11 @@ Shipped but off by default: 7, 9.
 
 **Scoping and context budget.**
 
-- Structural passes (8, 9, 10, 14) get the **whole document**, one call when it fits, else chunked
+- Structural passes (8, 9, 14) get the **whole document**, one call when it fits, else chunked
   by section with overlap.
-- Local passes (every rule pass, plus 7, 11, 12, 13) get **target paragraph + one paragraph either
-  side + heading outline** (headings only, never body text).
+- Local passes (every rule pass, plus 7, 10, 11, 12, 13) get **target paragraph + one paragraph
+  either side + heading outline** (headings only, never body text). Paragraph unity is judged on
+  the paragraph, not on paragraph order, so it sits with the local passes.
 - Two hard rules: the prompt must state *"analyze only paragraph N; surrounding text is context,
   not target"*, and any finding anchored outside the target is **dropped client-side**. Without
   this, every pass re-flags the whole document and you get six copies of one finding.

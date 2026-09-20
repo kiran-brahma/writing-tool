@@ -358,14 +358,6 @@ export function useDocument(): DocumentHandle {
     return current === null ? "" : exportDocument(current);
   }, []);
 
-  /** Reloads every stored Finding, so state does not drift from storage. */
-  const refreshFindings = useCallback(async () => {
-    const database = databaseRef.current;
-    const current = documentRef.current;
-    if (database === null || current === null) return;
-    applyFindings(await listFindings(database, current.id), current.canonical);
-  }, [applyFindings]);
-
   const togglePass = useCallback(
     async (passId: string, enabled: boolean) => {
       const database = databaseRef.current;
@@ -374,17 +366,15 @@ export function useDocument(): DocumentHandle {
         const updated = await setStoredPassEnabled(database, passId, enabled);
         if (updated === null) return;
         applyPass(updated);
-        // A rule Pass's Findings are recomputed, so toggling it re-runs the rule
-        // engine. A model Pass's Findings already exist and a toggle does not
-        // recompute them, so reload the queue rather than replacing it with the
-        // rule Findings alone.
+        // A rule Pass's Findings are re-derived on every save, so its toggle
+        // re-runs the rule engine. A model Pass runs on demand, so its toggle
+        // only changes whether Run is live; the queue is left alone.
         if (updated.kind === "rule") await rerunRules();
-        else await refreshFindings();
       } catch (error) {
         setSaveError(describeError(error));
       }
     },
-    [applyPass, rerunRules, refreshFindings],
+    [applyPass, rerunRules],
   );
 
   const saveRuleConfig = useCallback(
@@ -409,6 +399,14 @@ export function useDocument(): DocumentHandle {
     if (id === null) return null;
     return connections.find((connection) => connection.id === id) ?? null;
   }, [connections, slots]);
+
+  /** Reloads every stored Finding, so state does not drift from storage. */
+  const refreshFindings = useCallback(async () => {
+    const database = databaseRef.current;
+    const current = documentRef.current;
+    if (database === null || current === null) return;
+    applyFindings(await listFindings(database, current.id), current.canonical);
+  }, [applyFindings]);
 
   const runInFlightRef = useRef(false);
 

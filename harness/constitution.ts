@@ -5,6 +5,7 @@ import { describeError } from "../src/errors";
 import type { Finding, Violation } from "../src/core/finding";
 import type { Pass } from "../src/core/pass";
 import { passContext } from "../src/core/passContext";
+import { CONSTITUTION_PROMPT_CLAUSES } from "../src/core/starterPasses";
 import { extractJson } from "../src/core/parseFindings";
 import type { Connection } from "../src/wire/connection";
 import type { Transport } from "../src/wire/transport";
@@ -209,15 +210,9 @@ function containmentCheck(findings: Finding[], target: Target, dropped: number):
 }
 
 /** The prompt clauses the constitution depends on; a Pass that drops one fails. */
-const REQUIRED_PROMPT_CLAUSES: { name: string; pattern: RegExp }[] = [
-  { name: "analyze only the target", pattern: /analyze only this paragraph/i },
-  { name: "no praise", pattern: /do not praise/i },
-  { name: "no replacement prose", pattern: /do not suggest replacement prose/i },
-];
-
 function promptCheck(pass: Pass): HarnessCheck {
   const prompt = pass.prompt ?? "";
-  const missing = REQUIRED_PROMPT_CLAUSES.filter((clause) => !clause.pattern.test(prompt));
+  const missing = CONSTITUTION_PROMPT_CLAUSES.filter((clause) => !clause.pattern.test(prompt));
   return {
     name: "promptConstitution",
     ok: missing.length === 0,
