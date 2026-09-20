@@ -55,8 +55,11 @@ over title and body text, Document status, and the open-Finding count; the one-D
 a flat Library. #12 (Durability) has landed: the whole Library backs up to one file and restores
 back behind an explicit confirmation, API keys are excluded unless the Writer opts in, a visible
 last-backed-up reminder sits on the Library screen, and a single Document exports and imports as a
-bundle carrying its Revisions, Findings, Run results and Reader accounts. The frontier is **row 19**:
-#23 (Offline shell and migration policy).
+bundle carrying its Revisions, Findings, Run results and Reader accounts. #23 (Offline shell and
+migration policy) has landed: a production service worker and manifest cache the shell so the app
+opens with the Library offline, `navigator.storage.persist()` is requested on the first save, and
+`docs/migrations.md` states the forward-only, newer-database-refusal, no-migration-with-a-behaviour-
+change policy. The frontier is **row 20**: #22 (Privacy page).
 
 ## How to work a ticket
 
@@ -92,7 +95,7 @@ bundle carrying its Revisions, Findings, Run results and Reader accounts. The fr
 | 16 | **#11** | Reader pass | The reader account schema and the Reader tab | - Completed
 | 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count | - Completed
 | 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle | - Completed
-| 19 | **#23** | Offline shell and migration policy | Service worker and offline shell, `storage.persist()`, the forward-only migration policy, the no-migration-with-a-behaviour-change rule |
+| 19 | **#23** | Offline shell and migration policy | Service worker and offline shell, `storage.persist()`, the forward-only migration policy, the no-migration-with-a-behaviour-change rule | - Completed
 | 20 | **#22** | Privacy page | The plain-language page and the verify-this-yourself steps |
 | 21 | **#10** | Workbench | Pass editor with placeholder validation and output shapes, Rule config editor, pass-set JSON round trip, Starter-pack restore |
 | 22 | **#21** | Prompt authoring assistant | The assistant that helps author passes and never touches prose |

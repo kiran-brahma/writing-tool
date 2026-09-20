@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Obelus">
+  <rect width="512" height="512" rx="96" fill="#1c1917" />
+  <line x1="120" y1="256" x2="392" y2="256" stroke="#fafaf9" stroke-width="48" stroke-linecap="round" />
+  <circle cx="256" cy="150" r="32" fill="#fafaf9" />
+  <circle cx="256" cy="362" r="32" fill="#fafaf9" />
+</svg>
