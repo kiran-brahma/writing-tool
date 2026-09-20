@@ -77,7 +77,7 @@ Starter pack, and the Writer runs the structural set in one action. The frontier
 | 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` | - Completed
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning | - Completed
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes | - Completed
-| 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path |
+| 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path | - Completed
 | 16 | **#11** | Reader pass | The reader account schema and the Reader tab |
 | 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count |
 | 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle |
