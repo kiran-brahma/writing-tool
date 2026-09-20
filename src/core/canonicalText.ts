@@ -1,3 +1,5 @@
+import { leadingSyntaxLength } from "./sentences";
+import { countWords } from "./tokens";
 import type {
   BlockNode,
   BulletListNode,
@@ -87,19 +89,17 @@ export function canonicalTextWithMap(tree: DocTree): CanonicalMap {
 }
 
 /**
- * Word count over a canonical string. Block markers (`#`, `>`, `-`, `N.`) are
- * syntax, not prose, and escapes are not words, so a line's leading marker is
- * removed before tokens carrying a letter or a digit are counted.
+ * Word count over a canonical string. A line's leading block marker (`#`, `>`,
+ * `-`, `N.`) is syntax, not prose, so it is skipped, and the words are then
+ * counted by the one token definition in `tokens.ts`. The header word count and
+ * the metrics panel's sentence lengths therefore agree on what a word is.
  */
 export function wordCount(canonical: string): number {
   const prose = canonical
     .split("\n")
-    .map((line) => line.replace(/^\s*(?:#{1,6}\s+|>\s?|-\s+|\d+\.\s+)/, ""))
+    .map((line) => line.slice(leadingSyntaxLength(line)))
     .join("\n");
-  return prose
-    .trim()
-    .split(/\s+/)
-    .filter((token) => /[\p{L}\p{N}]/u.test(token.replace(/\\/g, ""))).length;
+  return countWords(prose);
 }
 
 // ---------------------------------------------------------------------------

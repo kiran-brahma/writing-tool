@@ -88,18 +88,19 @@ function readRawSeed(name: string): Promise<unknown> {
 }
 
 describe("openObelusDatabase", () => {
-  it("creates the current schema with Findings as its own repository", async () => {
+  it("creates the current schema with a repository per record kind", async () => {
     const database = await openTestDatabase();
 
-    expect(database.verno).toBe(2);
+    expect(database.verno).toBe(3);
     expect(database.tables.map((table) => table.name).sort()).toEqual([
       "documents",
       "findings",
+      "passes",
       "revisions",
     ]);
   });
 
-  it("upgrades migration 1 to migration 2 without touching existing data", async () => {
+  it("upgrades an old database through every migration without touching existing data", async () => {
     const name = uniqueName();
     const legacy = new Dexie(name);
     legacy.version(1).stores({
@@ -121,16 +122,48 @@ describe("openObelusDatabase", () => {
     const database = await openObelusDatabase(name);
     openedDatabases.push(database);
 
-    expect(database.verno).toBe(2);
+    expect(database.verno).toBe(3);
     await expect(database.documents.get("default")).resolves.toMatchObject({
       title: "Legacy prose",
     });
     expect(database.tables.map((table) => table.name)).toContain("findings");
+    expect(database.tables.map((table) => table.name)).toContain("passes");
+  });
+
+  it("adds the Passes store to a migration-2 database, leaving Findings intact", async () => {
+    const name = uniqueName();
+    const legacy = new Dexie(name);
+    legacy.version(2).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+    });
+    await legacy.open();
+    const finding = {
+      id: "finding-1",
+      documentId: "default",
+      passId: "hedges",
+      promptHash: "hash",
+      anchor: { quote: "very", offset: 8, state: "attached" },
+      issue: "Hedge",
+      diagnosis: "Cut it.",
+      status: "open",
+      provenance: { providerId: "local", model: "rule", at: 1, revisionId: "revision-1" },
+    };
+    await legacy.table("findings").put(finding);
+    legacy.close();
+
+    const database = await openObelusDatabase(name);
+    openedDatabases.push(database);
+
+    expect(database.verno).toBe(3);
+    await expect(database.findings.get("finding-1")).resolves.toMatchObject({ issue: "Hedge" });
+    expect(database.tables.map((table) => table.name)).toContain("passes");
   });
 
   it("refuses a database newer than the running code, leaving it intact", async () => {
     const name = uniqueName();
-    await createRawDatabase(name, 30, "future-prose");
+    await createRawDatabase(name, 40, "future-prose");
 
     await expect(openObelusDatabase(name)).rejects.toBeInstanceOf(NewerDatabaseError);
     await expect(openObelusDatabase(name)).rejects.toThrow(/newer Obelus database[\s\S]*will not downgrade/);

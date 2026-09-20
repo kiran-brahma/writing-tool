@@ -21,9 +21,12 @@ import type { Finding, Interval } from "./finding";
  * to resolve to the same span — and an unmatched one has its `anchor.state`
  * recomputed by resolution.
  *
- * Findings the Run did not re-produce are kept — an Orphaned Finding stays open
- * and actionable — except a duplicate that resolves onto a span the Run did
- * re-find, which the Run has already accounted for.
+ * Findings the Run did not re-produce are dropped, with one exception: a
+ * Finding whose quote is no longer in the canonical string is kept as
+ * Orphaned, because the problem may outlive the words that named it. An
+ * attached Finding the current Pass no longer produces is stale — the Pass is
+ * the authority on what it flags — so editing a Rule config takes effect on the
+ * next Run, and a duplicate of a span the Run already accounted for is removed.
  *
  * Pure and DOM-free.
  */
@@ -63,15 +66,13 @@ export function reconcileFindings(
   for (const finding of existing) {
     if (claimed.has(finding.id)) continue;
     const interval = resolveAnchor(finding.anchor, canonical);
-    if (interval !== null && producedIntervals.some((candidate) => sameInterval(candidate, interval))) {
-      // The Run re-found this span and another stored Finding already claimed
-      // it; this copy is the duplicate the merge exists to remove.
-      continue;
+    // Orphaned: the quoted text is gone, so the Finding stays open and
+    // actionable. Attached but not re-produced: either a duplicate of a span
+    // the Run already claimed, or a problem the current Pass no longer flags.
+    // The Run decides the whole set, so it drops.
+    if (interval === null) {
+      result.push({ ...finding, anchor: { ...finding.anchor, state: "orphaned" } });
     }
-    result.push({
-      ...finding,
-      anchor: { ...finding.anchor, state: interval === null ? "orphaned" : "attached" },
-    });
   }
 
   return documentOrder(result, canonical);

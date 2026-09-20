@@ -57,11 +57,11 @@ async function runRulePassesNow(
   const revision = needsRevision ? await ensureRevision(database, document, now) : null;
   const findings: Finding[] = [];
 
-  for (const { pass, existing } of runs) {
+  for (const { pass, matches, existing } of runs) {
     const produced =
       revision === null
         ? []
-        : runRulePass(document.canonical, pass, { at: now, revisionId: revision.id });
+        : runRulePass(document.canonical, pass, { at: now, revisionId: revision.id }, matches);
     const merged = reconcileFindings(produced, existing, document.canonical);
     await replaceFindingsForPass(database, document.id, pass.id, merged);
     findings.push(...merged);

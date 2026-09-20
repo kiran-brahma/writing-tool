@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveAnchor } from "./core/anchor";
 import type { DocTree } from "./core/docTree";
 import { isOpenFinding, type Finding, type Interval } from "./core/finding";
+import type { Pass, RuleConfig } from "./core/pass";
 import { STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
@@ -19,6 +20,11 @@ import {
   type ObelusDatabase,
   type RevisionRecord,
 } from "./storage/obelusDatabase";
+import {
+  loadOrCreatePasses,
+  setPassEnabled as setStoredPassEnabled,
+  updateRuleConfig,
+} from "./storage/passes";
 import { listRevisions, takeRevision } from "./storage/revisions";
 import { runRulePasses } from "./storage/ruleRuns";
 
@@ -29,6 +35,8 @@ export interface DocumentHandle {
   document: DocumentRecord | null;
   revisions: RevisionRecord[];
   findings: Finding[];
+  /** The Pass set: the Starter pack as edited by the Writer. */
+  passes: Pass[];
   /** Canonical intervals of open Findings, for the Editor to draw. */
   highlights: Interval[];
   handleChange: (tree: DocTree) => void;
@@ -36,6 +44,10 @@ export interface DocumentHandle {
   /** Writes a status, returning whether it was stored. Failures surface in `saveError`. */
   markAddressed: (findingId: string) => Promise<boolean>;
   decline: (findingId: string) => Promise<boolean>;
+  /** Story 35: turn one rule Pass on or off, then re-run the rules. */
+  togglePass: (passId: string, enabled: boolean) => Promise<void>;
+  /** Story 34: replace a rule Pass's word lists and patterns, then re-run. */
+  saveRuleConfig: (passId: string, ruleConfig: RuleConfig) => Promise<void>;
   importFromMarkdown: (markdown: string) => Promise<void>;
   exportToMarkdown: () => string;
 }
@@ -54,6 +66,7 @@ export function useDocument(): DocumentHandle {
   const persistenceRef = useRef<PersistenceController | null>(null);
   const findingsRef = useRef<Finding[]>([]);
   const canonicalRef = useRef("");
+  const passesRef = useRef<Pass[]>(STARTER_PASSES);
 
   const [status, setStatus] = useState<DocumentHandle["status"]>("loading");
   const [openError, setOpenError] = useState("");
@@ -61,6 +74,7 @@ export function useDocument(): DocumentHandle {
   const [documentRecord, setDocumentRecord] = useState<DocumentRecord | null>(null);
   const [revisions, setRevisions] = useState<RevisionRecord[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [passes, setPasses] = useState<Pass[]>(STARTER_PASSES);
   const [highlights, setHighlights] = useState<Interval[]>([]);
 
   /**
@@ -77,12 +91,29 @@ export function useDocument(): DocumentHandle {
     setHighlights(intervalsForOpen(run, canonical));
   }, []);
 
+  /** Replaces one Pass in the loaded set after a persisted edit. */
+  const applyPass = useCallback((updated: Pass) => {
+    const next = passesRef.current.map((pass) => (pass.id === updated.id ? updated : pass));
+    passesRef.current = next;
+    setPasses(next);
+  }, []);
+
   const refreshRevisions = useCallback(async () => {
     const database = databaseRef.current;
     const current = documentRef.current;
     if (database === null || current === null) return;
     setRevisions(await listRevisions(database, current.id));
   }, []);
+
+  /** Re-runs the enabled rule Passes against the current Document. */
+  const rerunRules = useCallback(async () => {
+    const database = databaseRef.current;
+    const current = documentRef.current;
+    if (database === null || current === null) return;
+    const run = await runRulePasses(database, current, { passes: passesRef.current });
+    applyFindings(run, current.canonical);
+    await refreshRevisions();
+  }, [applyFindings, refreshRevisions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,13 +131,17 @@ export function useDocument(): DocumentHandle {
         documentRef.current = opened;
         setDocumentRecord(opened);
 
+        const loadedPasses = await loadOrCreatePasses(database);
+        passesRef.current = loadedPasses;
+        setPasses(loadedPasses);
+
         persistenceRef.current = createPersistence({
           save: async () => {
             const current = documentRef.current;
             if (current === null) return;
             await persistDocument(database, current);
             setSaveError(null);
-            const run = await runRulePasses(database, current, { passes: STARTER_PASSES });
+            const run = await runRulePasses(database, current, { passes: passesRef.current });
             applyFindings(run, current.canonical);
             await refreshRevisions();
           },
@@ -121,7 +156,7 @@ export function useDocument(): DocumentHandle {
           },
         });
 
-        const run = await runRulePasses(database, opened, { passes: STARTER_PASSES });
+        const run = await runRulePasses(database, opened, { passes: loadedPasses });
         applyFindings(run, opened.canonical);
         await refreshRevisions();
         setStatus("ready");
@@ -246,7 +281,7 @@ export function useDocument(): DocumentHandle {
       documentRef.current = updated;
       setDocumentRecord(updated);
 
-      const run = await runRulePasses(database, updated, { passes: STARTER_PASSES });
+      const run = await runRulePasses(database, updated, { passes: passesRef.current });
       applyFindings(run, updated.canonical);
       await refreshRevisions();
     },
@@ -258,6 +293,38 @@ export function useDocument(): DocumentHandle {
     return current === null ? "" : exportDocument(current);
   }, []);
 
+  const togglePass = useCallback(
+    async (passId: string, enabled: boolean) => {
+      const database = databaseRef.current;
+      if (database === null) return;
+      try {
+        const updated = await setStoredPassEnabled(database, passId, enabled);
+        if (updated === null) return;
+        applyPass(updated);
+        await rerunRules();
+      } catch (error) {
+        setSaveError(describeError(error));
+      }
+    },
+    [applyPass, rerunRules],
+  );
+
+  const saveRuleConfig = useCallback(
+    async (passId: string, ruleConfig: RuleConfig) => {
+      const database = databaseRef.current;
+      if (database === null) return;
+      try {
+        const updated = await updateRuleConfig(database, passId, ruleConfig);
+        if (updated === null) return;
+        applyPass(updated);
+        await rerunRules();
+      } catch (error) {
+        setSaveError(describeError(error));
+      }
+    },
+    [applyPass, rerunRules],
+  );
+
   return {
     status,
     openError,
@@ -265,11 +332,14 @@ export function useDocument(): DocumentHandle {
     document: documentRecord,
     revisions,
     findings,
+    passes,
     highlights,
     handleChange,
     flagMilestone,
     markAddressed,
     decline,
+    togglePass,
+    saveRuleConfig,
     importFromMarkdown,
     exportToMarkdown,
   };

@@ -1,6 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
+import type { Pass } from "../core/pass";
 
 /**
  * Storage is one database, versioned, with forward-only migrations. A database
@@ -40,7 +41,7 @@ export interface FindingRecord extends Finding {
   documentId: string;
 }
 
-export const OBELUS_DATABASE_VERSION = 2;
+export const OBELUS_DATABASE_VERSION = 3;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -64,6 +65,7 @@ export class ObelusDatabase extends Dexie {
   documents!: Table<DocumentRecord, string>;
   revisions!: Table<RevisionRecord, string>;
   findings!: Table<FindingRecord, string>;
+  passes!: Table<Pass, string>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
@@ -76,10 +78,19 @@ export class ObelusDatabase extends Dexie {
     // Migration 2: Findings, the repository #14 introduces. Additive (a new
     // store and nothing rewritten), which is the safe kind of migration; the
     // Writer's Documents and Revisions are untouched by the upgrade.
-    this.version(OBELUS_DATABASE_VERSION).stores({
+    this.version(2).stores({
       documents: "id, updatedAt",
       revisions: "id, documentId, createdAt, [documentId+createdAt]",
       findings: "id, documentId, [documentId+passId]",
+    });
+    // Migration 3: Passes, the repository #6 introduces. Additive again: the
+    // Writer's edited Rule config and enabled flags persist, and the Starter
+    // pack is seeded by id on first load rather than by an upgrade rewrite.
+    this.version(3).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
     });
   }
 }

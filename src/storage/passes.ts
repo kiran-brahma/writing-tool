@@ -1,0 +1,78 @@
+import type { Pass, RuleConfig } from "../core/pass";
+import { STARTER_PASSES } from "../core/starterPasses";
+import type { ObelusDatabase } from "./obelusDatabase";
+
+/**
+ * The Passes repository. Passes are data: the Starter pack seeds the store on
+ * first open and the Writer's edits — an enabled flag, the word lists and
+ * patterns behind a rule Pass — persist. Loading seeds only the Starter passes
+ * whose id is missing, so a later Obelus that adds a rule Pass introduces it
+ * without overwriting anything the Writer has changed.
+ *
+ * Passes are global rather than per-Document: a rule Pass is the Writer's taste
+ * about prose, not a property of one piece of writing.
+ */
+export async function loadOrCreatePasses(database: ObelusDatabase): Promise<Pass[]> {
+  return database.transaction("rw", database.passes, async () => {
+    const stored = await database.passes.toArray();
+    const byId = new Map(stored.map((pass) => [pass.id, pass]));
+
+    const missing = STARTER_PASSES.filter((starter) => !byId.has(starter.id));
+    if (missing.length > 0) {
+      await database.passes.bulkPut(missing);
+      for (const pass of missing) byId.set(pass.id, pass);
+    }
+
+    return orderPasses(stored, byId);
+  });
+}
+
+/** Starter order first, then any Pass the Writer added, both stable. */
+function orderPasses(stored: Pass[], byId: Map<string, Pass>): Pass[] {
+  const ordered: Pass[] = [];
+  for (const starter of STARTER_PASSES) {
+    const pass = byId.get(starter.id);
+    if (pass !== undefined) ordered.push(pass);
+  }
+  for (const pass of stored) {
+    if (!STARTER_PASSES.some((starter) => starter.id === pass.id)) ordered.push(pass);
+  }
+  return ordered;
+}
+
+/**
+ * Applies an edit to a stored Pass and returns the result, or `null` when no
+ * Pass has that id. The whole record is rewritten as one unit, so a partial
+ * update cannot leave a Pass half-edited.
+ */
+export function updatePass(
+  database: ObelusDatabase,
+  passId: string,
+  update: (pass: Pass) => Pass,
+): Promise<Pass | null> {
+  return database.transaction("rw", database.passes, async () => {
+    const existing = await database.passes.get(passId);
+    if (existing === undefined) return null;
+    const updated = update(existing);
+    await database.passes.put(updated);
+    return updated;
+  });
+}
+
+/** Story 35: enable or disable one rule Pass, leaving every other Pass alone. */
+export function setPassEnabled(
+  database: ObelusDatabase,
+  passId: string,
+  enabled: boolean,
+): Promise<Pass | null> {
+  return updatePass(database, passId, (pass) => ({ ...pass, enabled }));
+}
+
+/** Story 34: replace a rule Pass's word lists and patterns. */
+export function updateRuleConfig(
+  database: ObelusDatabase,
+  passId: string,
+  ruleConfig: RuleConfig,
+): Promise<Pass | null> {
+  return updatePass(database, passId, (pass) => ({ ...pass, ruleConfig }));
+}

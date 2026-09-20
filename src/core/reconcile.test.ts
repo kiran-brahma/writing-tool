@@ -59,6 +59,14 @@ describe("reconcileFindings", () => {
     expect(merged[1].anchor.state).toBe("orphaned");
   });
 
+  it("drops an attached Finding the current Pass no longer produces", () => {
+    const stored = finding({ quote: "very", offset: 0 }, { id: "stored" });
+
+    const merged = reconcileFindings([], [stored], "very good\n");
+
+    expect(merged).toEqual([]);
+  });
+
   it("drops a duplicate that resolves onto a span the Run re-found", () => {
     const first = finding({ quote: "very", offset: 0 }, { id: "first" });
     const second = finding({ quote: "very", offset: 99 }, { id: "second" });

@@ -156,6 +156,18 @@ describe("runRulePasses", () => {
     expect(remaining).toHaveLength(1);
     expect(remaining[0].passId).toBe("other");
   });
+
+  it("produces no Findings for a disabled rule Pass", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("This is very good."), 1_100);
+    const disabled = { ...HEDGES_PASS, enabled: false };
+
+    const findings = await runRulePasses(database, saved, { passes: [disabled], now: 1_200 });
+
+    expect(findings).toEqual([]);
+    expect(await listFindings(database, document.id)).toEqual([]);
+  });
 });
 
 describe("finding status", () => {

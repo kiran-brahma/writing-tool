@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import { STARTER_PASSES } from "./core/starterPasses";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
+import { MetricsPanel } from "./editor/MetricsPanel";
+import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 
@@ -19,11 +20,14 @@ export default function App() {
     document,
     revisions,
     findings,
+    passes,
     highlights,
     handleChange,
     flagMilestone,
     markAddressed,
     decline,
+    togglePass,
+    saveRuleConfig,
     importFromMarkdown,
     exportToMarkdown,
   } = useDocument();
@@ -35,7 +39,7 @@ export default function App() {
   // push a new document into an editor that already has one.
   const [editorGeneration, setEditorGeneration] = useState(0);
 
-  const openQueue = useMemo(() => openFindings(findings, STARTER_PASSES), [findings]);
+  const openQueue = useMemo(() => openFindings(findings, passes), [findings, passes]);
   const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
 
   // The queue's keys are only live when the Writer is not typing. `j`, `k`, `a`
@@ -177,23 +181,29 @@ export default function App() {
           )}
         </main>
 
-        <aside className="flex w-96 flex-col border-l border-stone-200 bg-stone-100/60">
-          <section className="flex min-h-0 flex-1 flex-col">
+        <aside className="flex w-96 flex-col overflow-y-auto border-l border-stone-200 bg-stone-100/60">
+          <MetricsPanel canonical={document?.canonical ?? ""} />
+
+          <section className="border-b border-stone-300 bg-stone-100/60">
             <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
               <h2 className="text-sm font-semibold">Findings</h2>
               <span className="text-xs text-stone-500">{openQueue.length} open</span>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <FindingsSidebar
-                findings={findings}
-                passes={STARTER_PASSES}
-                currentFindingId={currentFindingId}
-                onSelect={setCurrentFindingId}
-              />
-            </div>
+            <FindingsSidebar
+              findings={findings}
+              passes={passes}
+              currentFindingId={currentFindingId}
+              onSelect={setCurrentFindingId}
+            />
           </section>
 
-          <section className="flex min-h-0 flex-1 flex-col border-t border-stone-300">
+          <RulePassesPanel
+            passes={passes}
+            onToggle={(passId, enabled) => void togglePass(passId, enabled)}
+            onSaveConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
+          />
+
+          <section className="border-t border-stone-300">
             <div className="space-y-3 border-b border-stone-200 p-4">
               <h2 className="text-sm font-semibold">Milestones</h2>
               <textarea
@@ -224,7 +234,7 @@ export default function App() {
               </label>
             </div>
 
-            <ol className="min-h-0 flex-1 overflow-y-auto">
+            <ol className="overflow-y-auto">
               {visibleRevisions.length === 0 && (
                 <li className="px-4 py-4 text-sm text-stone-500">
                   {milestonesOnly
