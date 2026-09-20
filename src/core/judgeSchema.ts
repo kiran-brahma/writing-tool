@@ -19,9 +19,6 @@ const JUDGE_REASON_PROPERTIES: Record<string, unknown> = {
   },
 };
 
-/** The reason schema's closed field set, so a parser cannot drift from it. */
-export const JUDGE_REASON_FIELDS = Object.keys(JUDGE_REASON_PROPERTIES);
-
 export const JUDGE_SCHEMA: Record<string, unknown> = {
   type: "object",
   properties: {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AnchorDraft } from "../core/finding";
 import type { JudgeResult, JudgeVerdict } from "../core/judge";
-import { passageText, projectSelection } from "../core/judgeSelection";
+import { extractPassages, type ExtractedPassages } from "../core/judgeSelection";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
 
@@ -72,16 +72,13 @@ export function JudgePanel({
   const beforeRevision = revisions.find((revision) => revision.id === beforeId) ?? null;
   const afterRevision = revisions.find((revision) => revision.id === afterId) ?? null;
 
-  const beforeInterval = projected(anchor, currentCanonical, beforeRevision);
-  const afterInterval = projected(anchor, currentCanonical, afterRevision);
-  const beforeText =
-    beforeInterval !== null && beforeRevision !== null
-      ? passageText(beforeRevision.canonical, beforeInterval)
-      : null;
-  const afterText =
-    afterInterval !== null && afterRevision !== null
-      ? passageText(afterRevision.canonical, afterInterval)
-      : null;
+  // The extraction is Core's, so the Editor only displays what Core produced.
+  const passages: ExtractedPassages =
+    beforeRevision !== null && afterRevision !== null
+      ? extractPassages(anchor, currentCanonical, beforeRevision.canonical, afterRevision.canonical)
+      : { before: null, after: null };
+  const beforeText = passages.before;
+  const afterText = passages.after;
 
   const beforeCanonical = beforeRevision?.canonical ?? null;
   const afterCanonical = afterRevision?.canonical ?? null;
@@ -223,16 +220,6 @@ export function JudgePanel({
       </div>
     </section>
   );
-}
-
-/** The projected interval, or null when the selection does not exist there. */
-function projected(
-  anchor: AnchorDraft | null,
-  currentCanonical: string,
-  revision: JudgeRevision | null,
-): { start: number; end: number } | null {
-  if (anchor === null || revision === null) return null;
-  return projectSelection(anchor, currentCanonical, revision.canonical);
 }
 
 function RevisionSelect({

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../wire/connection";
 import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTransport";
 import {
@@ -194,6 +194,29 @@ describe("judge", () => {
     expect(result.stable).toBe(true);
     expect(result.verdict?.preference).toBe("tie");
   });
+
+  it("merges evidence and problems from both calls, so neither is lost", async () => {
+    const transport = responder(
+      answer({
+        preference: "A",
+        reasons: [{ evidence_quote: "one", explanation: "first" }],
+        problemsInA: ["p-a"],
+        problemsInB: [],
+      }),
+      answer({
+        preference: "B",
+        reasons: [{ evidence_quote: "two", explanation: "second" }],
+        problemsInA: [],
+        problemsInB: ["s-b"],
+      }),
+    );
+
+    const result = await judge(BEFORE, AFTER, connection(), config(transport, ["A", "B"]));
+
+    expect(result.verdict?.reasons.map((reason) => reason.evidence_quote)).toEqual(["one", "two"]);
+    // first names p-a under A (before); swapped names s-b under B (before).
+    expect(result.verdict?.problemsInBefore).toEqual(["p-a", "s-b"]);
+  });
 });
 
 describe("randomLabelOrder", () => {
@@ -201,6 +224,14 @@ describe("randomLabelOrder", () => {
     for (let attempt = 0; attempt < 20; attempt++) {
       expect([["A", "B"], ["B", "A"]]).toContainEqual(randomLabelOrder());
     }
+  });
+
+  it("randomises the first call's label order from Math.random", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.1);
+    expect(randomLabelOrder()).toEqual(["A", "B"]);
+    random.mockReturnValue(0.9);
+    expect(randomLabelOrder()).toEqual(["B", "A"]);
+    random.mockRestore();
   });
 
   it("swaps the labels between the two calls when no order is supplied", async () => {

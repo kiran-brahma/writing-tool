@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Interval } from "./finding";
-import { passageText, projectSelection, selectionAnchor } from "./judgeSelection";
+import { extractPassages, passageText, projectSelection, selectionAnchor } from "./judgeSelection";
 
 describe("selectionAnchor", () => {
   it("turns a canonical interval into a quote and an offset", () => {
@@ -60,5 +60,34 @@ describe("passageText", () => {
   it("slices a canonical string", () => {
     const interval: Interval = { start: 0, end: 3 };
     expect(passageText("abcdef\n", interval)).toBe("abc");
+  });
+});
+
+describe("extractPassages", () => {
+  const current = "The very good cat sat.\n";
+  const older = "The very great cat sat.\n";
+  const newer = "The very good cat sat down.\n";
+
+  function anchor() {
+    const start = current.indexOf("very good");
+    return selectionAnchor(current, { start, end: start + "very good".length })!;
+  }
+
+  it("extracts both passages before either call is made", () => {
+    const passages = extractPassages(anchor(), current, older, newer);
+
+    expect(passages.before).toBe("very great");
+    expect(passages.after).toBe("very good");
+  });
+
+  it("returns null on a side whose Revision deleted the selection", () => {
+    const passages = extractPassages(anchor(), current, "The cat sat.\n", newer);
+
+    expect(passages.before).toBeNull();
+    expect(passages.after).toBe("very good");
+  });
+
+  it("returns two nulls when there is no selection", () => {
+    expect(extractPassages(null, current, older, newer)).toEqual({ before: null, after: null });
   });
 });

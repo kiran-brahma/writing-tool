@@ -112,10 +112,10 @@ const EMPTY_SLOTS: SlotAssignment = { critic: null, judge: null };
 /**
  * Story 90: the Judge defaults to a different Connection and model from the
  * Critic, so independent judgment is the default rather than something the
- * Writer must arrange. A Connection with a usable model is preferred, then one
- * whose model differs from the Critic's; a same-model pairing is left to the
- * soft warning rather than a block. Returns null when there is no other
- * Connection to default to.
+ * Writer must arrange. A Connection on a different Protocol (Provider) whose
+ * model also differs is preferred, then a different Protocol, then a different
+ * model. A same-model pairing is left to the soft warning rather than a block.
+ * Returns null when there is no other Connection to default to.
  */
 export function defaultJudgeConnection(
   connections: Connection[],
@@ -127,10 +127,18 @@ export function defaultJudgeConnection(
 
   const criticModel = critic.model.trim();
   const usable = others.filter((connection) => connection.model.trim() !== "");
-  const differentModel = usable.find(
-    (connection) => connection.model.trim() !== criticModel,
+  const differentProvider = usable.filter(
+    (connection) => connection.protocol !== critic.protocol,
   );
-  return differentModel ?? usable[0] ?? others[0];
+  const differentModel = usable.filter((connection) => connection.model.trim() !== criticModel);
+
+  return (
+    differentProvider.find((connection) => connection.model.trim() !== criticModel) ??
+    differentProvider[0] ??
+    differentModel[0] ??
+    usable[0] ??
+    others[0]
+  );
 }
 
 /** Story 14: which Connection runs the Critic, and which the Judge. */

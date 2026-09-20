@@ -19,6 +19,15 @@ describe("wordDiff", () => {
     expect(segments.map((segment) => segment.value).join("")).toBe("one two");
   });
 
+  it("emits the exact same/removed/added sequence for a replacement", () => {
+    expect(wordDiff("one two three", "one four three")).toEqual([
+      { kind: "same", value: "one " },
+      { kind: "removed", value: "two" },
+      { kind: "added", value: "four" },
+      { kind: "same", value: " three" },
+    ]);
+  });
+
   it("reconstructs both sides from the segments", () => {
     const before = "First line.\nSecond line.";
     const after = "First line.\nA different second line.";

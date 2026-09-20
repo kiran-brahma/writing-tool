@@ -39,3 +39,30 @@ export function projectSelection(
 export function passageText(canonical: string, interval: Interval): string {
   return canonical.slice(interval.start, interval.end);
 }
+
+/** The two passages a comparison will send, each extracted from its Revision. */
+export interface ExtractedPassages {
+  before: string | null;
+  after: string | null;
+}
+
+/**
+ * Extracts the Writer's selection from both Revisions at once, so both passages
+ * are produced — and shown — before either Judge call is made. `null` on a side
+ * means the selection could not be located in that Revision, so the comparison
+ * cannot run and nothing is sent.
+ */
+export function extractPassages(
+  anchor: AnchorDraft | null,
+  currentCanonical: string,
+  beforeCanonical: string,
+  afterCanonical: string,
+): ExtractedPassages {
+  if (anchor === null) return { before: null, after: null };
+  const before = projectSelection(anchor, currentCanonical, beforeCanonical);
+  const after = projectSelection(anchor, currentCanonical, afterCanonical);
+  return {
+    before: before === null ? null : passageText(beforeCanonical, before),
+    after: after === null ? null : passageText(afterCanonical, after),
+  };
+}

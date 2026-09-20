@@ -66,7 +66,7 @@ export interface JudgeResult {
 export interface JudgeConfig {
   /** The single seam. Both calls leave through it. */
   transport: Transport;
-  /** Injectable for deterministic tests; randomised per call otherwise. */
+  /** Injectable for deterministic tests; randomised once per comparison otherwise. */
   labelOrder?: [JudgeLabel, JudgeLabel];
   maxOutputTokens?: number;
 }
@@ -132,8 +132,9 @@ function swapOrder(order: [JudgeLabel, JudgeLabel]): [JudgeLabel, JudgeLabel] {
 }
 
 /**
- * The label order for one run, randomised per call. The mapping is local: the
- * model receives only the labels, never which version sits behind them.
+ * The local label order for one comparison, randomised once and then swapped
+ * for the second call. The mapping is local: the model receives only the
+ * labels, never which version sits behind them.
  */
 export function randomLabelOrder(): [JudgeLabel, JudgeLabel] {
   return Math.random() < 0.5 ? ["A", "B"] : ["B", "A"];
@@ -178,14 +179,17 @@ function assembleResult(
   const swappedSide = sideFor(swapped.preference, swappedOrder);
   const stable = firstSide === swappedSide;
 
-  const problems = unmapProblems(first, labelOrder);
+  const firstProblems = unmapProblems(first, labelOrder);
+  const swappedProblems = unmapProblems(swapped, swappedOrder);
   const verdict: JudgeVerdict | null = stable
     ? {
         preference: firstSide,
         confidence: Math.min(first.confidence, swapped.confidence),
-        reasons: first.reasons,
-        problemsInBefore: problems.before,
-        problemsInAfter: problems.after,
+        // Both calls' evidence and problems, so the Verdict quotes each passage
+        // and a problem seen only under one label assignment is not lost.
+        reasons: dedupeReasons([...first.reasons, ...swapped.reasons]),
+        problemsInBefore: dedupe([...firstProblems.before, ...swappedProblems.before]),
+        problemsInAfter: dedupe([...firstProblems.after, ...swappedProblems.after]),
       }
     : null;
 
@@ -211,6 +215,21 @@ function unmapProblems(
     before: beforeIsA ? answer.problemsInA : answer.problemsInB,
     after: beforeIsA ? answer.problemsInB : answer.problemsInA,
   };
+}
+
+/** The two calls' evidence, with a reason the model repeated kept once. */
+function dedupeReasons(reasons: JudgeReason[]): JudgeReason[] {
+  const seen = new Set<string>();
+  return reasons.filter((reason) => {
+    const key = `${reason.evidence_quote}\u0000${reason.explanation}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 /**

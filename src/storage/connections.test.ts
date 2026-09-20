@@ -191,6 +191,21 @@ describe("defaultJudgeConnection (story 90)", () => {
     expect(judge?.id).toBe("gemini");
   });
 
+  it("prefers a different Provider over a same-Provider Connection", async () => {
+    const database = await openTestDatabase();
+    const connections = await loadOrCreateConnections(database).then((entries) =>
+      entries.map((connection) => ({ ...connection, model: "" })),
+    );
+    const critic = { ...find(connections, "openai"), model: "gpt-x" };
+    // OpenRouter shares the openai-shaped Protocol; Anthropic is a different Provider.
+    const sameProvider = { ...find(connections, "openrouter"), model: "other" };
+    const differentProvider = { ...find(connections, "anthropic"), model: "claude" };
+
+    const judge = defaultJudgeConnection([critic, sameProvider, differentProvider], critic);
+
+    expect(judge?.id).toBe("anthropic");
+  });
+
   it("returns null when there is no other Connection or no Critic", async () => {
     const database = await openTestDatabase();
     const connections = await loadOrCreateConnections(database);
