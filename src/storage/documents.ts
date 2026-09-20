@@ -111,12 +111,16 @@ export async function importDocument(
     database.documents,
     database.findings,
     database.runResponses,
+    database.readerAccounts,
     async () => {
       await database.documents.put(updated);
       await database.findings.where("documentId").equals(document.id).delete();
       // Raw responses belonged to the prose that was replaced, so they go with
       // the Findings rather than being shown against unrelated text.
       await database.runResponses.where("documentId").equals(document.id).delete();
+      // A Reader account is derived from a Section of the replaced prose, so it
+      // goes with the Findings rather than describing text that is gone.
+      await database.readerAccounts.where("documentId").equals(document.id).delete();
     },
   );
   return updated;

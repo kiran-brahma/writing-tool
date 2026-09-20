@@ -1,5 +1,4 @@
 import type { Connection } from "../wire/connection";
-import type { ModelRequest } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
 import { describeError } from "../errors";
 import { resolveAnchor } from "./anchor";
@@ -7,10 +6,10 @@ import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./chunking";
 import { applyContainment } from "./containment";
 import type { Finding, Violation } from "./finding";
 import { FINDINGS_SCHEMA } from "./findingsSchema";
+import { buildPassRequest, provenanceFor } from "./modelCall";
 import { hashPass, type Pass } from "./pass";
 import { parseFindings, UnsupportedOutputShapeError } from "./parseFindings";
-import { fillPrompt, type PromptValues } from "./prompt";
-import { SCREENING_FRAME } from "./screeningFrame";
+import { fillPrompt, promptValues } from "./prompt";
 import type { Target } from "./target";
 
 /** The Target shape is part of the entry point's contract; export it here too. */
@@ -46,8 +45,6 @@ export interface RunResult {
    */
   chunks: number;
 }
-
-const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 /**
  * What the most recent Run reported for one Pass: its Containment count and the
@@ -122,16 +119,15 @@ async function critiqueOnce(
   connection: Connection,
   config: RunConfig,
 ): Promise<RunResult> {
-  const prompt = fillPrompt(pass.prompt ?? "", valuesFor(target));
-  const request: ModelRequest = {
+  const prompt = fillPrompt(pass.prompt ?? "", promptValues(target));
+  const request = buildPassRequest({
+    pass,
     connection,
-    model: connection.model,
-    messages: [{ role: "user", content: prompt }],
-    maxOutputTokens: config.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-    temperature: 0,
-    jsonSchema: FINDINGS_SCHEMA,
-    ...(config.screeningFrame && pass.slot === "critic" ? { system: SCREENING_FRAME } : {}),
-  };
+    prompt,
+    schema: FINDINGS_SCHEMA,
+    screeningFrame: config.screeningFrame,
+    ...(config.maxOutputTokens === undefined ? {} : { maxOutputTokens: config.maxOutputTokens }),
+  });
 
   const rawResponse = await config.transport.send(request);
   const parsed = parseFindings(rawResponse, pass.output);
@@ -150,12 +146,7 @@ async function critiqueOnce(
     diagnosis: draft.diagnosis,
     ...(draft.pattern === undefined ? {} : { pattern: draft.pattern }),
     status: "open",
-    provenance: {
-      providerId: connection.id,
-      model: connection.model,
-      at: now,
-      revisionId: config.revisionId,
-    },
+    provenance: provenanceFor(connection, config.revisionId, now),
     ...(draft.violations.length === 0 ? {} : { violations: draft.violations }),
   }));
 
@@ -204,21 +195,5 @@ function mergeChunks(results: RunResult[], canonical: string): RunResult {
     rawResponse: results.map((result) => result.rawResponse).join("\n\n--- chunk ---\n\n"),
     fromCache: false,
     chunks: results.length,
-  };
-}
-
-/** The placeholder values a Pass's scope permits, all carried on the Target. */
-function valuesFor(target: Target): PromptValues {
-  return {
-    title: target.title,
-    outline: target.outline,
-    // The Target placeholder is always the text the Run was asked about.
-    target: target.text,
-    context_above: target.contextAbove,
-    context_below: target.contextBelow,
-    // The Document text this Target exposes: the whole Document for a
-    // structural Target sent in one call, one chunk of it for a chunked Run,
-    // empty for a local Target. The Target decides it, not the caller.
-    document: target.documentText,
   };
 }

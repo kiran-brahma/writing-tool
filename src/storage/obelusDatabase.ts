@@ -2,6 +2,8 @@ import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
+import type { ReaderAccount } from "../core/reader";
+import type { SectionRef } from "../core/sections";
 import type { Connection } from "../wire/connection";
 
 /**
@@ -43,6 +45,21 @@ export interface FindingRecord extends Finding {
 }
 
 /**
+ * A Reader account as stored, derived from a Section. It carries the Section's
+ * identity so an account can be shown against the heading it was about, and the
+ * `passId`/`promptHash` that produced it so a re-run replaces its own accounts
+ * and a reload can still name the Pass. It is a separate record kind from a
+ * Finding: reader output never mixes with the queue that still needs work.
+ */
+export interface ReaderAccountRecord extends ReaderAccount {
+  id: string;
+  documentId: string;
+  passId: string;
+  promptHash: string;
+  section: SectionRef;
+}
+
+/**
  * The raw provider response behind a model Run, kept so the global
  * "show raw response" toggle can expose it for any Finding — including one
  * loaded after a reload. Keyed by Document, Pass and `promptHash`, so a Finding
@@ -67,7 +84,7 @@ export interface SettingsRecord {
   value: unknown;
 }
 
-export const OBELUS_DATABASE_VERSION = 5;
+export const OBELUS_DATABASE_VERSION = 6;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -95,6 +112,7 @@ export class ObelusDatabase extends Dexie {
   connections!: Table<Connection, string>;
   settings!: Table<SettingsRecord, string>;
   runResponses!: Table<RunResponseRecord, [string, string, string]>;
+  readerAccounts!: Table<ReaderAccountRecord, string>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
@@ -143,6 +161,20 @@ export class ObelusDatabase extends Dexie {
       connections: "id, builtIn",
       settings: "key",
       runResponses: "[documentId+passId+promptHash], documentId",
+    });
+    // Migration 6: Reader accounts, the repository #11 introduces. Additive: a
+    // new store for the Reader pass's own output shape, and nothing existing is
+    // rewritten. A Reader account is derived from a Section, so it is keyed by
+    // Document and Pass and carries the Section's identity.
+    this.version(6).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
+      connections: "id, builtIn",
+      settings: "key",
+      runResponses: "[documentId+passId+promptHash], documentId",
+      readerAccounts: "id, documentId, [documentId+passId]",
     });
   }
 }

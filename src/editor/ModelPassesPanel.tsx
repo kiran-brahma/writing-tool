@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MIN_CHARACTER_LIMIT } from "../core/chunking";
 import type { RunReport } from "../core/critique";
-import { structuralPasses, type Pass } from "../core/pass";
+import { isFindingsPass, structuralPasses, type Pass } from "../core/pass";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
 import { splitViolations } from "./violationMarks";
 
@@ -13,6 +13,11 @@ import { splitViolations } from "./violationMarks";
  * object, because there is no streaming in v1. When Containment drops an Anchor
  * the count is shown here, so the Writer knows the model tried to speak about
  * text it was not asked about.
+ *
+ * Only `findings`-output Passes appear here: a Reader pass returns a Reader
+ * account, which its own tab owns, and a `note` Pass would belong to the
+ * Workbench. Listing one here would offer a Run whose output this panel cannot
+ * show.
  *
  * The Screening frame toggle is global and applies to critic Passes only; the
  * Judge, when it arrives, never receives it.
@@ -60,7 +65,7 @@ export function ModelPassesPanel({
   onToggleScreening,
   onSetCharacterLimit,
 }: ModelPassesPanelProps) {
-  const modelPasses = passes.filter((pass) => pass.kind === "model");
+  const modelPasses = passes.filter((pass) => pass.kind === "model" && isFindingsPass(pass));
   const hasStructuralPasses = structuralPasses(passes).length > 0;
   const busy = runningPassId !== null || structuralRunning;
   const pastLimit = hasStructuralPasses && documentLength > characterLimit;

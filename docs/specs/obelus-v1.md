@@ -214,6 +214,7 @@ Entry points above the seam:
 
 ```
 critique(target: Target, pass: Pass, connection: Connection, config: RunConfig): Promise<RunResult>
+readSection(target: Target, pass: Pass, connection: Connection, config: RunConfig): Promise<ReaderRunResult>
 judge(before: string, after: string, connection: Connection, config: JudgeConfig): Promise<JudgeResult>
 resolveAnchor(anchor: Anchor, current: string, provenance: string): Interval | Orphaned
 projectInterval(tree: DocTree, interval: Interval): EditorRange
@@ -221,6 +222,7 @@ canonicalText(tree: DocTree): string
 runRulePass(canonical: string, ruleConfig: RuleConfig): Finding[]
 lintViolations(raw: string): Violation[]
 parseFindings(raw: string, shape: OutputShape): Finding[]
+parseReaderAccount(raw: string): ParsedReaderAccount
 ```
 
 ### Protocols — verified facts
@@ -406,6 +408,28 @@ struck through, not removed**, so prompt drift stays visible. A global "show raw
 exposes `rawResponse` for any finding. `chunks` is story 50's: a document-scope Run past the
 character limit is sent Section by Section, and this reports how many calls it took (`1` when the
 Document fit in a single call).
+
+### Reader account
+
+The `section-summary` output shape, and the Reader pass's output instead of Findings. One model
+call per Section returns the three fields below, and the account is stored as its own record kind —
+it never enters the Findings queue. A Reader account is analysis, so its schema is closed like the
+Findings schema and carries no field for rewritten prose.
+
+```
+ReaderAccount {
+  section: { heading: string; level: number; headingBlockIndex: number }
+  whatItSays: string
+  whatIsMissed: string
+  gap: string
+  provenance: { providerId: string; model: string; at: number; revisionId: string }
+  violations?: Violation[]
+}
+```
+
+`ReaderRunResult` carries the account, the whole response's `violations`, and `rawResponse`. A
+Reader account's `violations` are **struck through on display**, and a rewrite caught by the linter
+is quarantined like any other.
 
 ### Judge protocol
 

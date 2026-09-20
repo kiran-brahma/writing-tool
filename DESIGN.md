@@ -117,7 +117,7 @@ constitution-safe *by construction*: a rule cannot suggest a word or praise you.
 5. Repetition — same non-stopword lemma within N sentences; repeated sentence openers
 6. Sentence metrics — length and variance, adverb density, longest sentence
 
-**Model passes (judgment; a rule cannot do this).** Enabled by default: 8, 10, 11, 12, 13.
+**Model passes (judgment; a rule cannot do this).** Enabled by default: 8, 10, 11, 12, 13, 14.
 Shipped but off by default: 7, 9.
 
 7. Characters & actions — is the actor the subject, or is the verb buried in a noun

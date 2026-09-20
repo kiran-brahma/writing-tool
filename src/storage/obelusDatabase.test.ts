@@ -91,12 +91,13 @@ describe("openObelusDatabase", () => {
   it("creates the current schema with a repository per record kind", async () => {
     const database = await openTestDatabase();
 
-    expect(database.verno).toBe(5);
+    expect(database.verno).toBe(6);
     expect(database.tables.map((table) => table.name).sort()).toEqual([
       "connections",
       "documents",
       "findings",
       "passes",
+      "readerAccounts",
       "revisions",
       "runResponses",
       "settings",
@@ -125,7 +126,7 @@ describe("openObelusDatabase", () => {
     const database = await openObelusDatabase(name);
     openedDatabases.push(database);
 
-    expect(database.verno).toBe(5);
+    expect(database.verno).toBe(6);
     await expect(database.documents.get("default")).resolves.toMatchObject({
       title: "Legacy prose",
     });
@@ -160,7 +161,7 @@ describe("openObelusDatabase", () => {
     const database = await openObelusDatabase(name);
     openedDatabases.push(database);
 
-    expect(database.verno).toBe(5);
+    expect(database.verno).toBe(6);
     await expect(database.findings.get("finding-1")).resolves.toMatchObject({ issue: "Hedge" });
     expect(database.tables.map((table) => table.name)).toContain("passes");
   });
@@ -181,7 +182,7 @@ describe("openObelusDatabase", () => {
     const database = await openObelusDatabase(name);
     openedDatabases.push(database);
 
-    expect(database.verno).toBe(5);
+    expect(database.verno).toBe(6);
     await expect(database.passes.get("hedges")).resolves.toMatchObject({ name: "Hedges" });
     expect(database.tables.map((table) => table.name)).toContain("connections");
     expect(database.tables.map((table) => table.name)).toContain("settings");
@@ -206,16 +207,48 @@ describe("openObelusDatabase", () => {
     const database = await openObelusDatabase(name);
     openedDatabases.push(database);
 
-    expect(database.verno).toBe(5);
+    expect(database.verno).toBe(6);
     await expect(database.settings.get("slots")).resolves.toMatchObject({
       value: { critic: "openai" },
     });
     expect(database.tables.map((table) => table.name)).toContain("runResponses");
   });
 
+  it("adds the readerAccounts store without touching runResponses or settings", async () => {
+    const name = uniqueName();
+    const legacy = new Dexie(name);
+    legacy.version(5).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
+      connections: "id, builtIn",
+      settings: "key",
+      runResponses: "[documentId+passId+promptHash], documentId",
+    });
+    await legacy.open();
+    await legacy.table("runResponses").put({
+      documentId: "default",
+      passId: "cliche",
+      promptHash: "hash",
+      rawResponse: "{}",
+      at: 1,
+    });
+    legacy.close();
+
+    const database = await openObelusDatabase(name);
+    openedDatabases.push(database);
+
+    expect(database.verno).toBe(6);
+    await expect(
+      database.runResponses.get(["default", "cliche", "hash"]),
+    ).resolves.toMatchObject({ rawResponse: "{}" });
+    expect(database.tables.map((table) => table.name)).toContain("readerAccounts");
+  });
+
   it("refuses a database newer than the running code, leaving it intact", async () => {
     const name = uniqueName();
-    await createRawDatabase(name, 60, "future-prose");
+    await createRawDatabase(name, 70, "future-prose");
 
     await expect(openObelusDatabase(name)).rejects.toBeInstanceOf(NewerDatabaseError);
     await expect(openObelusDatabase(name)).rejects.toThrow(/newer Obelus database[\s\S]*will not downgrade/);

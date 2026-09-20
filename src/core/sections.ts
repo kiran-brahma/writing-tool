@@ -24,6 +24,13 @@ export interface Section {
 }
 
 /**
+ * The identity of a Section, without its interval: what a stored Reader account
+ * needs to say which Section it is about. Derived from `Section` so the two
+ * cannot drift apart.
+ */
+export type SectionRef = Pick<Section, "heading" | "level" | "headingBlockIndex">;
+
+/**
  * The heading lines of a Document, in document order, rendered as their
  * canonical Markdown source (`# Title`). This is the `{{outline}}` a Pass
  * receives: headings only, never body text, so a local Pass can place a

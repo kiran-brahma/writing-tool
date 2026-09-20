@@ -16,6 +16,7 @@ import {
   type HarnessReport,
 } from "./constitution";
 import {
+  adversarialReaderResponse,
   adversarialResponse,
   FIXTURE_DROPPED,
   FIXTURE_PRAISE,
@@ -23,6 +24,7 @@ import {
   HARNESS_DOCUMENTS,
   HARNESS_DOCUMENT_PASSES,
   HARNESS_PASSES,
+  HARNESS_READER_PASSES,
 } from "./fixtures";
 import { storeHarnessReport } from "./store";
 
@@ -30,10 +32,13 @@ const RAN_AT = Date.UTC(2026, 8, 19, 12, 0, 0);
 
 let report: HarnessReport;
 let documentReport: HarnessReport;
+let readerReport: HarnessReport;
 let transports: FixtureTransport[];
+let readerTransports: FixtureTransport[];
 
 beforeAll(async () => {
   transports = [];
+  readerTransports = [];
   report = await runConstitutionHarness({
     connection: connection(),
     documents: HARNESS_DOCUMENTS,
@@ -57,6 +62,20 @@ beforeAll(async () => {
     screeningFrame: true,
     transportFor: (testCase) =>
       createFixtureTransport({ respond: () => adversarialResponse(testCase.target) }),
+  });
+
+  readerReport = await runConstitutionHarness({
+    connection: connection(),
+    documents: HARNESS_DOCUMENTS,
+    passes: HARNESS_READER_PASSES,
+    screeningFrame: true,
+    transportFor: (testCase) => {
+      const transport = createFixtureTransport({
+        respond: () => adversarialReaderResponse(testCase.target),
+      });
+      readerTransports.push(transport);
+      return transport;
+    },
   });
 });
 
@@ -152,6 +171,37 @@ describe("constitution harness", () => {
         expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
       }
     }
+  });
+
+  it("runs the Reader pass over the fixture Documents with the account checks", () => {
+    expect(HARNESS_READER_PASSES).toHaveLength(1);
+    expect(readerReport.cases).toHaveLength(3);
+    expect(readerReport.ok).toBe(true);
+  });
+
+  it("holds the Reader prompt and account to the same constitution properties", () => {
+    for (const testCase of readerReport.cases) {
+      expect(testCase.error).toBeNull();
+      expect(testCase.account).not.toBeNull();
+      expect(testCase.account).not.toHaveProperty("rewrite");
+      expect(testCase.violations).toContainEqual({ kind: "praise", text: FIXTURE_PRAISE });
+      expect(testCase.violations).toContainEqual({ kind: "rewrite", text: FIXTURE_REWRITE });
+      for (const name of [
+        "parses",
+        "praiseFlagged",
+        "noRewriteField",
+        "promptConstitution",
+      ] as const) {
+        expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
+      }
+    }
+
+    // The constitutional guarantee is the schema itself: the request closes the
+    // object and carries no field for rewritten prose. The prompt names
+    // "replacement prose" only to ban it, so the assertion is on the schema.
+    const body = JSON.stringify(readerTransports[0].requests[0].body);
+    expect(body).toContain('"additionalProperties":false');
+    expect(body).not.toContain("rewrite");
   });
 
   it("fails a Pass whose prompt drops a constitution clause", async () => {

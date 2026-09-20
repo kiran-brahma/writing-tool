@@ -9,6 +9,13 @@ export type PassScope = "document" | "section" | "paragraph";
 export type OutputShape = "findings" | "section-summary" | "note";
 export type Slot = "critic";
 
+/**
+ * The output shape of the Reader pass. One name for it, so the UI, the storage
+ * runner, the Core entry point and the harness cannot disagree about which
+ * shape is a Reader account.
+ */
+export const READER_OUTPUT: OutputShape = "section-summary";
+
 export interface RuleConfig {
   hedges?: string[];
   wordiness?: [string, string][];
@@ -69,4 +76,14 @@ export function structuralPasses(passes: Pass[]): Pass[] {
   return passes.filter(
     (pass) => pass.kind === "model" && pass.scope === "document" && pass.enabled,
   );
+}
+
+/** True for a Pass whose output is a Reader account rather than Findings. */
+export function isReaderPass(pass: Pass): boolean {
+  return pass.output === READER_OUTPUT;
+}
+
+/** True for a Pass whose output is Findings, the queue's own shape. */
+export function isFindingsPass(pass: Pass): boolean {
+  return pass.output === "findings";
 }

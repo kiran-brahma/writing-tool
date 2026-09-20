@@ -5,6 +5,7 @@ import {
   CLICHE_PASS,
   CUT_CANDIDATES_PASS,
   PARAGRAPH_REORDER_PASS,
+  READER_PASS,
   TOPIC_STRINGS_PASS,
 } from "../src/core/starterPasses";
 import type { Target } from "../src/core/critique";
@@ -140,6 +141,13 @@ export const HARNESS_PASSES: Pass[] = [CLICHE_PASS, CLAIM_STRENGTH_PASS, CUT_CAN
 export const HARNESS_DOCUMENT_PASSES: Pass[] = [TOPIC_STRINGS_PASS, PARAGRAPH_REORDER_PASS];
 
 /**
+ * The Reader pass, run as a third matrix. Its output shape is a Reader account
+ * rather than Findings, so it exercises the section-scope prompt and the
+ * account parser: no Anchor to contain, but the same linter and rewrite checks.
+ */
+export const HARNESS_READER_PASSES: Pass[] = [READER_PASS];
+
+/**
  * The misbehaving model response every case receives. It carries:
  * - a kept Finding whose diagnosis is praise, which the linter must flag;
  * - a Finding anchored in the context above the target, which Containment must drop;
@@ -174,4 +182,22 @@ export function adversarialResponse(target: Target): string {
       },
     ],
   });
+}
+
+/**
+ * The misbehaving Reader response every Reader case receives. It carries the
+ * same three breaches in the account's shape: praise the linter must flag, an
+ * out-of-schema `rewrite` string that must be quarantined rather than kept, and
+ * a valid account so the case still parses.
+ */
+export function adversarialReaderResponse(_target: Target): string {
+  const account = JSON.stringify({
+    what_this_section_says: "It sets up the piece.",
+    what_a_distracted_reader_would_miss: "The turn in the argument.",
+    gap_between_intent_and_effect: "The claim arrives before its reason.",
+    rewrite: FIXTURE_REWRITE,
+  });
+  // The praise sits in the prose around the JSON, so the harness proves the
+  // Reader path lints the whole response, not only the account's fields.
+  return `This is ${FIXTURE_PRAISE}, honestly.\n${account}`;
 }

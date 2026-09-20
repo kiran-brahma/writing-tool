@@ -1,7 +1,7 @@
 import type { Violation } from "./finding";
 import { FINDING_FIELDS } from "./findingsSchema";
 import { lintViolations, dedupeViolations } from "./lintViolations";
-import { isRecord } from "./parseJson";
+import { isRecord, stringOrNull } from "./parseJson";
 import type { OutputShape } from "./pass";
 
 /**
@@ -35,7 +35,7 @@ export interface ParsedFindings {
 
 export class UnsupportedOutputShapeError extends Error {
   constructor(shape: OutputShape) {
-    super(`The "${shape}" output shape is not implemented yet.`);
+    super(`The "${shape}" output shape cannot be read by this parser.`);
     this.name = "UnsupportedOutputShapeError";
   }
 }
@@ -176,9 +176,6 @@ function candidatesOf(value: unknown): unknown[] {
   return [];
 }
 
-/** The schema's closed field set. Anything else the model returns is a breach. */
-const KNOWN_FIELDS = new Set(FINDING_FIELDS);
-
 /**
  * The fields the model authors. `quote` is deliberately absent: a Finding that
  * survives Containment quotes text that resolves inside the Target, so the
@@ -186,6 +183,11 @@ const KNOWN_FIELDS = new Set(FINDING_FIELDS);
  * the model, and CONTEXT.md defines a Violation as never about the prose.
  */
 const AUTHORED_FIELDS = ["issue", "diagnosis", "pattern"];
+
+/** Known fields the model does not author, so a string there is not a breach. */
+const NON_AUTHORED_KNOWN_FIELDS = new Set(
+  FINDING_FIELDS.filter((field) => !AUTHORED_FIELDS.includes(field)),
+);
 
 function validateFinding(candidate: unknown): FindingDraft | null {
   if (!isRecord(candidate)) return null;
@@ -208,36 +210,48 @@ function validateFinding(candidate: unknown): FindingDraft | null {
 }
 
 /**
- * Praise and rewrite-shaped content in this candidate: the fields the model
+ * Praise and rewrite-shaped content in a returned record: the fields the model
  * authored, plus every string under any other field. The schema's field set is
  * closed, so an out-of-schema string is both linted — praise in it is named as
  * praise — and quarantined whole as a rewrite, since no out-of-schema field may
  * carry model prose toward a Document. Fields are never joined, so two adjacent
  * values cannot manufacture a phrase neither one contains.
+ *
+ * One function for both output shapes, parameterized by the authored field set,
+ * so the Findings parser and the Reader parser cannot enforce different linter
+ * policies.
  */
-function violationsOf(candidate: Record<string, unknown>): Violation[] {
+export function violationsForFields(
+  value: Record<string, unknown>,
+  authoredFields: readonly string[],
+  ignoredKnownFields: ReadonlySet<string> = new Set(),
+): Violation[] {
   const authored: string[] = [];
   const breaches: unknown[] = [];
 
-  for (const [key, value] of Object.entries(candidate)) {
-    if (AUTHORED_FIELDS.includes(key) && typeof value === "string") {
-      authored.push(value);
-    } else if (KNOWN_FIELDS.has(key) && typeof value === "string") {
+  for (const [key, field] of Object.entries(value)) {
+    if (authoredFields.includes(key) && typeof field === "string") {
+      authored.push(field);
+    } else if (ignoredKnownFields.has(key) && typeof field === "string") {
       // A known field the model does not author, such as the Writer's `quote`.
       continue;
     } else {
-      breaches.push(value);
+      breaches.push(field);
     }
   }
 
   return dedupeViolations([
     ...authored.flatMap((text) => lintViolations(text)),
-    ...breaches.flatMap((value) => outOfSchemaViolations(value)),
+    ...breaches.flatMap((field) => outOfSchemaViolations(field)),
   ]);
 }
 
+function violationsOf(candidate: Record<string, unknown>): Violation[] {
+  return violationsForFields(candidate, AUTHORED_FIELDS, NON_AUTHORED_KNOWN_FIELDS);
+}
+
 /** Every string at or below `value`: linted for praise and quarantined whole. */
-function outOfSchemaViolations(value: unknown): Violation[] {
+export function outOfSchemaViolations(value: unknown): Violation[] {
   const strings: string[] = [];
   collectStrings(value, strings);
 
@@ -262,10 +276,6 @@ function collectStrings(value: unknown, strings: string[]): void {
   if (isRecord(value)) {
     for (const child of Object.values(value)) collectStrings(child, strings);
   }
-}
-
-function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
 function integerOrZero(value: unknown): number {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import type { Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
+import { isReaderPass } from "./core/pass";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
@@ -9,6 +10,7 @@ import { JudgePanel } from "./editor/JudgePanel";
 import { MetricsPanel } from "./editor/MetricsPanel";
 import { ModelPassesPanel } from "./editor/ModelPassesPanel";
 import { OutlinePanel } from "./editor/OutlinePanel";
+import { ReaderPanel } from "./editor/ReaderPanel";
 import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
@@ -45,6 +47,11 @@ export default function App() {
     setCharacterLimit,
     documentChunks,
     rawResponses,
+    readerAccounts,
+    readerRunning,
+    readerStartedAt,
+    readerError,
+    runReaderPass,
     judgeResult,
     judgeError,
     judgeRunning,
@@ -72,6 +79,8 @@ export default function App() {
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
+  /** Stories 91–93: the sidebar's two tabs keep Reader output apart from the queue. */
+  const [sidebarTab, setSidebarTab] = useState<"findings" | "reader">("findings");
   const [importError, setImportError] = useState<string | null>(null);
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
@@ -85,6 +94,12 @@ export default function App() {
 
   const openQueue = useMemo(() => openFindings(findings, passes), [findings, passes]);
   const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
+
+  /** The Passes whose output shape is a Reader account; the Reader tab owns them. */
+  const readerPasses = useMemo(
+    () => passes.filter((pass) => pass.kind === "model" && isReaderPass(pass)),
+    [passes],
+  );
 
   /** Story 25: the outline, derived from the Document's headings. */
   const outlineSections = useMemo(
@@ -136,6 +151,10 @@ export default function App() {
       if (event.defaultPrevented) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
+      // The queue's keys belong to the Findings tab. On the Reader tab the
+      // queue is not on screen, so a stray `a`/`x`/`v` must not mutate it
+      // invisibly.
+      if (sidebarTab !== "findings") return;
 
       if (event.key === "j" || event.key === "k") {
         event.preventDefault();
@@ -165,7 +184,7 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openQueue, currentFindingId, currentFinding, leaveQueue, markAddressed, decline]);
+  }, [openQueue, currentFindingId, currentFinding, leaveQueue, markAddressed, decline, sidebarTab]);
 
   if (status === "loading") {
     return (
@@ -280,31 +299,61 @@ export default function App() {
           <MetricsPanel canonical={document?.canonical ?? ""} />
 
           <section className="border-b border-stone-300 bg-stone-100/60">
-            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
-              <h2 className="text-sm font-semibold">Findings</h2>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-xs text-stone-600">
-                  <input
-                    type="checkbox"
-                    checked={showRawResponse}
-                    onChange={(event) => setShowRawResponse(event.target.checked)}
-                  />
-                  Raw response
-                </label>
-                <span className="text-xs text-stone-500">{openQueue.length} open</span>
+            <div className="flex items-center justify-between border-b border-stone-200 pr-4">
+              <div className="flex" role="tablist" aria-label="Analysis views">
+                <SidebarTab
+                  label="Findings"
+                  active={sidebarTab === "findings"}
+                  onClick={() => setSidebarTab("findings")}
+                />
+                <SidebarTab
+                  label="Reader accounts"
+                  active={sidebarTab === "reader"}
+                  onClick={() => setSidebarTab("reader")}
+                />
               </div>
+              {sidebarTab === "findings" ? (
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                    <input
+                      type="checkbox"
+                      checked={showRawResponse}
+                      onChange={(event) => setShowRawResponse(event.target.checked)}
+                    />
+                    Raw response
+                  </label>
+                  <span className="text-xs text-stone-500">{openQueue.length} open</span>
+                </div>
+              ) : (
+                <span className="text-xs text-stone-500">
+                  {readerAccounts.length} account{readerAccounts.length === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
-            <FindingsSidebar
-              findings={findings}
-              passes={passes}
-              currentFindingId={currentFindingId}
-              onSelect={setCurrentFindingId}
-              showRawResponse={showRawResponse}
-              rawResponses={rawResponses}
-              onDecline={(findingId, reason) =>
-                void leaveQueue(findingId, () => decline(findingId, reason))
-              }
-            />
+            {sidebarTab === "findings" ? (
+              <FindingsSidebar
+                findings={findings}
+                passes={passes}
+                currentFindingId={currentFindingId}
+                onSelect={setCurrentFindingId}
+                showRawResponse={showRawResponse}
+                rawResponses={rawResponses}
+                onDecline={(findingId, reason) =>
+                  void leaveQueue(findingId, () => decline(findingId, reason))
+                }
+              />
+            ) : (
+              <ReaderPanel
+                passes={readerPasses}
+                accounts={readerAccounts}
+                running={readerRunning}
+                runningSince={readerStartedAt}
+                error={readerError}
+                criticName={criticConnection?.name ?? null}
+                onRun={(passId) => void runReaderPass(passId)}
+                onToggle={(passId, enabled) => void togglePass(passId, enabled)}
+              />
+            )}
           </section>
 
           <RulePassesPanel
@@ -417,6 +466,33 @@ export default function App() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/** A sidebar tab: Findings stays the default, Reader its own view. */
+function SidebarTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={
+        active
+          ? "border-b-2 border-stone-900 px-4 py-2 text-sm font-semibold text-stone-900"
+          : "border-b-2 border-transparent px-4 py-2 text-sm font-medium text-stone-500 hover:text-stone-700"
+      }
+    >
+      {label}
+    </button>
   );
 }
 

@@ -1,7 +1,7 @@
 import { canonicalBlocks, canonicalText } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import type { Pass } from "./pass";
-import { outline, sectionAt, sections } from "./sections";
+import { outline, sectionAt, sections, type Section } from "./sections";
 import type { Target } from "./target";
 
 /**
@@ -44,6 +44,32 @@ export function passContext(
 }
 
 /**
+ * The Target for one Section, from a canonical string and outline a caller has
+ * already rendered. A Reader run builds these once for the whole Document
+ * rather than re-rendering the canonical string for every Section, and the
+ * Section-scope resolver below uses it too.
+ */
+export function sectionTarget(
+  canonical: string,
+  outlineText: string,
+  section: Section,
+  title: string,
+): Target {
+  return {
+    canonical,
+    interval: section.interval,
+    text: canonical.slice(section.interval.start, section.interval.end),
+    title,
+    outline: outlineText,
+    contextAbove: "",
+    contextBelow: "",
+    // The Section is the Target; the whole Document is not handed to it, and a
+    // Section Target is not split.
+    documentText: "",
+  };
+}
+
+/**
  * The Target a section-scope model Pass is shown: one Section — its heading plus
  * the body that follows it — with the heading outline. Story 25 makes the
  * Section a thing a Pass can reason about, so a section Pass is bounded by the
@@ -57,20 +83,7 @@ export function sectionContext(
 ): Target | null {
   const section = sectionAt(tree, blockIndex);
   if (section === null) return null;
-
-  const canonical = canonicalText(tree);
-  return {
-    canonical,
-    interval: section.interval,
-    text: canonical.slice(section.interval.start, section.interval.end),
-    title,
-    outline: outline(tree),
-    contextAbove: "",
-    contextBelow: "",
-    // The Section is the Target; the whole Document is not handed to it, and a
-    // Section Target is not split.
-    documentText: "",
-  };
+  return sectionTarget(canonicalText(tree), outline(tree), section, title);
 }
 
 /**

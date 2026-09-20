@@ -37,6 +37,7 @@ describe("loadOrCreatePasses", () => {
       "cut-candidates",
       "cliche",
       "claim-strength",
+      "reader",
     ]);
     expect(passes.filter((pass) => pass.kind === "rule").map((pass) => pass.id)).toEqual([
       "hedges",
@@ -53,6 +54,7 @@ describe("loadOrCreatePasses", () => {
       "cut-candidates",
       "cliche",
       "claim-strength",
+      "reader",
     ]);
   });
 

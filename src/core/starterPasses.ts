@@ -172,6 +172,30 @@ const PARAGRAPH_REPORTING_CLAUSE =
   "paragraph. Do not praise the writing and do not suggest replacement prose.";
 
 /**
+ * The prompt shape every section-scope model Pass shares: the task and one
+ * Section — its heading plus the body that follows it — with the heading
+ * outline. The Section is the unit a Reader account is derived from, so the
+ * prompt names it as the only target and never hands over a neighbouring one.
+ */
+export function sectionPassPrompt(intro: string, task: string): string {
+  return [
+    intro,
+    "",
+    "Analyze only the section below.",
+    "",
+    "Title: {{title}}",
+    "",
+    "Outline (headings only):",
+    "{{outline}}",
+    "",
+    "SECTION:",
+    "{{target}}",
+    "",
+    task,
+  ].join("\n");
+}
+
+/**
  * The prompt shape every document-scope (structural) model Pass shares: the
  * task and the whole Document. Story 48 is why the Document is here at all — a
  * Pass asked to reason about Paragraph order must be able to see the order. It
@@ -196,6 +220,17 @@ export function documentPassPrompt(intro: string, task: string): string {
     task,
   ].join("\n");
 }
+
+/**
+ * The reporting clause every section-scope model Pass shares. It carries the
+ * two clauses the constitution harness checks for — no praise and no
+ * replacement prose — and names the three Reader-account fields the model must
+ * return, so a Reader prompt cannot drop one by accident.
+ */
+const SECTION_REPORTING_CLAUSE =
+  "Return what_this_section_says, what_a_distracted_reader_would_miss and " +
+  "gap_between_intent_and_effect. Report only on this section. Do not praise the " +
+  "writing and do not suggest replacement prose.";
 
 /**
  * The reporting clause every document-scope model Pass shares. It carries the
@@ -415,11 +450,39 @@ export const PARAGRAPH_REORDER_PASS: Pass = {
 };
 
 /**
+ * Story 91–93: the Reader pass. A section-scope model Pass whose output shape
+ * is a Reader account rather than Findings — what the Section says, what a
+ * distracted reader would miss, and the gap between the two. Running it reads
+ * every Section once (DESIGN §6), and its accounts are shown in their own tab,
+ * never mixed with the queue that still needs work.
+ */
+export const READER_PASS: Pass = {
+  id: "reader",
+  name: "Reader pass",
+  description: "Reconstructs what each Section communicates, and what a distracted reader would miss.",
+  kind: "model",
+  scope: "section",
+  output: "section-summary",
+  slot: "critic",
+  enabled: true,
+  prompt: sectionPassPrompt(
+    "Read one section of a piece of writing as a reader who is not its author.",
+    [
+      "Reconstruct what this section communicates, name what a distracted reader would",
+      "miss, and state the gap between what the section set out to do and what it does.",
+      "Ground each part in what the section actually says.",
+      SECTION_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/**
  * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
  * the model passes in the same order: characters and actions (off), topic
  * strings and stress position, paragraphs that could move (off), paragraph
  * unity, cut candidates, cliché and headline-ese (the one #4 shipped), claim
- * strength. The document-scope model passes ship with #7.
+ * strength, and the Reader pass (#11). The document-scope model passes ship
+ * with #7; the Reader pass ships with #11.
  *
  * `enabled` here is only the default: the Writer's toggle is persisted, and
  * `loadOrCreatePasses` seeds a Starter pass only when its id is missing, so an
@@ -438,4 +501,5 @@ export const STARTER_PASSES: Pass[] = [
   CUT_CANDIDATES_PASS,
   CLICHE_PASS,
   CLAIM_STRENGTH_PASS,
+  READER_PASS,
 ];

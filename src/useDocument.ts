@@ -9,8 +9,9 @@ import {
   sameModelWarning as sameModelWarningFor,
   type JudgeResult,
 } from "./core/judge";
-import { structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
+import { isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
 import { documentContext, targetForPass } from "./core/passContext";
+import { sections } from "./core/sections";
 import { STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
@@ -40,6 +41,7 @@ import {
   openObelusDatabase,
   type DocumentRecord,
   type ObelusDatabase,
+  type ReaderAccountRecord,
   type RevisionRecord,
 } from "./storage/obelusDatabase";
 import {
@@ -50,6 +52,7 @@ import {
 import { listRevisions, takeRevision } from "./storage/revisions";
 import { runRulePasses } from "./storage/ruleRuns";
 import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
+import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
 import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
 import { createCustomConnection, type Connection } from "./wire/connection";
 import { createFetchTransport, type Transport } from "./wire/transport";
@@ -99,6 +102,16 @@ export interface DocumentHandle {
   documentChunks: number;
   /** Story 73: every model Run's raw response, keyed by Pass id. */
   rawResponses: Record<string, string>;
+  /** Stories 91–93: the Reader accounts stored for the Document, in Section order. */
+  readerAccounts: ReaderAccountRecord[];
+  /** True while the Reader pass is reading the Document's Sections. */
+  readerRunning: boolean;
+  /** When the running Reader pass started, for the elapsed timer. */
+  readerStartedAt: number | null;
+  /** A Reader run's failure, surfaced verbatim rather than swallowed. */
+  readerError: string | null;
+  /** Stories 91–93: run the Reader pass over every Section, one call each. */
+  runReaderPass: (passId: string) => Promise<void>;
   /** The Judge's answer for the comparison the Writer ran, or null. */
   judgeResult: JudgeResult | null;
   /** A Judge run's failure, surfaced verbatim rather than swallowed. */
@@ -154,6 +167,12 @@ export function useDocument(): DocumentHandle {
   const canonicalsRef = useRef<Map<string, string>>(new Map());
   const passesRef = useRef<Pass[]>(STARTER_PASSES);
   const transportRef = useRef<Transport | null>(null);
+  /**
+   * The canonical string last saved or last read. Reader accounts describe a
+   * specific text, so a save whose canonical differs clears them rather than
+   * showing them against prose they never read.
+   */
+  const savedCanonicalRef = useRef<string | null>(null);
 
   const [status, setStatus] = useState<DocumentHandle["status"]>("loading");
   const [openError, setOpenError] = useState("");
@@ -188,6 +207,10 @@ export function useDocument(): DocumentHandle {
     return target === null ? 1 : chunkTarget(target, characterLimit).length;
   }, [documentRecord, characterLimit]);
   const [rawResponses, setRawResponses] = useState<Record<string, string>>({});
+  const [readerAccounts, setReaderAccounts] = useState<ReaderAccountRecord[]>([]);
+  const [readerRunning, setReaderRunning] = useState(false);
+  const [readerStartedAt, setReaderStartedAt] = useState<number | null>(null);
+  const [readerError, setReaderError] = useState<string | null>(null);
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
   const [judgeError, setJudgeError] = useState<string | null>(null);
   const [judgeRunning, setJudgeRunning] = useState(false);
@@ -272,6 +295,7 @@ export function useDocument(): DocumentHandle {
 
         databaseRef.current = database;
         documentRef.current = opened;
+        savedCanonicalRef.current = opened.canonical;
         setDocumentRecord(opened);
 
         const loadedPasses = await loadOrCreatePasses(database);
@@ -283,6 +307,7 @@ export function useDocument(): DocumentHandle {
         setScreeningFrameState(await loadScreeningFrame(database));
         setCharacterLimitState(await loadCharacterLimit(database));
         setRawResponses(await listRunResponses(database, opened.id));
+        setReaderAccounts(await listReaderAccounts(database, opened.id));
         // The one seam. The app builds it once; every model Run leaves through it.
         transportRef.current = createFetchTransport();
 
@@ -295,6 +320,13 @@ export function useDocument(): DocumentHandle {
             await runRulePasses(database, current, { passes: passesRef.current });
             await refreshFindings(current);
             await refreshRevisions();
+            // The prose changed, so any Reader account describes text that is
+            // gone. Clearing is the honest move; a Reader Run refreshes them.
+            if (savedCanonicalRef.current !== current.canonical) {
+              savedCanonicalRef.current = current.canonical;
+              await clearReaderAccounts(database, current.id);
+              setReaderAccounts([]);
+            }
           },
           takeRevision: async () => {
             const current = documentRef.current;
@@ -438,11 +470,14 @@ export function useDocument(): DocumentHandle {
       if (current === null) return;
       await takeRevision(database, current);
 
-      // `importDocument` replaces the prose and clears the old Findings in one
-      // transaction, so the queue never outlives the text it pointed at.
+      // `importDocument` replaces the prose and clears the old Findings and
+      // Reader accounts in one transaction, so neither outlives the text it
+      // pointed at.
       const updated = await importDocument(database, current, markdown);
       documentRef.current = updated;
+      savedCanonicalRef.current = updated.canonical;
       setDocumentRecord(updated);
+      setReaderAccounts([]);
 
       await runRulePasses(database, updated, { passes: passesRef.current });
       await refreshFindings(updated);
@@ -524,6 +559,8 @@ export function useDocument(): DocumentHandle {
   const runInFlightRef = useRef(false);
   /** Guards the structural set against a second click before its state renders. */
   const structuralInFlightRef = useRef(false);
+  /** Guards the Reader pass against a second click before its state renders. */
+  const readerInFlightRef = useRef(false);
 
   /**
    * Story 36: one model Pass on demand against the Target its scope permits —
@@ -542,12 +579,8 @@ export function useDocument(): DocumentHandle {
 
       const pass = passesRef.current.find((entry) => entry.id === passId);
       if (pass === undefined || pass.kind !== "model" || !pass.enabled) return null;
-      if (criticConnection === null) {
-        setRunError("Assign a Connection to the critic Slot before running a model Pass.");
-        return null;
-      }
-      if (criticConnection.model.trim() === "") {
-        setRunError(`Set a model on the ${criticConnection.name} Connection first.`);
+      if (!hasCritic(criticConnection)) {
+        setRunError(criticGuardMessage(criticConnection, "a model Pass"));
         return null;
       }
 
@@ -572,6 +605,7 @@ export function useDocument(): DocumentHandle {
         });
         await refreshFindings(current);
         setRawResponses(await listRunResponses(database, current.id));
+        setReaderAccounts(await listReaderAccounts(database, current.id));
         setLastRunReport({
           passId,
           droppedAnchors: result.droppedAnchors,
@@ -619,6 +653,71 @@ export function useDocument(): DocumentHandle {
       setStructuralRunning(false);
     }
   }, [runModelPass]);
+
+  /**
+   * Stories 91–93: the Reader pass end to end. Unlike a Findings pass, which
+   * reads one Target, the Reader reads every Section of the Document, one model
+   * call each (DESIGN §6), and stores a Reader account per Section. The accounts
+   * are their own output shape and never enter the Findings queue. A failure is
+   * surfaced as `readerError`, never swallowed, and stores nothing.
+   */
+  const runReaderPass = useCallback(
+    async (passId: string): Promise<void> => {
+      const database = databaseRef.current;
+      const current = documentRef.current;
+      const transport = transportRef.current;
+      if (database === null || current === null || transport === null) return;
+      if (readerInFlightRef.current) return;
+
+      const pass = passesRef.current.find((entry) => entry.id === passId);
+      if (
+        pass === undefined ||
+        pass.kind !== "model" ||
+        !isReaderPass(pass) ||
+        !pass.enabled
+      ) {
+        return;
+      }
+      if (!hasCritic(criticConnection)) {
+        setReaderError(criticGuardMessage(criticConnection, "the Reader pass"));
+        return;
+      }
+      if (sections(current.tree).length === 0) {
+        setReaderError("Add a heading Section before running the Reader pass.");
+        return;
+      }
+
+      readerInFlightRef.current = true;
+      setReaderError(null);
+      setReaderRunning(true);
+      setReaderStartedAt(Date.now());
+      try {
+        // Save first, so the accounts describe the prose that is stored and any
+        // accounts for the previous text are cleared before this Run writes.
+        await persistenceRef.current?.flush();
+        // Re-read after the await: a keystroke during the flush would otherwise
+        // have this Run read a Document the save already superseded.
+        const latest = documentRef.current;
+        if (latest === null) return;
+        const accounts = await runReaderPassRecord(database, latest, {
+          pass,
+          connection: criticConnection,
+          transport,
+          screeningFrame,
+        });
+        setReaderAccounts(accounts);
+        savedCanonicalRef.current = latest.canonical;
+      } catch (error) {
+        // The Provider's own words, surfaced verbatim; never a silent failure.
+        setReaderError(describeError(error));
+      } finally {
+        readerInFlightRef.current = false;
+        setReaderRunning(false);
+        setReaderStartedAt(null);
+      }
+    },
+    [criticConnection, screeningFrame],
+  );
 
   /**
    * Story 78: the Judge end to end. The Writer has already seen both extracted
@@ -752,6 +851,11 @@ export function useDocument(): DocumentHandle {
     setCharacterLimit,
     documentChunks,
     rawResponses,
+    readerAccounts,
+    readerRunning,
+    readerStartedAt,
+    readerError,
+    runReaderPass,
     judgeResult,
     judgeError,
     judgeRunning,
@@ -787,6 +891,22 @@ function noTargetMessage(scope: PassScope): string {
     case "document":
       return "Add some text before running a structural Pass.";
   }
+}
+
+/**
+ * The critic Slot guard every model Run shares: a Connection must be assigned
+ * and carry a model before a request leaves. The predicate narrows the
+ * Connection; `criticGuardMessage` names the Run in the message.
+ */
+function hasCritic(connection: Connection | null): connection is Connection {
+  return connection !== null && connection.model.trim() !== "";
+}
+
+function criticGuardMessage(connection: Connection | null, what: string): string {
+  if (connection === null) {
+    return `Assign a Connection to the critic Slot before running ${what}.`;
+  }
+  return `Set a model on the ${connection.name} Connection first.`;
 }
 
 /** Replace one Connection in the list, or append it if it is new. */

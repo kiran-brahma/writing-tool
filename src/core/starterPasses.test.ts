@@ -17,17 +17,19 @@ import { constitutionPromptClauses, STARTER_PASSES } from "./starterPasses";
  */
 const EXPECTED_MODEL_PASSES: {
   id: string;
-  scope: "paragraph" | "document";
+  scope: "paragraph" | "section" | "document";
+  output: "findings" | "section-summary";
   enabled: boolean;
   looksFor: RegExp;
 }[] = [
-  { id: "characters-actions", scope: "paragraph", enabled: false, looksFor: /actor/i },
-  { id: "topic-strings", scope: "document", enabled: true, looksFor: /cohere|stress position/i },
-  { id: "paragraph-reorder", scope: "document", enabled: false, looksFor: /could change/i },
-  { id: "paragraph-unity", scope: "paragraph", enabled: true, looksFor: /more than one idea/i },
-  { id: "cut-candidates", scope: "paragraph", enabled: true, looksFor: /cut without loss/i },
-  { id: "cliche", scope: "paragraph", enabled: true, looksFor: /cliché/i },
-  { id: "claim-strength", scope: "paragraph", enabled: true, looksFor: /hedge/i },
+  { id: "characters-actions", scope: "paragraph", output: "findings", enabled: false, looksFor: /actor/i },
+  { id: "topic-strings", scope: "document", output: "findings", enabled: true, looksFor: /cohere|stress position/i },
+  { id: "paragraph-reorder", scope: "document", output: "findings", enabled: false, looksFor: /could change/i },
+  { id: "paragraph-unity", scope: "paragraph", output: "findings", enabled: true, looksFor: /more than one idea/i },
+  { id: "cut-candidates", scope: "paragraph", output: "findings", enabled: true, looksFor: /cut without loss/i },
+  { id: "cliche", scope: "paragraph", output: "findings", enabled: true, looksFor: /cliché/i },
+  { id: "claim-strength", scope: "paragraph", output: "findings", enabled: true, looksFor: /hedge/i },
+  { id: "reader", scope: "section", output: "section-summary", enabled: true, looksFor: /distracted reader/i },
 ];
 
 describe("Starter model passes", () => {
@@ -45,6 +47,7 @@ describe("Starter model passes", () => {
       "cut-candidates",
       "cliche",
       "claim-strength",
+      "reader",
     ]);
   });
 
@@ -55,23 +58,25 @@ describe("Starter model passes", () => {
     const modelIds = STARTER_PASSES.filter((pass) => pass.kind === "model").map((pass) => pass.id);
     expect(modelIds).toEqual(EXPECTED_MODEL_PASSES.map((entry) => entry.id));
 
-    for (const { id, scope, enabled } of EXPECTED_MODEL_PASSES) {
+    for (const { id, scope, output, enabled } of EXPECTED_MODEL_PASSES) {
       expect(STARTER_PASSES.find((pass) => pass.id === id)).toMatchObject({
         kind: "model",
         scope,
-        output: "findings",
+        output,
         slot: "critic",
         enabled,
       });
     }
   });
 
-  it("ships the structural passes at document scope and the local passes at paragraph scope", () => {
+  it("ships the structural passes at document scope, the local passes at paragraph scope, and the Reader at section scope", () => {
     const scopeOf = (id: string) => STARTER_PASSES.find((pass) => pass.id === id)?.scope;
 
     expect(scopeOf("topic-strings")).toBe("document");
     expect(scopeOf("paragraph-reorder")).toBe("document");
     expect(scopeOf("cliche")).toBe("paragraph");
+    expect(scopeOf("reader")).toBe("section");
+    expect(STARTER_PASSES.find((pass) => pass.id === "reader")?.output).toBe("section-summary");
   });
 
   it("checks every model prompt for the clauses its scope requires", () => {

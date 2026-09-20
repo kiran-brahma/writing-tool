@@ -44,8 +44,13 @@ from the swapped double call — or an Unstable result when the labels flip — 
 Provider and model from the Critic by default. #7 (Structure) has landed: the Section model carries
 its heading level, the Outline is derived from the headings and jumpable, document-scope model
 Passes receive the whole Document, the topic-strings and paragraph-reorder passes ship in the
-Starter pack, and the Writer runs the structural set in one action. The frontier is **row 15**:
-#20 (Chunking and limits), blocked by #7.
+Starter pack, and the Writer runs the structural set in one action. #20 (Chunking and limits) has
+landed: a document-scope Run past the character limit is chunked Section by Section with overlap,
+the limit is an editable setting with a warning, and the Run reports its chunk count. #11 (Reader
+pass) has landed: a section-scope Reader pass returns a Reader account — what a Section says, what a
+distracted reader would miss, and the gap between the two — one model call per Section, stored as
+its own output shape and shown in its own Reader accounts tab, never mixed with Findings. The
+frontier is **row 17**: #8 (Library), blocked by #13.
 
 ## How to work a ticket
 
@@ -78,7 +83,7 @@ Starter pack, and the Writer runs the structural set in one action. The frontier
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning | - Completed
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes | - Completed
 | 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path | - Completed
-| 16 | **#11** | Reader pass | The reader account schema and the Reader tab |
+| 16 | **#11** | Reader pass | The reader account schema and the Reader tab | - Completed
 | 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count |
 | 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle |
 | 19 | **#23** | Offline shell and migration policy | Service worker and offline shell, `storage.persist()`, the forward-only migration policy, the no-migration-with-a-behaviour-change rule |

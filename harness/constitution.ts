@@ -4,7 +4,9 @@ import { critique, type Target } from "../src/core/critique";
 import { describeError } from "../src/errors";
 import type { Finding, Violation } from "../src/core/finding";
 import type { Pass } from "../src/core/pass";
+import { isReaderPass } from "../src/core/pass";
 import { targetForPass } from "../src/core/passContext";
+import { readSection, type ReaderAccount } from "../src/core/reader";
 import { constitutionPromptClauses } from "../src/core/starterPasses";
 import { extractJson } from "../src/core/parseFindings";
 import type { Connection } from "../src/wire/connection";
@@ -61,6 +63,8 @@ export interface HarnessCaseResult {
   findings: Finding[];
   violations: Violation[];
   droppedAnchors: number;
+  /** The Reader account a section-summary Pass returned, if any. */
+  account: ReaderAccount | null;
   rawResponse: string | null;
   error: string | null;
 }
@@ -115,6 +119,11 @@ async function runCase(
   options: HarnessOptions,
   ranAt: number,
 ): Promise<HarnessCaseResult> {
+  // The Reader account is a different output shape with different checks: it
+  // has no Anchors to contain, but the same parser, linter and prompt clauses
+  // guard it. Dispatching here keeps one harness for every model Pass.
+  if (isReaderPass(pass)) return runReaderCase(testCase, pass, options, ranAt);
+
   let run;
   try {
     run = await critique(testCase.target, pass, options.connection, {
@@ -146,6 +155,53 @@ async function runCase(
     findings: run.findings,
     violations: run.violations,
     droppedAnchors: run.droppedAnchors,
+    account: null,
+    rawResponse: run.rawResponse,
+    error: null,
+  };
+}
+
+/**
+ * The Reader-pass half of a harness case: the same parser, linter and prompt
+ * checks as a Findings case, without Containment. A Reader account has no
+ * Anchor to contain; the rewrite check is what proves its schema refuses
+ * replacement prose.
+ */
+async function runReaderCase(
+  testCase: HarnessCase,
+  pass: Pass,
+  options: HarnessOptions,
+  ranAt: number,
+): Promise<HarnessCaseResult> {
+  let run;
+  try {
+    run = await readSection(testCase.target, pass, options.connection, {
+      transport: options.transportFor(testCase),
+      screeningFrame: options.screeningFrame,
+      revisionId: "harness-revision",
+      now: ranAt,
+    });
+  } catch (error) {
+    return failureCase(testCase.documentId, testCase.passId, testCase.target, describeError(error));
+  }
+
+  const checks: HarnessCheck[] = [
+    parseCheck(run.rawResponse),
+    praiseCheck(run.violations),
+    accountRewriteCheck(run.account, run.violations),
+    promptCheck(pass),
+  ];
+
+  return {
+    documentId: testCase.documentId,
+    passId: testCase.passId,
+    target: testCase.target,
+    ok: checks.every((check) => check.ok),
+    checks,
+    findings: [],
+    violations: run.violations,
+    droppedAnchors: 0,
+    account: run.account,
     rawResponse: run.rawResponse,
     error: null,
   };
@@ -191,6 +247,23 @@ function rewriteCheck(findings: Finding[], violations: Violation[]): HarnessChec
     detail: ok
       ? `No Finding carried a rewrite field; "${FIXTURE_REWRITE}" was quarantined as a Violation.`
       : `${leaked.length} Finding(s) carried a rewrite field; quarantined=${String(quarantined)}.`,
+  };
+}
+
+/** The reader-account half of the rewrite check: no rewrite field, quarantined. */
+function accountRewriteCheck(account: ReaderAccount, violations: Violation[]): HarnessCheck {
+  const leaked = "rewrite" in account;
+  const quarantined = violations.some(
+    (violation) => violation.kind === "rewrite" && violation.text === FIXTURE_REWRITE,
+  );
+  const ok = !leaked && quarantined;
+
+  return {
+    name: "noRewriteField",
+    ok,
+    detail: ok
+      ? `The Reader account carried no rewrite field; "${FIXTURE_REWRITE}" was quarantined.`
+      : `Reader account rewrite field leaked=${String(leaked)}; quarantined=${String(quarantined)}.`,
   };
 }
 
@@ -249,6 +322,7 @@ function failureCase(
     findings: [],
     violations: [],
     droppedAnchors: 0,
+    account: null,
     rawResponse: null,
     error,
   };
