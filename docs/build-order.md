@@ -50,7 +50,7 @@ test connection, model listing, retry, the concurrency cap and the base-URL priv
 | 3 | **#15** | Working the queue | Statuses with `declineReason`; `j`/`k`/`a`/`x`; a declined Finding staying declined; Markdown in and out | - Completed
 | 4 | **#6** | Rule engine | Every rule pass, editable Rule config, auto-run on save, the metrics panel — the free tier, complete | - Completed
 | 5 | **#3** | Connection and the seam | Connections with all prefills and Custom, both key modes, `send`, the Protocol table, the `openai-shaped` adapter, the fixture player, test connection, model listing, retry, concurrency cap, the base-URL privacy assertion | - Completed
-| 6 | **#17** | Anthropic and Gemini Protocols | The `anthropic-shaped` and `gemini-native` adapters — one Pass, three Protocols |
+| 6 | **#17** | Anthropic and Gemini Protocols | The `anthropic-shaped` and `gemini-native` adapters — one Pass, three Protocols | - Completed
 | 7 | **#4** | Constitution core | Findings schema, tolerant parser, Containment, one paragraph-scope model Pass end to end, raw-response toggle, `promptHash`, Screening frame toggle |
 | 8 | **#24** | When the model misbehaves | The praise linter over every returned string, Praise struck through rather than removed, `declineReason: "violation"`, the quarantined rewrite pane, the static affordance source check |
 | 9 | **#18** | Constitution harness | Three fixture Documents × three model Passes, runnable before any prompt change, timestamped |
