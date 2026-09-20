@@ -24,38 +24,38 @@ const FOUR_PARAGRAPHS = doc(
 
 describe("passContext", () => {
   it("names the target Paragraph, its neighbours and the heading outline", () => {
-    const context = passContext(FOUR_PARAGRAPHS, 2, "My Title");
+    const target = passContext(FOUR_PARAGRAPHS, 2, "My Title");
 
-    expect(context).not.toBeNull();
-    expect(context?.title).toBe("My Title");
-    expect(context?.target).toBe("Target paragraph.");
-    expect(context?.contextAbove).toBe("First paragraph.");
-    expect(context?.contextBelow).toBe("Third paragraph.");
-    expect(context?.outline).toBe("# Title");
+    expect(target).not.toBeNull();
+    expect(target?.title).toBe("My Title");
+    expect(target?.text).toBe("Target paragraph.");
+    expect(target?.contextAbove).toBe("First paragraph.");
+    expect(target?.contextBelow).toBe("Third paragraph.");
+    expect(target?.outline).toBe("# Title");
   });
 
   it("places the target interval in the one canonical string", () => {
-    const context = passContext(FOUR_PARAGRAPHS, 2, "My Title");
-    const canonical = canonicalText(FOUR_PARAGRAPHS);
+    const target = passContext(FOUR_PARAGRAPHS, 2, "My Title");
 
-    expect(context).not.toBeNull();
-    const { start, end } = context!.targetInterval;
-    expect(canonical.slice(start, end)).toBe("Target paragraph.");
+    expect(target).not.toBeNull();
+    expect(target?.canonical).toBe(canonicalText(FOUR_PARAGRAPHS));
+    const { start, end } = target!.interval;
+    expect(target!.canonical.slice(start, end)).toBe("Target paragraph.");
   });
 
   it("never puts body text in the outline", () => {
-    const context = passContext(FOUR_PARAGRAPHS, 2, "My Title");
+    const target = passContext(FOUR_PARAGRAPHS, 2, "My Title");
 
-    expect(context?.outline).toBe("# Title");
-    expect(context?.outline).not.toContain("First paragraph.");
+    expect(target?.outline).toBe("# Title");
+    expect(target?.outline).not.toContain("First paragraph.");
   });
 
   it("falls back to the nearest Paragraph when the cursor is on a heading", () => {
-    const context = passContext(FOUR_PARAGRAPHS, 0, "My Title");
+    const target = passContext(FOUR_PARAGRAPHS, 0, "My Title");
 
-    expect(context?.target).toBe("First paragraph.");
-    expect(context?.contextAbove).toBe("");
-    expect(context?.contextBelow).toBe("Target paragraph.");
+    expect(target?.text).toBe("First paragraph.");
+    expect(target?.contextAbove).toBe("");
+    expect(target?.contextBelow).toBe("Target paragraph.");
   });
 
   it("returns null only when the Document has no Paragraph", () => {

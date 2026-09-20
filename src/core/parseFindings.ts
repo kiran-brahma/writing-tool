@@ -1,6 +1,5 @@
 import type { Violation } from "./finding";
 import { lintViolations } from "./lintViolations";
-import { FINDINGS_SCHEMA } from "./findingsSchema";
 import type { OutputShape } from "./pass";
 
 /**
@@ -52,15 +51,11 @@ export function parseFindings(raw: string, shape: OutputShape): ParsedFindings {
     const draft = validateFinding(candidate);
     if (draft === null) continue;
     findings.push(draft);
-    strings.push(draft.issue, draft.diagnosis, draft.pattern ?? "");
+    // Every string the model returned is scanned, the quote included.
+    strings.push(draft.issue, draft.diagnosis, draft.pattern ?? "", draft.quote);
   }
 
-  return { findings, violations: lintViolations([...strings, surroundingProse(raw)].join("\n")) };
-}
-
-/** The schema the prompt was given, re-exported so Core has one source. */
-export function findingsSchema(): Record<string, unknown> {
-  return FINDINGS_SCHEMA;
+  return { findings, violations: lintViolations([...strings, flattened(raw)].join("\n")) };
 }
 
 /**
@@ -173,11 +168,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-/** The prose around the JSON, so drift outside the fields is still scanned. */
-function surroundingProse(raw: string): string {
-  return raw
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/[{}\[\]",:]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+/**
+ * The whole response with JSON structure folded to spaces. The field strings are
+ * linted exactly and separately; this flattened form adds any prose around the
+ * JSON, so drift outside the fields is caught too.
+ */
+function flattened(raw: string): string {
+  return raw.replace(/[{}\[\]",:]/g, " ").replace(/\s+/g, " ").trim();
 }

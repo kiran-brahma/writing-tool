@@ -1,5 +1,6 @@
 import { critique, type RunResult, type Target } from "../core/critique";
-import type { Pass } from "../core/pass";
+import { responseKey } from "../core/finding";
+import { hashPass, type Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
 import type { Connection } from "../wire/connection";
 import type { Transport } from "../wire/transport";
@@ -18,36 +19,40 @@ import { ensureRevision } from "./revisions";
  * end-to-end path one Pass needs.
  */
 
-/** Stores the raw response of a Pass's most recent Run for a Document. */
+/** Stores the raw response of a Pass's Run for a Document, keyed by promptHash. */
 export async function saveRunResponse(
   database: ObelusDatabase,
   documentId: string,
   passId: string,
+  promptHash: string,
   rawResponse: string,
   at: number,
 ): Promise<void> {
-  await database.runResponses.put({ documentId, passId, rawResponse, at });
+  await database.runResponses.put({ documentId, passId, promptHash, rawResponse, at });
 }
 
-/** The raw response stored for a Pass, or `null` when it has not run here. */
+/** The raw response stored for a Pass at a given promptHash, or `null`. */
 export async function loadRunResponse(
   database: ObelusDatabase,
   documentId: string,
   passId: string,
+  promptHash: string,
 ): Promise<string | null> {
-  const record = await database.runResponses.get([documentId, passId]);
+  const record = await database.runResponses.get([documentId, passId, promptHash]);
   return record?.rawResponse ?? null;
 }
 
-/** Every stored raw response for a Document, keyed by Pass id. */
+/** Every stored raw response for a Document, keyed by `responseKey`. */
 export async function listRunResponses(
   database: ObelusDatabase,
   documentId: string,
 ): Promise<Record<string, string>> {
   const records = await database.runResponses.where("documentId").equals(documentId).toArray();
-  const byPass: Record<string, string> = {};
-  for (const record of records) byPass[record.passId] = record.rawResponse;
-  return byPass;
+  const byKey: Record<string, string> = {};
+  for (const record of records) {
+    byKey[responseKey(record.passId, record.promptHash)] = record.rawResponse;
+  }
+  return byKey;
 }
 
 export interface ModelRunOptions {
@@ -92,7 +97,14 @@ async function runModelPassNow(
   const existing = await listFindingsForPass(database, document.id, options.pass.id);
   const merged = reconcileFindings(result.findings, existing, document.canonical);
   await replaceFindingsForPass(database, document.id, options.pass.id, merged);
-  await saveRunResponse(database, document.id, options.pass.id, result.rawResponse, now);
+  await saveRunResponse(
+    database,
+    document.id,
+    options.pass.id,
+    hashPass(options.pass),
+    result.rawResponse,
+    now,
+  );
 
   return { ...result, findings: merged };
 }

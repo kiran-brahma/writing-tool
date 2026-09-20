@@ -77,3 +77,13 @@ export interface EditorRange {
   from: number;
   to: number;
 }
+
+/**
+ * The key a Run's raw response is stored under: a Finding's Pass and the
+ * `promptHash` of the Pass that produced it. Keying on the hash means a Finding
+ * kept from an earlier prompt still shows the response of the Run that produced
+ * it, rather than the latest Run of the same Pass.
+ */
+export function responseKey(passId: string, promptHash: string): string {
+  return `${passId}:${promptHash}`;
+}

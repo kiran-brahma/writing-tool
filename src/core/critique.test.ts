@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../wire/connection";
 import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTransport";
-import { canonicalText } from "./canonicalText";
 import { critique, type RunConfig, type Target } from "./critique";
 import type { BlockNode, DocTree } from "./docTree";
 import { hashPass, type Pass } from "./pass";
@@ -31,17 +30,9 @@ const TREE = doc(
 const TARGET_BLOCK = 2;
 
 function target(): Target {
-  const context = passContext(TREE, TARGET_BLOCK, "My Title");
-  if (context === null) throw new Error("fixture has no paragraph");
-  return {
-    canonical: canonicalText(TREE),
-    interval: context.targetInterval,
-    text: context.target,
-    title: context.title,
-    outline: context.outline,
-    contextAbove: context.contextAbove,
-    contextBelow: context.contextBelow,
-  };
+  const built = passContext(TREE, TARGET_BLOCK, "My Title");
+  if (built === null) throw new Error("fixture has no paragraph");
+  return built;
 }
 
 function connection(): Connection {
@@ -99,6 +90,14 @@ describe("critique", () => {
     const edited: Pass = { ...CLICHE_PASS, prompt: `${CLICHE_PASS.prompt}\nExtra.` };
     const second = await critique(target(), edited, connection(), fixture(RESPONSE).config);
     expect(second.findings[0].promptHash).not.toBe(run.findings[0].promptHash);
+  });
+
+  it("derives the promptHash from the prompt, the output shape and the scope", () => {
+    const base = hashPass(CLICHE_PASS);
+
+    expect(hashPass({ ...CLICHE_PASS, prompt: "a different prompt" })).not.toBe(base);
+    expect(hashPass({ ...CLICHE_PASS, scope: "document" })).not.toBe(base);
+    expect(hashPass({ ...CLICHE_PASS, output: "note" })).not.toBe(base);
   });
 
   it("drops and reports Anchors outside the Target (Containment)", async () => {

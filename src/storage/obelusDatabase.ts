@@ -45,12 +45,14 @@ export interface FindingRecord extends Finding {
 /**
  * The raw provider response behind a model Run, kept so the global
  * "show raw response" toggle can expose it for any Finding — including one
- * loaded after a reload. The Run cache (#16) will key a fuller Run record on
- * the same pair.
+ * loaded after a reload. Keyed by Document, Pass and `promptHash`, so a Finding
+ * kept from an earlier prompt shows the response that produced it. The Run
+ * cache (#16) will key a fuller Run record on a still richer key.
  */
 export interface RunResponseRecord {
   documentId: string;
   passId: string;
+  promptHash: string;
   rawResponse: string;
   at: number;
 }
@@ -92,7 +94,7 @@ export class ObelusDatabase extends Dexie {
   passes!: Table<Pass, string>;
   connections!: Table<Connection, string>;
   settings!: Table<SettingsRecord, string>;
-  runResponses!: Table<RunResponseRecord, [string, string]>;
+  runResponses!: Table<RunResponseRecord, [string, string, string]>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
@@ -140,7 +142,7 @@ export class ObelusDatabase extends Dexie {
       passes: "id, kind",
       connections: "id, builtIn",
       settings: "key",
-      runResponses: "[documentId+passId], documentId",
+      runResponses: "[documentId+passId+promptHash], documentId",
     });
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { canonicalText } from "../core/canonicalText";
 import type { DocTree } from "../core/docTree";
+import { responseKey } from "../core/finding";
 import { hashPass } from "../core/pass";
 import { passContext } from "../core/passContext";
 import { CLICHE_PASS } from "../core/starterPasses";
@@ -35,7 +35,7 @@ function connection(): Connection {
   return { ...connectionFromPrefill(prefill), model: "gpt-test", apiKey: "secret" };
 }
 
-/** A Document whose single Paragraph is the Target, plus a context Paragraph. */
+/** A Document with a context Paragraph and a Target Paragraph. */
 async function savedDocument(database: ObelusDatabase): Promise<DocumentRecord> {
   const document = await loadOrCreateDocument(database, 1_000);
   const tree: DocTree = {
@@ -51,17 +51,9 @@ async function savedDocument(database: ObelusDatabase): Promise<DocumentRecord> 
 }
 
 function targetFor(document: DocumentRecord): Target {
-  const context = passContext(document.tree, 1, document.title);
-  if (context === null) throw new Error("no paragraph");
-  return {
-    canonical: document.canonical,
-    interval: context.targetInterval,
-    text: context.target,
-    title: context.title,
-    outline: context.outline,
-    contextAbove: context.contextAbove,
-    contextBelow: context.contextBelow,
-  };
+  const target = passContext(document.tree, 1, document.title);
+  if (target === null) throw new Error("no paragraph");
+  return target;
 }
 
 const RESPONSE = JSON.stringify({
@@ -98,14 +90,16 @@ describe("runModelPass", () => {
     expect(stored).toHaveLength(1);
     expect(stored[0].id).toBe(run.findings[0].id);
 
-    await expect(loadRunResponse(database, document.id, CLICHE_PASS.id)).resolves.toBe(RESPONSE);
+    await expect(
+      loadRunResponse(database, document.id, CLICHE_PASS.id, hashPass(CLICHE_PASS)),
+    ).resolves.toBe(RESPONSE);
     await expect(listRunResponses(database, document.id)).resolves.toEqual({
-      cliche: RESPONSE,
+      [responseKey(CLICHE_PASS.id, hashPass(CLICHE_PASS))]: RESPONSE,
     });
 
     const revisions = await listRevisions(database, document.id);
     expect(revisions).toHaveLength(1);
-    expect(revisions[0].canonical).toBe(canonicalText(document.tree));
+    expect(revisions[0].canonical).toBe("Context paragraph.\n\nTarget with a cliché.\n");
   });
 
   it("does not raise a declined Finding again when the model returns it unchanged", async () => {
@@ -123,7 +117,7 @@ describe("runModelPass", () => {
     expect(await listFindings(database, document.id)).toHaveLength(1);
   });
 
-  it("keeps the raw response of the most recent Run", async () => {
+  it("keeps the raw response of the most recent Run for the same promptHash", async () => {
     const database = await openTestDatabase();
     const document = await savedDocument(database);
     await runModelPass(database, document, runOptions(document, RESPONSE));
@@ -133,6 +127,27 @@ describe("runModelPass", () => {
     });
     await runModelPass(database, document, runOptions(document, second));
 
-    await expect(loadRunResponse(database, document.id, CLICHE_PASS.id)).resolves.toBe(second);
+    await expect(
+      loadRunResponse(database, document.id, CLICHE_PASS.id, hashPass(CLICHE_PASS)),
+    ).resolves.toBe(second);
+  });
+
+  it("keeps a raw response from an earlier prompt alongside the current one", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const edited = { ...CLICHE_PASS, prompt: `${CLICHE_PASS.prompt}\nExtra line.` };
+
+    await runModelPass(database, document, runOptions(document, RESPONSE));
+    const secondResponse = JSON.stringify({
+      findings: [{ issue: "Second", diagnosis: "D", quote: "Target", offset: 0 }],
+    });
+    await runModelPass(database, document, {
+      ...runOptions(document, secondResponse),
+      pass: edited,
+    });
+
+    const stored = await listRunResponses(database, document.id);
+    expect(stored[responseKey(CLICHE_PASS.id, hashPass(CLICHE_PASS))]).toBe(RESPONSE);
+    expect(stored[responseKey(edited.id, hashPass(edited))]).toBe(secondResponse);
   });
 });

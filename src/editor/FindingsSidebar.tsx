@@ -1,5 +1,5 @@
 import { useEffect, useRef, type Ref } from "react";
-import { isOpenFinding, type Finding } from "../core/finding";
+import { isOpenFinding, responseKey, type Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
 import { groupFindingsByPass } from "./findingsGroups";
 
@@ -71,7 +71,9 @@ export function FindingsSidebar({
                     finding={finding}
                     current={current}
                     onSelect={onSelect}
-                    {...(showRawResponse ? { rawResponse: rawResponses[finding.passId] } : {})}
+                    {...(showRawResponse
+                      ? { rawResponse: rawResponses[responseKey(finding.passId, finding.promptHash)] }
+                      : {})}
                     {...(current ? { rowRef: currentRowRef } : {})}
                   />
                 );

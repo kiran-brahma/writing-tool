@@ -2,32 +2,16 @@ import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
 import { applyContainment } from "./containment";
-import type { Finding, Interval, Violation } from "./finding";
+import type { Finding, Violation } from "./finding";
 import { FINDINGS_SCHEMA } from "./findingsSchema";
 import { hashPass, type Pass } from "./pass";
 import { parseFindings, UnsupportedOutputShapeError } from "./parseFindings";
 import { fillPrompt, type PromptValues } from "./prompt";
 import { SCREENING_FRAME } from "./screeningFrame";
+import type { Target } from "./target";
 
-/**
- * The Target a Run is asked about: the Paragraph's canonical text and its
- * half-open interval in the whole Document's canonical string, plus the context
- * a local Pass is allowed to see. The canonical string is the one coordinate
- * system, so Containment measures the model's Anchors against the same string
- * every other feature uses.
- */
-export interface Target {
-  /** The whole Document's canonical string. */
-  canonical: string;
-  /** The Target's half-open interval within `canonical`. */
-  interval: Interval;
-  /** The Target Paragraph's canonical source. */
-  text: string;
-  title: string;
-  outline: string;
-  contextAbove: string;
-  contextBelow: string;
-}
+/** The Target shape is part of the entry point's contract; export it here too. */
+export type { Target } from "./target";
 
 export interface RunConfig {
   /** The single seam. Everything a model Run does leaves through this. */
@@ -49,7 +33,7 @@ export interface RunResult {
   fromCache: boolean;
 }
 
-export const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
+const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 /**
  * The entry point above the seam: one model Pass end to end. It builds the
@@ -123,14 +107,15 @@ export async function critique(
 
 /** The placeholder values a Pass's scope permits. */
 function valuesFor(target: Target, pass: Pass): PromptValues {
-  const documentScope = pass.scope !== "paragraph";
   return {
     title: target.title,
     outline: target.outline,
-    target: documentScope ? target.canonical : target.text,
+    // The Target placeholder is always the text the Run was asked about.
+    target: target.text,
     context_above: target.contextAbove,
     context_below: target.contextBelow,
-    // Local Passes receive headings only, never body text.
-    document: documentScope ? target.canonical : "",
+    // Local Passes receive headings only, never body text; a document-scope
+    // Pass is given the whole Document and nothing else is withheld.
+    document: pass.scope === "paragraph" ? "" : target.canonical,
   };
 }

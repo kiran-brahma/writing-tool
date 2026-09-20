@@ -27,17 +27,3 @@ export function fillPrompt(template: string, values: PromptValues): string {
     return value === undefined ? match : value;
   });
 }
-
-/**
- * Every placeholder named in a template that Obelus does not define. Empty for
- * a valid template; #10 refuses to save a Pass whose template is not empty.
- */
-export function unknownPlaceholders(template: string): string[] {
-  const known = new Set<string>(PROMPT_PLACEHOLDERS);
-  const seen = new Set<string>();
-  for (const match of template.matchAll(PLACEHOLDER_PATTERN)) {
-    const name = match[1];
-    if (!known.has(name)) seen.add(name);
-  }
-  return [...seen];
-}

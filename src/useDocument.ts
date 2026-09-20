@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveAnchor } from "./core/anchor";
-import type { RunResult, Target } from "./core/critique";
+import type { RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
 import { isOpenFinding, type Finding, type Interval } from "./core/finding";
 import type { Pass, RuleConfig } from "./core/pass";
@@ -64,7 +64,7 @@ export interface DocumentHandle {
   /** A model Run's failure, surfaced verbatim rather than swallowed. */
   runError: string | null;
   /** The most recent Run's reported Containment count, per Pass. */
-  lastRun: { passId: string; droppedAnchors: number } | null;
+  lastRunReport: { passId: string; droppedAnchors: number } | null;
   /** Story 36: run one model Pass on demand against the current Target. */
   runModelPass: (passId: string) => Promise<RunResult | null>;
   /** Stories 76, 77: the Critic's Screening frame, a settable global toggle. */
@@ -124,7 +124,7 @@ export function useDocument(): DocumentHandle {
   const [runningPassId, setRunningPassId] = useState<string | null>(null);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
-  const [lastRun, setLastRun] = useState<DocumentHandle["lastRun"]>(null);
+  const [lastRunReport, setLastRunReport] = useState<DocumentHandle["lastRunReport"]>(null);
   const [screeningFrame, setScreeningFrameState] = useState(true);
   const [rawResponses, setRawResponses] = useState<Record<string, string>>({});
 
@@ -426,21 +426,11 @@ export function useDocument(): DocumentHandle {
         return null;
       }
 
-      const context = passContext(current.tree, targetBlockIndex, current.title);
-      if (context === null) {
+      const target = passContext(current.tree, targetBlockIndex, current.title);
+      if (target === null) {
         setRunError("Add a paragraph before running a local Pass.");
         return null;
       }
-
-      const target: Target = {
-        canonical: current.canonical,
-        interval: context.targetInterval,
-        text: context.target,
-        title: context.title,
-        outline: context.outline,
-        contextAbove: context.contextAbove,
-        contextBelow: context.contextBelow,
-      };
 
       runInFlightRef.current = true;
       setRunError(null);
@@ -456,7 +446,7 @@ export function useDocument(): DocumentHandle {
         });
         await refreshFindings();
         setRawResponses(await listRunResponses(database, current.id));
-        setLastRun({ passId, droppedAnchors: result.droppedAnchors });
+        setLastRunReport({ passId, droppedAnchors: result.droppedAnchors });
         return result;
       } catch (error) {
         // The Provider's own words, surfaced verbatim; never a silent failure.
@@ -542,7 +532,7 @@ export function useDocument(): DocumentHandle {
     runningPassId,
     runStartedAt,
     runError,
-    lastRun,
+    lastRunReport,
     runModelPass,
     screeningFrame,
     setScreeningFrame,

@@ -29,7 +29,7 @@ export default function App() {
     runningPassId,
     runStartedAt,
     runError,
-    lastRun,
+    lastRunReport,
     runModelPass,
     screeningFrame,
     setScreeningFrame,
@@ -239,7 +239,7 @@ export default function App() {
             passes={passes}
             runningPassId={runningPassId}
             runningSince={runStartedAt}
-            lastRun={lastRun}
+            lastRunReport={lastRunReport}
             runError={runError}
             criticName={connections.find((connection) => connection.id === slots.critic)?.name ?? null}
             screeningFrame={screeningFrame}

@@ -15,7 +15,7 @@ export interface ModelPassesPanelProps {
   passes: Pass[];
   runningPassId: string | null;
   runningSince: number | null;
-  lastRun: { passId: string; droppedAnchors: number } | null;
+  lastRunReport: { passId: string; droppedAnchors: number } | null;
   runError: string | null;
   criticName: string | null;
   screeningFrame: boolean;
@@ -27,7 +27,7 @@ export function ModelPassesPanel({
   passes,
   runningPassId,
   runningSince,
-  lastRun,
+  lastRunReport,
   runError,
   criticName,
   screeningFrame,
@@ -98,11 +98,11 @@ export function ModelPassesPanel({
               {!pass.enabled && (
                 <p className="mt-1 text-xs italic text-stone-400">Disabled.</p>
               )}
-              {lastRun !== null && lastRun.passId === pass.id && (
+              {lastRunReport !== null && lastRunReport.passId === pass.id && (
                 <p className="mt-1 text-xs text-stone-500">
-                  {lastRun.droppedAnchors === 0
+                  {lastRunReport.droppedAnchors === 0
                     ? "No Findings dropped outside the target."
-                    : `${lastRun.droppedAnchors} Anchor${lastRun.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
+                    : `${lastRunReport.droppedAnchors} Anchor${lastRunReport.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
                 </p>
               )}
             </li>
