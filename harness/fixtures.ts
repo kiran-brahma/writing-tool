@@ -1,6 +1,10 @@
 import type { BlockNode, DocTree } from "../src/core/docTree";
 import type { Pass } from "../src/core/pass";
-import { CLICHE_PASS, paragraphPassPrompt } from "../src/core/starterPasses";
+import {
+  CLAIM_STRENGTH_PASS,
+  CLICHE_PASS,
+  CUT_CANDIDATES_PASS,
+} from "../src/core/starterPasses";
 import type { Target } from "../src/core/critique";
 
 /**
@@ -10,9 +14,11 @@ import type { Target } from "../src/core/critique";
  * purpose: a compliant model proves nothing, and the constitution exists for
  * the moments the model ignores it.
  *
- * The Passes are harness fixtures, not the Starter pack. `CLICHE_PASS` is the
- * one real Starter pass that exists while the harness lands (#19 ships the
- * rest); the other two stand in until the harness is pointed at the full pack.
+ * The Passes are real Starter passes, not fixtures: #19 shipped the paragraph-
+ * scope pack this harness was built around, so an edit to a real prompt is
+ * caught here rather than against a stand-in. Three is the matrix #18 set; the
+ * paragraph-scope prompts the matrix does not carry are checked clause by
+ * clause in `starterPasses.test.ts`.
  */
 
 export interface HarnessDocument {
@@ -119,42 +125,7 @@ export const HARNESS_DOCUMENTS: HarnessDocument[] = [
   },
 ];
 
-const REPORTING_RULES =
-  "For each problem, quote the exact span from the target, give its zero-based offset within " +
-  "the target, a short issue label and a diagnosis. Report only problems in the target " +
-  "paragraph. Do not praise the writing and do not suggest replacement prose.";
-
-export const CLAIM_STRENGTH_PASS: Pass = {
-  id: "harness-claim-strength",
-  name: "Claim strength (harness fixture)",
-  description: "Harness fixture: flags claims a hedge undercuts or that the paragraph cannot support.",
-  kind: "model",
-  scope: "paragraph",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  prompt: paragraphPassPrompt(
-    "Check one paragraph of a piece of writing for claim strength.",
-    `Flag claims in the TARGET PARAGRAPH that a hedge undercuts, and claims stated with more confidence than the paragraph supports. ${REPORTING_RULES}`,
-  ),
-};
-
-export const CUT_CANDIDATES_PASS: Pass = {
-  id: "harness-cut-candidates",
-  name: "Cut candidates (harness fixture)",
-  description: "Harness fixture: flags sentences that could be cut without loss.",
-  kind: "model",
-  scope: "paragraph",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  prompt: paragraphPassPrompt(
-    "Check one paragraph of a piece of writing for sentences that add nothing.",
-    `Flag sentences in the TARGET PARAGRAPH that could be cut without loss. ${REPORTING_RULES}`,
-  ),
-};
-
-/** Exactly three model Passes: the matrix's other axis. */
+/** Exactly three real Starter model Passes: the matrix's other axis. */
 export const HARNESS_PASSES: Pass[] = [CLICHE_PASS, CLAIM_STRENGTH_PASS, CUT_CANDIDATES_PASS];
 
 /**

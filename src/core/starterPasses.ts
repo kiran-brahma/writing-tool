@@ -134,8 +134,8 @@ export const REPETITION_PASS: Pass = {
 /**
  * The prompt shape every paragraph-scope model Pass shares: the task, the
  * Document's placeholders, and the Target with its one-Paragraph context. It is
- * one function so a Starter pass and the constitution harness fixtures cannot
- * drift apart in the part of the prompt the constitution depends on.
+ * one function so the Starter passes cannot drift apart in the part of the
+ * prompt the constitution depends on.
  */
 export function paragraphPassPrompt(intro: string, task: string): string {
   return [
@@ -160,10 +160,91 @@ export function paragraphPassPrompt(intro: string, task: string): string {
 }
 
 /**
- * The one paragraph-scope model Pass that proves the mechanism (#4). The rest of
- * the Starter model passes ship in #19, and the document-scope ones in #7. It
- * is enabled by default, so a Writer with a critic Connection has something real
- * to run the moment the mechanism lands.
+ * The reporting clause every paragraph-scope model Pass shares. It carries the
+ * two clauses the constitution harness checks for — no praise and no
+ * replacement prose — and it names the Anchor a Finding needs (a quote and its
+ * zero-based offset in the Target). One constant rather than one per Pass, so a
+ * new Starter pass cannot ship without them and the clauses cannot drift apart.
+ */
+const PARAGRAPH_REPORTING_CLAUSE =
+  "For each problem, quote the exact span from the target, give its zero-based offset within " +
+  "the target, a short issue label and a diagnosis. Report only problems in the target " +
+  "paragraph. Do not praise the writing and do not suggest replacement prose.";
+
+/**
+ * Story 40: the actor should be the subject and the action should be the verb.
+ * Shipped disabled (DESIGN §4): it is the most opinionated pass in the pack, so
+ * the Writer turns it on deliberately rather than meeting it on first Run.
+ */
+export const CHARACTERS_ACTIONS_PASS: Pass = {
+  id: "characters-actions",
+  name: "Characters and actions",
+  description: "Flags sentences where the actor is missing from the subject position.",
+  kind: "model",
+  scope: "paragraph",
+  output: "findings",
+  slot: "critic",
+  enabled: false,
+  prompt: paragraphPassPrompt(
+    "Check one paragraph of a piece of writing for characters and actions.",
+    [
+      "Flag sentences in the TARGET PARAGRAPH where the actor is missing from the subject",
+      "position, or where the action is buried in a noun instead of carried by the verb. Say in",
+      "the diagnosis who or what is acting and what they are doing.",
+      PARAGRAPH_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/**
+ * Story 43: one paragraph, one idea. The Finding points at the sentence where
+ * the paragraph turns away from its first idea, so the Writer can split it.
+ */
+export const PARAGRAPH_UNITY_PASS: Pass = {
+  id: "paragraph-unity",
+  name: "Paragraph unity",
+  description: "Flags paragraphs carrying more than one idea.",
+  kind: "model",
+  scope: "paragraph",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  prompt: paragraphPassPrompt(
+    "Check one paragraph of a piece of writing for unity.",
+    [
+      "Flag places in the TARGET PARAGRAPH where it carries more than one idea, so the Writer",
+      "can split it. Quote the sentence or span where the paragraph turns away from its first",
+      "idea, and name the second idea in the diagnosis.",
+      PARAGRAPH_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/** Story 44: the sentences that add nothing. */
+export const CUT_CANDIDATES_PASS: Pass = {
+  id: "cut-candidates",
+  name: "Cut candidates",
+  description: "Flags sentences that could be cut without loss.",
+  kind: "model",
+  scope: "paragraph",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  prompt: paragraphPassPrompt(
+    "Check one paragraph of a piece of writing for sentences that add nothing.",
+    [
+      "Flag sentences in the TARGET PARAGRAPH that could be cut without loss: restatements,",
+      "filler, and sentences that only repeat what another sentence already said. Say in the",
+      "diagnosis what the sentence contributes, or why it contributes nothing.",
+      PARAGRAPH_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/**
+ * The one paragraph-scope model Pass that proves the mechanism (#4), and the
+ * pack's exact fear (#45): writing that sounds like a magazine headline. It is
+ * enabled by default.
  *
  * The prompt names what to look for and states the two rules Core also enforces:
  * the surrounding text is context, not target, and only problems in the target
@@ -190,11 +271,51 @@ export const CLICHE_PASS: Pass = {
   ),
 };
 
+/**
+ * Story 46: a hedge that undercuts a claim the Writer clearly means, and
+ * confidence the paragraph has not earned. The diagnosis says which, so the
+ * Writer knows whether to commit or to substantiate.
+ */
+export const CLAIM_STRENGTH_PASS: Pass = {
+  id: "claim-strength",
+  name: "Claim strength",
+  description: "Flags hedged claims and confidence the paragraph cannot support.",
+  kind: "model",
+  scope: "paragraph",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  prompt: paragraphPassPrompt(
+    "Check one paragraph of a piece of writing for claim strength.",
+    [
+      "Flag claims in the TARGET PARAGRAPH that a hedge undercuts — where the Writer clearly",
+      "means the claim but weakens it — and claims stated with more confidence than the",
+      "paragraph supports. Say in the diagnosis whether the Writer should commit to the claim",
+      "or substantiate it.",
+      PARAGRAPH_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/**
+ * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
+ * the paragraph-scope model passes in the same order: characters and actions
+ * (off), paragraph unity, cut candidates, cliché and headline-ese (the one #4
+ * shipped), claim strength. The document-scope model passes ship with #7.
+ *
+ * `enabled` here is only the default: the Writer's toggle is persisted, and
+ * `loadOrCreatePasses` seeds a Starter pass only when its id is missing, so an
+ * edit survives a later Obelus.
+ */
 export const STARTER_PASSES: Pass[] = [
   HEDGES_PASS,
   NOMINALIZATIONS_PASS,
   OPENERS_PASS,
   WORDINESS_PASS,
   REPETITION_PASS,
+  CHARACTERS_ACTIONS_PASS,
+  PARAGRAPH_UNITY_PASS,
+  CUT_CANDIDATES_PASS,
   CLICHE_PASS,
+  CLAIM_STRENGTH_PASS,
 ];

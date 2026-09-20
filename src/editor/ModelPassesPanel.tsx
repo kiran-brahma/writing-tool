@@ -23,6 +23,7 @@ export interface ModelPassesPanelProps {
   criticName: string | null;
   screeningFrame: boolean;
   onRun: (passId: string) => void;
+  onToggle: (passId: string, enabled: boolean) => void;
   onToggleScreening: (enabled: boolean) => void;
 }
 
@@ -35,6 +36,7 @@ export function ModelPassesPanel({
   criticName,
   screeningFrame,
   onRun,
+  onToggle,
   onToggleScreening,
 }: ModelPassesPanelProps) {
   const modelPasses = passes.filter((pass) => pass.kind === "model");
@@ -76,9 +78,24 @@ export function ModelPassesPanel({
           const { strikes, rewrites } = splitViolations(report?.violations ?? []);
           return (
             <li key={pass.id} className="border-b border-stone-200/70 px-4 py-3 last:border-b-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-stone-800">{pass.name}</p>
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={pass.enabled}
+                  aria-label={`Enable ${pass.name}`}
+                  onChange={(event) => onToggle(pass.id, event.target.checked)}
+                />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={
+                      pass.enabled
+                        ? "text-sm font-medium text-stone-800"
+                        : "text-sm font-medium text-stone-400"
+                    }
+                  >
+                    {pass.name}
+                  </p>
                   <p className="mt-0.5 text-xs text-stone-500">{pass.description}</p>
                 </div>
                 {running ? (
@@ -101,7 +118,7 @@ export function ModelPassesPanel({
                 )}
               </div>
               {!pass.enabled && (
-                <p className="mt-1 text-xs italic text-stone-400">Disabled.</p>
+                <p className="mt-1 pl-6 text-xs italic text-stone-400">Disabled.</p>
               )}
               {report !== null && (
                 <>

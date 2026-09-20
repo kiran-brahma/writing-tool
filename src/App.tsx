@@ -262,6 +262,7 @@ export default function App() {
             criticName={connections.find((connection) => connection.id === slots.critic)?.name ?? null}
             screeningFrame={screeningFrame}
             onRun={(passId) => void runModelPass(passId)}
+            onToggle={(passId, enabled) => void togglePass(passId, enabled)}
             onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
           />
 

@@ -7,7 +7,7 @@ import { hashPass, type Pass } from "./pass";
 import { passContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
 import { SCREENING_FRAME } from "./screeningFrame";
-import { CLICHE_PASS } from "./starterPasses";
+import { CLICHE_PASS, STARTER_PASSES } from "./starterPasses";
 
 function doc(...content: BlockNode[]): DocTree {
   return { type: "doc", content };
@@ -229,5 +229,28 @@ describe("critique", () => {
 
     expect(run.rawResponse).toBe(RESPONSE);
     expect(run.fromCache).toBe(false);
+  });
+});
+
+/**
+ * Story 36, and #19's acceptance: every paragraph-scope Starter model Pass runs
+ * through the one seam and reports Findings anchored in the Target. A shared
+ * path is not the same as a working pass, so each is exercised by name.
+ */
+const STARTER_MODEL_PASSES = STARTER_PASSES.filter((pass) => pass.kind === "model");
+
+describe("critique over the Starter model pack", () => {
+  it.each(STARTER_MODEL_PASSES)("runs the $name Pass and reports its Findings", async (pass) => {
+    const { transport, config } = fixture(RESPONSE);
+
+    const run = await critique(target(), pass, connection(), config);
+
+    expect(transport.requests).toHaveLength(1);
+    expect(run.findings).toHaveLength(1);
+    expect(run.findings[0]).toMatchObject({
+      passId: pass.id,
+      issue: "Found in target",
+      anchor: { quote: "Bravo", state: "attached" },
+    });
   });
 });

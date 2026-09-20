@@ -30,7 +30,11 @@ describe("loadOrCreatePasses", () => {
       "openers",
       "wordiness",
       "repetition",
+      "characters-actions",
+      "paragraph-unity",
+      "cut-candidates",
       "cliche",
+      "claim-strength",
     ]);
     expect(passes.filter((pass) => pass.kind === "rule").map((pass) => pass.id)).toEqual([
       "hedges",
@@ -40,7 +44,11 @@ describe("loadOrCreatePasses", () => {
       "repetition",
     ]);
     expect(passes.filter((pass) => pass.kind === "model").map((pass) => pass.id)).toEqual([
+      "characters-actions",
+      "paragraph-unity",
+      "cut-candidates",
       "cliche",
+      "claim-strength",
     ]);
   });
 
