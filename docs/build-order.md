@@ -32,12 +32,8 @@ listing, retry, the concurrency cap and the base-URL privacy assertion, and #17 
 `anthropic-shaped` and `gemini-native` adapters. #4 (Constitution core) landed the first model Pass
 end to end: the findings schema with no field for rewritten prose, the tolerant parser, Containment
 with its dropped-anchor count, the raw-response toggle, `promptHash` and the Screening frame toggle.
-#24 (When the model misbehaves) completed the constitution's other half: praise and rewrite-shaped
-content is linted out of every returned string, struck through where it lands and shown in a
-declineable per-Finding block, a smuggled rewrite is quarantined behind an explicit reveal, and a
-static affordance check fails the build on any Apply/Accept/Insert control in the UI. The frontier
-is **row 9**: #18 (Constitution harness) is first, with #19 (Starter passes) and #16 (Run control)
-now the other unblocked work.
+The frontier is **row 8**: #24 (When the model misbehaves) is first, with #18 (Constitution
+harness), #19 (Starter passes) and #16 (Run control) now unblocked behind it.
 
 ## How to work a ticket
 
@@ -62,7 +58,8 @@ now the other unblocked work.
 | 7 | **#4** | Constitution core | Findings schema, tolerant parser, Containment, one paragraph-scope model Pass end to end, raw-response toggle, `promptHash`, Screening frame toggle | - Completed
 | 8 | **#24** | When the model misbehaves | The praise linter over every returned string, Praise struck through rather than removed, `declineReason: "violation"`, the quarantined rewrite pane, the static affordance source check | - Completed
 | 9 | **#18** | Constitution harness | Three fixture Documents × three model Passes, runnable before any prompt change, timestamped |
-| 10 | **#16** | Run control | The Run cache with `promptHash`, the cost estimate and session total, cancelling, and the error paths including the unreadable auth failure |
+| 10 | **#16** | Run control | The Run cache with `promptHash`, the cost estimate and session total, cancelling, and the error paths including the unreadable auth failure | - completed
+
 | 11 | **#19** | Starter passes | The five remaining paragraph-scope Starter model passes |
 | 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` |
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning |
