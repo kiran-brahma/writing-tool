@@ -7,6 +7,7 @@ import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
 import { JudgePanel } from "./editor/JudgePanel";
+import { LibraryView } from "./library/LibraryView";
 import { MetricsPanel } from "./editor/MetricsPanel";
 import { ModelPassesPanel } from "./editor/ModelPassesPanel";
 import { OutlinePanel } from "./editor/OutlinePanel";
@@ -29,6 +30,13 @@ export default function App() {
     saveError,
     document,
     revisions,
+    library,
+    refreshLibrary,
+    openDocument,
+    createDocument,
+    renameDocument,
+    setDocumentStatus,
+    setDocumentTags,
     findings,
     passes,
     highlights,
@@ -77,6 +85,8 @@ export default function App() {
   } = useDocument();
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
+  /** Story 20: the Library is a view of its own; the Editor is the default. */
+  const [view, setView] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
   /** Stories 91–93: the sidebar's two tabs keep Reader output apart from the queue. */
@@ -114,6 +124,41 @@ export default function App() {
   const jumpToSection = useCallback((blockIndex: number) => {
     setJumpRequest((current) => ({ blockIndex, nonce: (current?.nonce ?? 0) + 1 }));
   }, []);
+
+  /**
+   * Opens the Library, flushing pending edits first so its rows show stored word
+   * counts and open-Finding counts rather than the state before the last save.
+   */
+  const goToLibrary = useCallback(() => {
+    setView("library");
+    void refreshLibrary();
+  }, [refreshLibrary]);
+
+  /** Clears the Editor's view state that belongs to the Document being left. */
+  const leaveEditor = useCallback(() => {
+    setCurrentFindingId(null);
+    setSelectionInterval(null);
+    setJumpRequest(null);
+    setTargetBlockIndex(0);
+    setEditorGeneration((generation) => generation + 1);
+  }, []);
+
+  const openFromLibrary = useCallback(
+    (documentId: string) => {
+      // Opening the Document already in the Editor is a no-op in the hook, so do
+      // not wipe the Writer's selection and remount the Editor for it.
+      if (documentId !== document?.id) leaveEditor();
+      setView("editor");
+      void openDocument(documentId);
+    },
+    [document?.id, leaveEditor, openDocument],
+  );
+
+  const startNewDocument = useCallback(() => {
+    leaveEditor();
+    setView("editor");
+    void createDocument();
+  }, [createDocument, leaveEditor]);
 
   /** The selected span, or null when the selection is collapsed. */
   const selection = useMemo(() => {
@@ -242,23 +287,42 @@ export default function App() {
           <p className="text-xs text-stone-500">It marks; it never holds the pen.</p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
-          <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
-            Import Markdown
-            <input
-              type="file"
-              accept=".md,.markdown,text/markdown"
-              className="sr-only"
-              onChange={(event) => void onImport(event)}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={onExport}
-            className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-          >
-            Export Markdown
-          </button>
+          {view === "library" ? (
+            <button
+              type="button"
+              onClick={() => setView("editor")}
+              className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            >
+              Back to the Editor
+            </button>
+          ) : (
+            <>
+              <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
+              <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
+                Import Markdown
+                <input
+                  type="file"
+                  accept=".md,.markdown,text/markdown"
+                  className="sr-only"
+                  onChange={(event) => void onImport(event)}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={onExport}
+                className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+              >
+                Export Markdown
+              </button>
+              <button
+                type="button"
+                onClick={goToLibrary}
+                className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+              >
+                Library
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -274,18 +338,37 @@ export default function App() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
+      {view === "library" && (
+        <LibraryView
+          entries={library}
+          activeDocumentId={document?.id ?? null}
+          onOpen={openFromLibrary}
+          onCreate={startNewDocument}
+          onStatus={(id, status) => void setDocumentStatus(id, status)}
+          onTags={(id, tags) => void setDocumentTags(id, tags)}
+        />
+      )}
+
+      {view === "editor" && (
+        <div className="flex min-h-0 flex-1">
         <main className="flex min-h-0 flex-1 flex-col bg-white">
           {document !== null && (
-            <DocumentEditor
-              key={`${document.id}:${editorGeneration}`}
-              initialContent={document.tree}
-              onChange={handleChange}
-              highlights={highlights}
-              onTargetChange={setTargetBlockIndex}
-              onSelectionChange={setSelectionInterval}
-              jumpRequest={jumpRequest}
-            />
+            <>
+              <DocumentTitleField
+                key={document.id}
+                title={document.title}
+                onCommit={(title) => void renameDocument(document.id, title)}
+              />
+              <DocumentEditor
+                key={`${document.id}:${editorGeneration}`}
+                initialContent={document.tree}
+                onChange={handleChange}
+                highlights={highlights}
+                onTargetChange={setTargetBlockIndex}
+                onSelectionChange={setSelectionInterval}
+                jumpRequest={jumpRequest}
+              />
+            </>
           )}
         </main>
 
@@ -464,8 +547,44 @@ export default function App() {
             </ol>
           </section>
         </aside>
-      </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * The Document's title, editable in place. It is the Writer's name for the
+ * piece, never a model's (story 74): the field commits on blur or Enter and
+ * holds no generated text.
+ */
+function DocumentTitleField({
+  title,
+  onCommit,
+}: {
+  title: string;
+  onCommit: (title: string) => void;
+}) {
+  const [draft, setDraft] = useState(title);
+
+  const commit = () => {
+    const next = draft.trim() === "" ? "Untitled" : draft.trim();
+    if (next !== title) onCommit(next);
+    if (next !== draft) setDraft(next);
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+      }}
+      aria-label="Document title"
+      placeholder="Untitled"
+      className="border-b border-stone-200 bg-white px-8 py-3 text-xl font-semibold tracking-tight text-stone-900 focus:outline-none"
+    />
   );
 }
 

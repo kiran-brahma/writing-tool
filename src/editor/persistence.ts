@@ -22,6 +22,13 @@ export interface PersistenceController {
   markDirty(): void;
   /** Persist immediately. Safe to call from `pagehide`. */
   flush(): Promise<void>;
+  /**
+   * Take a Revision now and cancel the pending idle one. The shell calls this
+   * when the Writer leaves a Document, so its edits become a Revision of *that*
+   * Document rather than firing against whichever Document is loaded when the
+   * idle timer would have elapsed.
+   */
+  takeRevision(): Promise<void>;
   dispose(): void;
 }
 
@@ -30,7 +37,7 @@ export const REVISION_IDLE_MS = 60_000;
 export const REVISION_CHANGE_LIMIT = 200;
 
 export function createPersistence(options: PersistenceOptions): PersistenceController {
-  const { save, takeRevision, onError } = options;
+  const { save, takeRevision: takeRevisionAction, onError } = options;
 
   let saveHandle: ReturnType<typeof setTimeout> | null = null;
   let revisionHandle: ReturnType<typeof setTimeout> | null = null;
@@ -65,13 +72,13 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
     revisionHandle = setTimeout(() => {
       revisionHandle = null;
       changesSinceRevision = 0;
-      void run(takeRevision);
+      void run(takeRevisionAction);
     }, REVISION_IDLE_MS);
 
     if (changesSinceRevision >= REVISION_CHANGE_LIMIT) {
       changesSinceRevision = 0;
       clearIdleRevision();
-      void run(takeRevision);
+      void run(takeRevisionAction);
     }
   }
 
@@ -83,6 +90,12 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
     await run(save);
   }
 
+  async function takeRevision(): Promise<void> {
+    clearIdleRevision();
+    changesSinceRevision = 0;
+    await run(takeRevisionAction);
+  }
+
   function dispose(): void {
     disposed = true;
     if (saveHandle !== null) clearTimeout(saveHandle);
@@ -90,5 +103,5 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
     saveHandle = null;
   }
 
-  return { markDirty, flush, dispose };
+  return { markDirty, flush, takeRevision, dispose };
 }

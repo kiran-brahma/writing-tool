@@ -1,14 +1,15 @@
 import { canonicalText, wordCount } from "../core/canonicalText";
 import { emptyDocTree, type DocTree } from "../core/docTree";
+import type { DocumentStatus } from "../core/library";
 import { parseCanonical } from "../core/parseCanonical";
 import type { DocumentRecord } from "./obelusDatabase";
 import type { ObelusDatabase } from "./obelusDatabase";
 
 /**
- * The single Document of record a fresh install opens into. A stable id keeps
- * creation idempotent, so a double-mounted effect cannot create two Documents.
+ * The one Document that always exists: the Scratchpad (story 24). A stable id
+ * makes creation idempotent, so a double-mounted effect cannot create two.
  */
-export const DEFAULT_DOCUMENT_ID = "default";
+export const SCRATCHPAD_DOCUMENT_ID = "scratchpad";
 
 /** The derived fields of a Document: canonical text and its word count. */
 function derive(tree: DocTree): Pick<DocumentRecord, "canonical" | "wordCount"> {
@@ -16,33 +17,78 @@ function derive(tree: DocTree): Pick<DocumentRecord, "canonical" | "wordCount"> 
   return { canonical, wordCount: wordCount(canonical) };
 }
 
+/**
+ * A new empty Document with a fresh id, carrying the Library fields so nothing
+ * downstream has to fill them in.
+ */
 export function createDocument(now: number = Date.now()): DocumentRecord {
   const tree = emptyDocTree();
   return {
-    id: DEFAULT_DOCUMENT_ID,
+    id: crypto.randomUUID(),
     title: "Untitled",
     tree,
     ...derive(tree),
+    tags: [],
+    status: "draft",
     createdAt: now,
     updatedAt: now,
   };
 }
 
+/** Story 24: the auto-created Scratchpad, a Document under a stable id. */
+export function createScratchpad(now: number = Date.now()): DocumentRecord {
+  return { ...createDocument(now), id: SCRATCHPAD_DOCUMENT_ID, title: "Scratchpad" };
+}
+
 /**
- * The Document of record for this browser. Story 1 wants a Writer to open the
- * URL and start writing immediately, so the first run creates the one Document
- * rather than asking for a name. Many Documents arrive with the Library.
+ * Ensures the Scratchpad exists and returns it. Idempotent by the stable id, so
+ * it is safe to call on every open.
+ */
+export async function ensureScratchpad(
+  database: ObelusDatabase,
+  now: number = Date.now(),
+): Promise<DocumentRecord> {
+  const existing = await database.documents.get(SCRATCHPAD_DOCUMENT_ID);
+  if (existing !== undefined) return existing;
+
+  const scratchpad = createScratchpad(now);
+  await database.documents.put(scratchpad);
+  return scratchpad;
+}
+
+/**
+ * The Document to open on launch: the most recently edited. The Scratchpad is
+ * guaranteed to exist, which is what a fresh install opens into (stories 1 and
+ * 24). The Scratchpad is created *after* the read on purpose: on an upgrade the
+ * Writer's existing Documents must win, and a fresh Scratchpad stamped
+ * `updatedAt = now` would otherwise sort first and drop them into an empty one.
  */
 export async function loadOrCreateDocument(
   database: ObelusDatabase,
   now: number = Date.now(),
 ): Promise<DocumentRecord> {
-  const existing = await database.documents.get(DEFAULT_DOCUMENT_ID);
-  if (existing !== undefined) return existing;
+  const mostRecent = await database.documents.orderBy("updatedAt").reverse().first();
+  const scratchpad = await ensureScratchpad(database, now);
+  return mostRecent ?? scratchpad;
+}
 
-  const document = createDocument(now);
-  await database.documents.put(document);
-  return document;
+/**
+ * A Document with its Library fields filled in. Documents written before the
+ * Library carry no `tags` or `status`; they read as untagged and `draft`. The
+ * fields are stored unindexed, so no migration rewrites existing records — the
+ * defaults are applied where the value is read.
+ */
+export type NormalizedDocumentRecord = DocumentRecord & {
+  tags: string[];
+  status: DocumentStatus;
+};
+
+export function normalizeDocument(record: DocumentRecord): NormalizedDocumentRecord {
+  return {
+    ...record,
+    tags: record.tags ?? [],
+    status: record.status ?? "draft",
+  };
 }
 
 /** Pure projection: a new Document record for a new tree, canonical derived. */

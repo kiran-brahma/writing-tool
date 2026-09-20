@@ -4,6 +4,7 @@ import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
 import { type DeclineReason, type Finding, type Interval } from "./core/finding";
+import type { DocumentStatus, LibraryEntry } from "./core/library";
 import {
   judge as judgeCore,
   sameModelWarning as sameModelWarningFor,
@@ -50,6 +51,13 @@ import {
   updateRuleConfig,
 } from "./storage/passes";
 import { listRevisions, takeRevision } from "./storage/revisions";
+import {
+  applyMetadataPatch,
+  createLibraryDocument,
+  listLibrary,
+  updateDocumentMetadata,
+  type DocumentMetadataPatch,
+} from "./storage/library";
 import { runRulePasses } from "./storage/ruleRuns";
 import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
 import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
@@ -63,6 +71,20 @@ export interface DocumentHandle {
   saveError: string | null;
   document: DocumentRecord | null;
   revisions: RevisionRecord[];
+  /** Story 20: every Document held in this browser, newest edited first. */
+  library: LibraryEntry[];
+  /** Re-reads the Library, flushing pending edits so the list shows stored state. */
+  refreshLibrary: () => Promise<void>;
+  /** Story 20: open another Document from the Library. */
+  openDocument: (documentId: string) => Promise<void>;
+  /** Creates an empty Document and opens it. */
+  createDocument: () => Promise<void>;
+  /** Story 20: rename a Document. */
+  renameDocument: (documentId: string, title: string) => Promise<void>;
+  /** Story 23: set a Document's status. */
+  setDocumentStatus: (documentId: string, status: DocumentStatus) => Promise<void>;
+  /** Story 22: replace a Document's tags. */
+  setDocumentTags: (documentId: string, tags: string[]) => Promise<void>;
   findings: Finding[];
   /** The Pass set: the Starter pack as edited by the Writer. */
   passes: Pass[];
@@ -179,6 +201,7 @@ export function useDocument(): DocumentHandle {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [documentRecord, setDocumentRecord] = useState<DocumentRecord | null>(null);
   const [revisions, setRevisions] = useState<RevisionRecord[]>([]);
+  const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [passes, setPasses] = useState<Pass[]>(STARTER_PASSES);
   const [highlights, setHighlights] = useState<Interval[]>([]);
@@ -271,6 +294,27 @@ export function useDocument(): DocumentHandle {
     setRevisions(await listRevisions(database, current.id));
   }, []);
 
+  /**
+   * Reads the Library list without touching persistence. Writes that change a
+   * Document's metadata or add one call this; the flushing variant below is for
+   * opening the Library from the Editor, where a keystroke may still be pending.
+   */
+  const readLibrary = useCallback(async () => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    setLibrary(await listLibrary(database));
+  }, []);
+
+  /**
+   * Reads the Library list, flushing pending edits first: the list shows stored
+   * state — word count and last-edited come from the record, and a keystroke
+   * still on the debounce has not reached it.
+   */
+  const refreshLibrary = useCallback(async () => {
+    await persistenceRef.current?.flush();
+    await readLibrary();
+  }, [readLibrary]);
+
   /** Re-runs the enabled rule Passes against the current Document. */
   const rerunRules = useCallback(async () => {
     const database = databaseRef.current;
@@ -280,6 +324,29 @@ export function useDocument(): DocumentHandle {
     await refreshFindings(current);
     await refreshRevisions();
   }, [refreshFindings, refreshRevisions]);
+
+  /**
+   * Loads one Document into the Editor: its stored record and prose plus its own
+   * Findings, Revisions, raw responses and Reader accounts. Both the mount path
+   * and every Library open call it, so the two cannot drift. The previous
+   * Document's analysis is cleared synchronously so the Editor never draws its
+   * Highlights over the prose that just replaced it.
+   */
+  const enterDocument = useCallback(
+    async (database: ObelusDatabase, opened: DocumentRecord) => {
+      documentRef.current = opened;
+      savedCanonicalRef.current = opened.canonical;
+      canonicalsRef.current = new Map();
+      setDocumentRecord(opened);
+      applyResolution({ findings: [], intervals: [], changed: [] });
+      setRawResponses(await listRunResponses(database, opened.id));
+      setReaderAccounts(await listReaderAccounts(database, opened.id));
+      await runRulePasses(database, opened, { passes: passesRef.current });
+      await refreshFindings(opened);
+      await refreshRevisions();
+    },
+    [applyResolution, refreshFindings, refreshRevisions],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -294,9 +361,6 @@ export function useDocument(): DocumentHandle {
         }
 
         databaseRef.current = database;
-        documentRef.current = opened;
-        savedCanonicalRef.current = opened.canonical;
-        setDocumentRecord(opened);
 
         const loadedPasses = await loadOrCreatePasses(database);
         passesRef.current = loadedPasses;
@@ -306,10 +370,11 @@ export function useDocument(): DocumentHandle {
         setSlots(await loadSlots(database));
         setScreeningFrameState(await loadScreeningFrame(database));
         setCharacterLimitState(await loadCharacterLimit(database));
-        setRawResponses(await listRunResponses(database, opened.id));
-        setReaderAccounts(await listReaderAccounts(database, opened.id));
         // The one seam. The app builds it once; every model Run leaves through it.
         transportRef.current = createFetchTransport();
+
+        await enterDocument(database, opened);
+        setLibrary(await listLibrary(database));
 
         persistenceRef.current = createPersistence({
           save: async () => {
@@ -339,9 +404,6 @@ export function useDocument(): DocumentHandle {
           },
         });
 
-        await runRulePasses(database, opened, { passes: loadedPasses });
-        await refreshFindings(opened);
-        await refreshRevisions();
         setStatus("ready");
       } catch (error) {
         if (!cancelled) {
@@ -359,7 +421,7 @@ export function useDocument(): DocumentHandle {
       databaseRef.current = null;
       transportRef.current = null;
     };
-  }, [refreshRevisions, refreshFindings]);
+  }, [enterDocument, refreshRevisions, refreshFindings]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -463,7 +525,7 @@ export function useDocument(): DocumentHandle {
       const database = databaseRef.current;
       if (database === null) return;
 
-      // Save what is on screen, then snapshot it as a Revision: replacing the
+      // Save what is on screen, then take a Revision of it: replacing the
       // prose wholesale must not destroy the Writer's previous text.
       await persistenceRef.current?.flush();
       const current = documentRef.current;
@@ -490,6 +552,94 @@ export function useDocument(): DocumentHandle {
     const current = documentRef.current;
     return current === null ? "" : exportDocument(current);
   }, []);
+
+  /**
+   * Story 20: opens another Document from the Library. The Document being left
+   * is flushed and a Revision is taken for it first — its prose and its pending
+   * Revision must not fire after the switch against the Document that replaced
+   * it — then the new Document's own analysis replaces the old view.
+   */
+  const openDocument = useCallback(
+    async (documentId: string) => {
+      const database = databaseRef.current;
+      if (database === null) return;
+      if (documentRef.current?.id === documentId) return;
+
+      await persistenceRef.current?.flush();
+      await persistenceRef.current?.takeRevision();
+
+      const opened = await database.documents.get(documentId);
+      if (opened === undefined) return;
+
+      await enterDocument(database, opened);
+      // The run readouts belonged to the Document just left; a Run that is still
+      // in flight will not repopulate them for the new Document (guarded below).
+      setRunError(null);
+      setLastRunReport(null);
+      setReaderError(null);
+      setJudgeResult(null);
+      setJudgeError(null);
+      await readLibrary();
+    },
+    [enterDocument, readLibrary],
+  );
+
+  /**
+   * Writes a title, status or tag change and reflects it in the Library. The
+   * active Document is patched in memory and persisted whole, because it may
+   * hold unsaved prose: re-reading the stored record would put stale prose back,
+   * and a concurrent debounced save would otherwise restore the old metadata. A
+   * Document open only in the Library is patched straight in storage.
+   */
+  const applyDocumentMetadata = useCallback(
+    async (documentId: string, patch: DocumentMetadataPatch) => {
+      const database = databaseRef.current;
+      if (database === null) return;
+      try {
+        if (documentRef.current?.id === documentId) {
+          const updated = applyMetadataPatch(documentRef.current, patch);
+          documentRef.current = updated;
+          setDocumentRecord(updated);
+          await persistDocument(database, updated);
+        } else {
+          const updated = await updateDocumentMetadata(database, documentId, patch);
+          if (updated === null) return;
+        }
+        await readLibrary();
+      } catch (error) {
+        setSaveError(describeError(error));
+      }
+    },
+    [readLibrary],
+  );
+
+  /** Story 20: give a Document a name of the Writer's choosing. */
+  const renameDocument = useCallback(
+    (documentId: string, title: string) => applyDocumentMetadata(documentId, { title }),
+    [applyDocumentMetadata],
+  );
+
+  /** Story 23: move a Document between draft, revising and done. */
+  const setDocumentStatus = useCallback(
+    (documentId: string, status: DocumentStatus) => applyDocumentMetadata(documentId, { status }),
+    [applyDocumentMetadata],
+  );
+
+  /** Story 22: replace a Document's tags wholesale. */
+  const setDocumentTags = useCallback(
+    (documentId: string, tags: string[]) => applyDocumentMetadata(documentId, { tags }),
+    [applyDocumentMetadata],
+  );
+
+  /** Creates a new empty Document and opens it, ready to write. */
+  const createDocument = useCallback(async () => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    await persistenceRef.current?.flush();
+    const created = await createLibraryDocument(database);
+    // `openDocument` reads the Library list once the new Document is entered.
+    await openDocument(created.id);
+  }, [openDocument]);
 
   const togglePass = useCallback(
     async (passId: string, enabled: boolean) => {
@@ -603,15 +753,20 @@ export function useDocument(): DocumentHandle {
           screeningFrame,
           characterLimit,
         });
-        await refreshFindings(current);
-        setRawResponses(await listRunResponses(database, current.id));
-        setReaderAccounts(await listReaderAccounts(database, current.id));
-        setLastRunReport({
-          passId,
-          droppedAnchors: result.droppedAnchors,
-          violations: result.violations,
-          chunks: result.chunks,
-        });
+        // The Writer may have opened another Document mid-run. The Run belongs
+        // to the Document it started against (and its Findings are stored); the
+        // new Document's view must not show them.
+        if (documentRef.current?.id === current.id) {
+          await refreshFindings(current);
+          setRawResponses(await listRunResponses(database, current.id));
+          setReaderAccounts(await listReaderAccounts(database, current.id));
+          setLastRunReport({
+            passId,
+            droppedAnchors: result.droppedAnchors,
+            violations: result.violations,
+            chunks: result.chunks,
+          });
+        }
         return result;
       } catch (error) {
         // The Provider's own words, surfaced verbatim; never a silent failure.
@@ -705,8 +860,12 @@ export function useDocument(): DocumentHandle {
           transport,
           screeningFrame,
         });
-        setReaderAccounts(accounts);
-        savedCanonicalRef.current = latest.canonical;
+        // As with a model Run: if the Writer opened another Document mid-run,
+        // the accounts belong to the Document that was read, not the new view.
+        if (documentRef.current?.id === latest.id) {
+          setReaderAccounts(accounts);
+          savedCanonicalRef.current = latest.canonical;
+        }
       } catch (error) {
         // The Provider's own words, surfaced verbatim; never a silent failure.
         setReaderError(describeError(error));
@@ -833,6 +992,13 @@ export function useDocument(): DocumentHandle {
     saveError,
     document: documentRecord,
     revisions,
+    library,
+    refreshLibrary,
+    openDocument,
+    createDocument,
+    renameDocument,
+    setDocumentStatus,
+    setDocumentTags,
     findings,
     passes,
     highlights,

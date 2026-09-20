@@ -1,6 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
+import type { DocumentStatus } from "../core/library";
 import type { Pass } from "../core/pass";
 import type { ReaderAccount } from "../core/reader";
 import type { SectionRef } from "../core/sections";
@@ -21,6 +22,14 @@ export interface DocumentRecord {
   wordCount: number;
   createdAt: number;
   updatedAt: number;
+  /**
+   * Story 22's tags. Optional because Documents written before the Library
+   * (#8) do not carry them; `normalizeDocument` supplies `[]` on read. The
+   * field is stored but not indexed, so adding it rewrites no existing record.
+   */
+  tags?: string[];
+  /** Story 23's status; absent reads as `draft` via `normalizeDocument`. */
+  status?: DocumentStatus;
 }
 
 /**

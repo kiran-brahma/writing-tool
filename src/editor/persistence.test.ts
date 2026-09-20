@@ -89,4 +89,20 @@ describe("createPersistence", () => {
 
     expect(save).not.toHaveBeenCalled();
   });
+
+  it("takes a Revision now and cancels the pending idle one", async () => {
+    const takeRevision = vi.fn(async () => {});
+    const controller = createPersistence({
+      save: async () => {},
+      takeRevision,
+      onError: () => {},
+    });
+
+    controller.markDirty();
+    await controller.takeRevision();
+    expect(takeRevision).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(takeRevision).toHaveBeenCalledTimes(1);
+  });
 });

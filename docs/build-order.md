@@ -49,8 +49,10 @@ landed: a document-scope Run past the character limit is chunked Section by Sect
 the limit is an editable setting with a warning, and the Run reports its chunk count. #11 (Reader
 pass) has landed: a section-scope Reader pass returns a Reader account — what a Section says, what a
 distracted reader would miss, and the gap between the two — one model call per Section, stored as
-its own output shape and shown in its own Reader accounts tab, never mixed with Findings. The
-frontier is **row 17**: #8 (Library), blocked by #13.
+its own output shape and shown in its own Reader accounts tab, never mixed with Findings. #8
+(Library) has landed: many Documents, the auto-created Scratchpad, tags and tag filtering, search
+over title and body text, Document status, and the open-Finding count; the one-Document app is now
+a flat Library. The frontier is **row 18**: #12 (Durability).
 
 ## How to work a ticket
 
@@ -84,7 +86,7 @@ frontier is **row 17**: #8 (Library), blocked by #13.
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes | - Completed
 | 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path | - Completed
 | 16 | **#11** | Reader pass | The reader account schema and the Reader tab | - Completed
-| 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count |
+| 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count | - Completed
 | 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle |
 | 19 | **#23** | Offline shell and migration policy | Service worker and offline shell, `storage.persist()`, the forward-only migration policy, the no-migration-with-a-behaviour-change rule |
 | 20 | **#22** | Privacy page | The plain-language page and the verify-this-yourself steps |
