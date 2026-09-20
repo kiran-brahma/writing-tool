@@ -100,6 +100,8 @@ export interface CanonicalBlock {
   index: number;
   /** The canonical offset the block starts at. */
   start: number;
+  /** The canonical offset just past the block's text, before its separator. */
+  end: number;
   /** The block's canonical source, without the blank-line separator. */
   text: string;
 }
@@ -121,7 +123,7 @@ export function canonicalBlocks(tree: DocTree): CanonicalBlock[] {
     if (rendered.value.text.length === 0) continue;
 
     const text = trimTrailingWhitespace(rendered.value).text;
-    blocks.push({ block, index, start, text });
+    blocks.push({ block, index, start, end: start + text.length, text });
     start += text.length + 2;
   }
 

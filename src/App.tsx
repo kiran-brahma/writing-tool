@@ -45,6 +45,7 @@ export default function App() {
     runJudge,
     criticConnection,
     judgeConnection,
+    judgeIsDefault,
     sameModelWarning,
     handleChange,
     flagMilestone,
@@ -310,6 +311,7 @@ export default function App() {
             selection={selection}
             section={section}
             judge={judgeConnection}
+            judgeIsDefault={judgeIsDefault}
             sameModelWarning={sameModelWarning}
             running={judgeRunning}
             error={judgeError}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AnchorDraft } from "../core/finding";
 import type { JudgeResult, JudgeVerdict } from "../core/judge";
 import { passageText, projectSelection } from "../core/judgeSelection";
@@ -31,6 +31,8 @@ export interface JudgePanelProps {
   /** The Section at the cursor as an Anchor, or null outside any Section. */
   section: AnchorDraft | null;
   judge: Connection | null;
+  /** True when no judge Connection is assigned and the different-model default is used. */
+  judgeIsDefault: boolean;
   sameModelWarning: string | null;
   running: boolean;
   error: string | null;
@@ -46,6 +48,7 @@ export function JudgePanel({
   selection,
   section,
   judge,
+  judgeIsDefault,
   sameModelWarning,
   running,
   error,
@@ -55,6 +58,15 @@ export function JudgePanel({
   const [mode, setMode] = useState<SelectionMode>("span");
   const [beforeId, setBeforeId] = useState<string | null>(revisions[1]?.id ?? null);
   const [afterId, setAfterId] = useState<string | null>(revisions[0]?.id ?? null);
+  /** The passages the shown Verdict was produced from, so it is never misattributed. */
+  const [judged, setJudged] = useState<{ before: string; after: string } | null>(null);
+
+  // Revisions load just after the panel mounts, so the initial choice settles
+  // the first time two are available rather than staying unset forever.
+  useEffect(() => {
+    if (beforeId === null && revisions.length >= 2) setBeforeId(revisions[1].id);
+    if (afterId === null && revisions.length >= 1) setAfterId(revisions[0].id);
+  }, [revisions, beforeId, afterId]);
 
   const anchor = mode === "span" ? selection : section;
   const beforeRevision = revisions.find((revision) => revision.id === beforeId) ?? null;
@@ -71,10 +83,22 @@ export function JudgePanel({
       ? passageText(afterRevision.canonical, afterInterval)
       : null;
 
-  const diff =
-    beforeRevision !== null && afterRevision !== null
-      ? wordDiff(beforeRevision.canonical, afterRevision.canonical)
-      : [];
+  const beforeCanonical = beforeRevision?.canonical ?? null;
+  const afterCanonical = afterRevision?.canonical ?? null;
+  const diff = useMemo(
+    () =>
+      beforeCanonical !== null && afterCanonical !== null
+        ? wordDiff(beforeCanonical, afterCanonical)
+        : [],
+    [beforeCanonical, afterCanonical],
+  );
+
+  // A Verdict is shown only while the passages on screen are the ones it judged,
+  // so switching the pair never leaves a stale preference labelled as this one's.
+  const shownResult =
+    result !== null && judged !== null && judged.before === beforeText && judged.after === afterText
+      ? result
+      : null;
 
   const canJudge =
     beforeText !== null &&
@@ -106,9 +130,16 @@ export function JudgePanel({
           </p>
         )}
 
-        {judge === null && (
+        {judge === null ? (
           <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
-            Assign a Connection to the Judge Slot. It defaults to a different model from the Critic.
+            Assign a Connection to the Critic and another to the Judge Slot. The Judge defaults
+            to a different model from the Critic.
+          </p>
+        ) : (
+          <p className="text-xs text-stone-500">
+            Judge: <span className="font-medium text-stone-700">{judge.name}</span>
+            {judge.model.trim() === "" ? " (no model set)" : ` (${judge.model})`}
+            {judgeIsDefault ? " — a different Connection from the Critic, by default" : ""}
           </p>
         )}
 
@@ -171,7 +202,10 @@ export function JudgePanel({
         <button
           type="button"
           onClick={() => {
-            if (beforeText !== null && afterText !== null) onJudge(beforeText, afterText);
+            if (beforeText !== null && afterText !== null) {
+              setJudged({ before: beforeText, after: afterText });
+              onJudge(beforeText, afterText);
+            }
           }}
           disabled={!canJudge}
           className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-300"
@@ -185,7 +219,7 @@ export function JudgePanel({
           </p>
         )}
 
-        {result !== null && <Verdict result={result} />}
+        {shownResult !== null && <Verdict result={shownResult} />}
       </div>
     </section>
   );

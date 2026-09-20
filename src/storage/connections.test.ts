@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCustomConnection, type Connection } from "../wire/connection";
 import {
   assignSlot,
+  defaultJudgeConnection,
   loadOrCreateConnections,
   loadSlots,
   removeConnection,
@@ -161,5 +162,41 @@ describe("Custom Connections and Slots (stories 7, 14)", () => {
     await assignSlot(database, "critic", "custom-1");
     await removeConnection(database, "custom-1");
     await expect(loadSlots(database)).resolves.toEqual({ critic: null, judge: null });
+  });
+});
+
+describe("defaultJudgeConnection (story 90)", () => {
+  it("returns a Connection different from the Critic", async () => {
+    const database = await openTestDatabase();
+    const connections = await loadOrCreateConnections(database);
+    const critic = find(connections, "openai");
+
+    const judge = defaultJudgeConnection(connections, critic);
+
+    expect(judge).not.toBeNull();
+    expect(judge?.id).not.toBe(critic.id);
+  });
+
+  it("prefers a usable Connection whose model differs from the Critic's", async () => {
+    const database = await openTestDatabase();
+    const connections = await loadOrCreateConnections(database).then((entries) =>
+      entries.map((connection) => ({ ...connection, model: "" })),
+    );
+    const critic = { ...find(connections, "openai"), model: "gpt-x" };
+    const sameModel = { ...find(connections, "anthropic"), model: "gpt-x" };
+    const differentModel = { ...find(connections, "gemini"), model: "gemini-x" };
+
+    const judge = defaultJudgeConnection([critic, sameModel, differentModel], critic);
+
+    expect(judge?.id).toBe("gemini");
+  });
+
+  it("returns null when there is no other Connection or no Critic", async () => {
+    const database = await openTestDatabase();
+    const connections = await loadOrCreateConnections(database);
+    const critic = find(connections, "openai");
+
+    expect(defaultJudgeConnection([critic], critic)).toBeNull();
+    expect(defaultJudgeConnection([critic], null)).toBeNull();
   });
 });

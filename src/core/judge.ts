@@ -3,6 +3,7 @@ import type { ModelRequest } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
 import { JUDGE_SCHEMA } from "./judgeSchema";
 import { extractJson } from "./parseFindings";
+import { isRecord } from "./parseJson";
 
 /**
  * The Judge is the mechanism the whole tool is built to protect, so its inputs
@@ -109,16 +110,25 @@ export async function judge(
   config: JudgeConfig,
 ): Promise<JudgeResult> {
   const labelOrder = config.labelOrder ?? randomLabelOrder();
-  const swappedOrder: [JudgeLabel, JudgeLabel] = [labelOrder[1], labelOrder[0]];
+  const swappedOrder = swapOrder(labelOrder);
 
-  const first = parseJudgeAnswer(
-    await config.transport.send(judgeRequest(before, after, labelOrder, connection, config)),
-  );
-  const swapped = parseJudgeAnswer(
-    await config.transport.send(judgeRequest(before, after, swappedOrder, connection, config)),
-  );
+  // The two calls share no state, so they run together: two answers, not an
+  // order. The labels differ, so neither call can inform the other anyway.
+  const [first, swapped] = await Promise.all([
+    config.transport
+      .send(judgeRequest(before, after, labelOrder, connection, config))
+      .then(parseJudgeAnswer),
+    config.transport
+      .send(judgeRequest(before, after, swappedOrder, connection, config))
+      .then(parseJudgeAnswer),
+  ]);
 
   return assembleResult(first, swapped, labelOrder);
+}
+
+/** The same label order with the two labels exchanged. */
+function swapOrder(order: [JudgeLabel, JudgeLabel]): [JudgeLabel, JudgeLabel] {
+  return [order[1], order[0]];
 }
 
 /**
@@ -158,12 +168,12 @@ function judgeRequest(
  * confidence is the lower of the two calls, so agreement with an unsure second
  * answer does not read as confidence.
  */
-export function assembleResult(
+function assembleResult(
   first: JudgeAnswer,
   swapped: JudgeAnswer,
   labelOrder: [JudgeLabel, JudgeLabel],
 ): JudgeResult {
-  const swappedOrder: [JudgeLabel, JudgeLabel] = [labelOrder[1], labelOrder[0]];
+  const swappedOrder = swapOrder(labelOrder);
   const firstSide = sideFor(first.preference, labelOrder);
   const swappedSide = sideFor(swapped.preference, swappedOrder);
   const stable = firstSide === swappedSide;
@@ -300,8 +310,4 @@ function numberOr(value: unknown, fallback: number): number {
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

@@ -1,4 +1,4 @@
-import { canonicalBlocks, canonicalText } from "./canonicalText";
+import { canonicalBlocks } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import type { Interval } from "./finding";
 
@@ -24,19 +24,23 @@ export interface Section {
 /** The heading-delimited Sections of a Document, in document order. */
 export function sections(tree: DocTree): Section[] {
   const blocks = canonicalBlocks(tree);
-  const canonical = canonicalText(tree);
-  const headings = blocks.filter((block) => block.block.type === "heading");
+  const headingPositions: number[] = [];
+  blocks.forEach((block, position) => {
+    if (block.block.type === "heading") headingPositions.push(position);
+  });
 
-  return headings.map((block, index) => {
-    const next = headings[index + 1];
-    // Blocks are separated by exactly one blank line, so a Section ends where
-    // the next heading's leading separator begins. The last runs to the end of
-    // the canonical string, whose one trailing newline is not body.
-    const end = next === undefined ? canonical.length - 1 : next.start - 2;
+  return headingPositions.map((position, index) => {
+    const heading = blocks[position];
+    const nextPosition = headingPositions[index + 1];
+    // A Section's body runs to the block before the next heading; the final
+    // Section runs to the end of the last block. No separator length is
+    // guessed here: the renderer already reports where each block ends.
+    const end =
+      nextPosition === undefined ? blocks[blocks.length - 1].end : blocks[nextPosition - 1].end;
     return {
-      heading: headingText(block.text),
-      interval: { start: block.start, end: Math.max(block.start, end) },
-      headingBlockIndex: block.index,
+      heading: headingText(heading.text),
+      interval: { start: heading.start, end },
+      headingBlockIndex: heading.index,
     };
   });
 }

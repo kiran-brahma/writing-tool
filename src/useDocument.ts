@@ -15,6 +15,7 @@ import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
 import {
   assignSlot as assignSlotRecord,
+  defaultJudgeConnection,
   loadOrCreateConnections,
   loadSlots,
   removeConnection as removeConnectionRecord,
@@ -93,6 +94,8 @@ export interface DocumentHandle {
   criticConnection: Connection | null;
   /** The Connection in the judge Slot, or null. */
   judgeConnection: Connection | null;
+  /** True when no judge Connection is assigned and the default is in use. */
+  judgeIsDefault: boolean;
   /** Stories 15, 90: a soft warning when the Critic and the Judge share a model. */
   sameModelWarning: string | null;
   handleChange: (tree: DocTree) => void;
@@ -461,12 +464,18 @@ export function useDocument(): DocumentHandle {
     return connections.find((connection) => connection.id === id) ?? null;
   }, [connections, slots]);
 
-  /** The Connection in the judge Slot, or null when none is assigned. */
+  /**
+   * The judge Slot's Connection, or the story-90 default: a different
+   * Connection from the Critic, so the Judge is independent by default.
+   */
   const judgeConnection = useMemo(() => {
     const id = slots.judge;
-    if (id === null) return null;
-    return connections.find((connection) => connection.id === id) ?? null;
-  }, [connections, slots]);
+    if (id !== null) return connections.find((connection) => connection.id === id) ?? null;
+    return defaultJudgeConnection(connections, criticConnection);
+  }, [connections, slots, criticConnection]);
+
+  /** True when the Judge Connection above is the default rather than an assignment. */
+  const judgeIsDefault = slots.judge === null && judgeConnection !== null;
 
   /**
    * Stories 15 and 90: the Judge defaults to a different model, and a
@@ -666,6 +675,7 @@ export function useDocument(): DocumentHandle {
     runJudge,
     criticConnection,
     judgeConnection,
+    judgeIsDefault,
     sameModelWarning,
     handleChange,
     flagMilestone,

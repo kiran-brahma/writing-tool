@@ -1,6 +1,7 @@
 import type { Violation } from "./finding";
 import { FINDING_FIELDS } from "./findingsSchema";
 import { lintViolations, dedupeViolations } from "./lintViolations";
+import { isRecord } from "./parseJson";
 import type { OutputShape } from "./pass";
 
 /**
@@ -269,8 +270,4 @@ function stringOrNull(value: unknown): string | null {
 
 function integerOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

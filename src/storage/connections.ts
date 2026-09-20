@@ -109,6 +109,30 @@ export const SLOTS_SETTING_KEY = "slots";
 
 const EMPTY_SLOTS: SlotAssignment = { critic: null, judge: null };
 
+/**
+ * Story 90: the Judge defaults to a different Connection and model from the
+ * Critic, so independent judgment is the default rather than something the
+ * Writer must arrange. A Connection with a usable model is preferred, then one
+ * whose model differs from the Critic's; a same-model pairing is left to the
+ * soft warning rather than a block. Returns null when there is no other
+ * Connection to default to.
+ */
+export function defaultJudgeConnection(
+  connections: Connection[],
+  critic: Connection | null,
+): Connection | null {
+  if (critic === null) return null;
+  const others = connections.filter((connection) => connection.id !== critic.id);
+  if (others.length === 0) return null;
+
+  const criticModel = critic.model.trim();
+  const usable = others.filter((connection) => connection.model.trim() !== "");
+  const differentModel = usable.find(
+    (connection) => connection.model.trim() !== criticModel,
+  );
+  return differentModel ?? usable[0] ?? others[0];
+}
+
 /** Story 14: which Connection runs the Critic, and which the Judge. */
 export async function loadSlots(database: ObelusDatabase): Promise<SlotAssignment> {
   const record = await database.settings.get(SLOTS_SETTING_KEY);
