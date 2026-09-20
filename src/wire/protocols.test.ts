@@ -342,36 +342,74 @@ describe("one model Pass on all three Protocols", () => {
     "gemini-native": { candidates: [{ content: { parts: [{ text }] } }] },
   };
 
-  it("returns the same text unchanged through the seam for every Protocol", async () => {
+  // One ModelRequest, built once, handed unchanged to every Protocol.
+  function sharedRequest(connection: Connection): ModelRequest {
+    return {
+      connection,
+      model: "test-model",
+      system: "You are terse.",
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Sure" },
+        { role: "user", content: "Critique this paragraph." },
+      ],
+      maxOutputTokens: 256,
+      temperature: 0.4,
+      jsonSchema,
+    };
+  }
+
+  it("returns the same text and places the prompt and schema per Protocol, through the seam", async () => {
     for (const id of ["openai", "anthropic", "gemini"]) {
       const connection = connectionFor(id);
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue(
-          new Response(JSON.stringify(responses[connection.protocol]), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-        ),
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(responses[connection.protocol]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
       );
+      vi.stubGlobal("fetch", fetchMock);
 
-      // The one ModelRequest, untouched across the three adapters.
-      const result = await createFetchTransport().send({
-        connection,
-        model: "test-model",
-        system: "You are terse.",
-        messages: [
-          { role: "user", content: "Hello" },
-          { role: "assistant", content: "Sure" },
-          { role: "user", content: "Critique this paragraph." },
-        ],
-        maxOutputTokens: 256,
-        temperature: 0.4,
-        jsonSchema,
-      });
+      const result = await createFetchTransport().send(sharedRequest(connection));
+      vi.unstubAllGlobals();
 
       expect(result, connection.protocol).toBe(text);
-      vi.unstubAllGlobals();
+
+      // The request really crossed the seam, built by the adapter for this
+      // Protocol: assert where the system prompt and the schema landed.
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      const body = JSON.parse(init.body as string) as Record<string, any>;
+
+      switch (connection.protocol) {
+        case "openai-shaped":
+          expect(url).toBe("https://api.openai.com/v1/chat/completions");
+          expect(headers.Authorization).toBe("Bearer secret");
+          expect(body.messages[0]).toEqual({ role: "system", content: "You are terse." });
+          expect(body.response_format.json_schema.schema).toEqual(jsonSchema);
+          break;
+        case "anthropic-shaped":
+          expect(url).toBe("https://api.anthropic.com/v1/messages");
+          expect(headers["x-api-key"]).toBe("secret");
+          expect(headers["anthropic-version"]).toBe("2023-06-01");
+          expect(headers["anthropic-dangerous-direct-browser-access"]).toBe("true");
+          expect(body.system).toBe("You are terse.");
+          expect(body.messages[0]).toEqual({ role: "user", content: "Hello" });
+          expect(body.output_config.format.schema).toEqual(jsonSchema);
+          break;
+        case "gemini-native":
+          expect(url).toBe(
+            "https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent",
+          );
+          expect(url).not.toContain("secret");
+          expect(url).not.toContain("?key=");
+          expect(headers["x-goog-api-key"]).toBe("secret");
+          expect(body.systemInstruction).toEqual({ parts: [{ text: "You are terse." }] });
+          expect(body.contents[1]).toEqual({ role: "model", parts: [{ text: "Sure" }] });
+          expect(body.generationConfig.responseMimeType).toBe("application/json");
+          expect(body.generationConfig.responseJsonSchema).toEqual(jsonSchema);
+          break;
+      }
     }
   });
 });

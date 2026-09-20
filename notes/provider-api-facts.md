@@ -351,7 +351,7 @@ From the Discovery schema (`GenerateContentRequest`, `Content`, `Part`, `Generat
 | Nucleus sampling | `generationConfig.topP` (number); `generationConfig.topK` (int) |
 | Stop sequences | `generationConfig.stopSequences` — "set of character sequences (up to 5)" |
 | Others | `candidateCount`, `seed`, `presencePenalty`, `frequencyPenalty`, `thinkingConfig`, `responseModalities` |
-| Structured output | `generationConfig.responseMimeType` (`"application/json"`) **+** `generationConfig.responseSchema` (OpenAPI-subset schema). `responseSchema` is marked **deprecated** in the Discovery doc: "Use `response_format` instead." `responseJsonSchema` is the newer name. |
+| Structured output | `generationConfig.responseMimeType` (`"application/json"`) **+** `generationConfig.responseJsonSchema` (full JSON Schema). Re-verified against the live Discovery document on **2026-09-20**: `responseJsonSchema` is `deprecated: false`; `responseSchema` and `_responseJsonSchema` are deprecated. `generationConfig.responseFormat.text.schema` (with `mimeType: "application/json"`) is also current and is what the generateContent structured-output guide now shows. |
 
 Example (illustrative):
 ```json

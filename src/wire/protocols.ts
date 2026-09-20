@@ -68,9 +68,8 @@ const openAIAdapter: ProtocolAdapter = {
   buildRequest(request) {
     const messages: Array<{ role: string; content: string }> = [];
     // The system prompt is a leading message with role "system".
-    if (request.system !== undefined && request.system !== "") {
-      messages.push({ role: "system", content: request.system });
-    }
+    const system = systemPrompt(request);
+    if (system !== null) messages.push({ role: "system", content: system });
     messages.push(...request.messages);
 
     const body: Record<string, unknown> = {
@@ -99,18 +98,9 @@ const openAIAdapter: ProtocolAdapter = {
     };
   },
   parseResponse(body) {
-    const message = choicesMessage(body);
-    if (message === null || typeof message.content !== "string") {
-      throw new Error("The Provider returned no text in choices[0].message.content.");
-    }
-    return message.content;
+    return requireText(openAIText(body), "choices[0].message.content");
   },
-  buildModelListRequest(connection) {
-    return {
-      url: joinUrl(connection.baseUrl, "/models"),
-      init: { method: "GET", headers: headersFor(connection) },
-    };
-  },
+  buildModelListRequest: modelsRequest,
   parseModelList(body) {
     return idsFrom(body, "data");
   },
@@ -127,7 +117,8 @@ const anthropicAdapter: ProtocolAdapter = {
     };
     // The system prompt is a top-level field, not a message: the Messages API
     // has no `system` role.
-    if (request.system !== undefined && request.system !== "") body.system = request.system;
+    const system = systemPrompt(request);
+    if (system !== null) body.system = system;
     if (request.temperature !== undefined) body.temperature = request.temperature;
     if (request.jsonSchema !== undefined) {
       // `output_config.format` takes the schema directly; there is no `name`
@@ -147,18 +138,9 @@ const anthropicAdapter: ProtocolAdapter = {
     };
   },
   parseResponse(body) {
-    const text = anthropicText(body);
-    if (text === null) {
-      throw new Error("The Provider returned no text in content[].text.");
-    }
-    return text;
+    return requireText(anthropicText(body), "content[].text");
   },
-  buildModelListRequest(connection) {
-    return {
-      url: joinUrl(connection.baseUrl, "/models"),
-      init: { method: "GET", headers: headersFor(connection) },
-    };
-  },
+  buildModelListRequest: modelsRequest,
   parseModelList(body) {
     return idsFrom(body, "data");
   },
@@ -187,8 +169,9 @@ const geminiAdapter: ProtocolAdapter = {
       generationConfig,
     };
     // The system prompt is a top-level `systemInstruction`, not a turn.
-    if (request.system !== undefined && request.system !== "") {
-      body.systemInstruction = { parts: [{ text: request.system }] };
+    const system = systemPrompt(request);
+    if (system !== null) {
+      body.systemInstruction = { parts: [{ text: system }] };
     }
 
     return {
@@ -204,18 +187,9 @@ const geminiAdapter: ProtocolAdapter = {
     };
   },
   parseResponse(body) {
-    const text = geminiText(body);
-    if (text === null) {
-      throw new Error("The Provider returned no text in candidates[0].content.parts[].text.");
-    }
-    return text;
+    return requireText(geminiText(body), "candidates[0].content.parts[].text");
   },
-  buildModelListRequest(connection) {
-    return {
-      url: joinUrl(connection.baseUrl, "/models"),
-      init: { method: "GET", headers: headersFor(connection) },
-    };
-  },
+  buildModelListRequest: modelsRequest,
   parseModelList(body) {
     const models = recordAt(body, "models");
     if (models === null) return [];
@@ -231,6 +205,34 @@ const ADAPTERS: Record<Protocol, ProtocolAdapter> = {
   "anthropic-shaped": anthropicAdapter,
   "gemini-native": geminiAdapter,
 };
+
+/** The system prompt, or null when there is none to send. */
+function systemPrompt(request: ModelRequest): string | null {
+  return request.system !== undefined && request.system !== "" ? request.system : null;
+}
+
+/** Every Protocol lists models with the same keyed GET of `/models`. */
+function modelsRequest(connection: Connection): BuiltRequest {
+  return {
+    url: joinUrl(connection.baseUrl, "/models"),
+    init: { method: "GET", headers: headersFor(connection) },
+  };
+}
+
+/**
+ * Turn a Protocol's possibly-absent text into the seam's string, naming where
+ * the text was expected when it is missing.
+ */
+function requireText(text: string | null, where: string): string {
+  if (text === null) throw new Error(`The Provider returned no text in ${where}.`);
+  return text;
+}
+
+/** The `choices[0].message.content` string from an OpenAI-shaped response. */
+function openAIText(body: unknown): string | null {
+  const message = choicesMessage(body);
+  return message !== null && typeof message.content === "string" ? message.content : null;
+}
 
 /** The `choices[0].message` object from an OpenAI-shaped response. */
 function choicesMessage(body: unknown): Record<string, unknown> | null {
