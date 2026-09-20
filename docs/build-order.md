@@ -38,8 +38,11 @@ Runs are cached, estimated, cancellable and honest about an unreadable auth fail
 paragraph-scope Starter model pack is complete. #5 (Anchor survival) has landed: `resolveAnchor`
 diff-projects an Anchor from its provenance Revision, falls back to quote match, then reports
 Orphaned; re-resolution runs on every Document change, persists `anchor.state`, and reconciliation
-shares the one coordinate system. The frontier is **row 13**: #9 (Judge), blocked only by #3 and #5,
-both closed.
+shares the one coordinate system. #9 (Judge) has landed: the Writer compares any two Revisions,
+sees the word-level diff and both extracted passages before anything is sent, and receives a Verdict
+from the swapped double call — or an Unstable result when the labels flip — with a different
+Provider and model from the Critic by default. The frontier is **row 14**: #7 (Structure), blocked by
+#4 and #6, both closed.
 
 ## How to work a ticket
 
@@ -69,7 +72,7 @@ both closed.
 | 11 | **#19** | Starter passes | The five remaining paragraph-scope Starter model passes | - Completed
 
 | 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` | - Completed
-| 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning |
+| 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning | - Completed
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes |
 | 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path |
 | 16 | **#11** | Reader pass | The reader account schema and the Reader tab |
