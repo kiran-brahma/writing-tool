@@ -64,6 +64,7 @@ first, blocked only by #4 and #14, both closed.
 | 10 | **#16** | Run control | The Run cache with `promptHash`, the cost estimate and session total, cancelling, and the error paths including the unreadable auth failure | - Completed
 
 | 11 | **#19** | Starter passes | The five remaining paragraph-scope Starter model passes | - Completed
+
 | 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` |
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning |
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes |
