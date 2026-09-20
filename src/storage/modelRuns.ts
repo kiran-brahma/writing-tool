@@ -61,6 +61,8 @@ export interface ModelRunOptions {
   transport: Transport;
   target: Target;
   screeningFrame: boolean;
+  /** Story 50: the character limit above which a document Run is chunked. */
+  characterLimit: number;
   now?: number;
 }
 
@@ -91,6 +93,7 @@ async function runModelPassNow(
     transport: options.transport,
     screeningFrame: options.screeningFrame,
     revisionId: revision.id,
+    characterLimit: options.characterLimit,
     now,
   });
 

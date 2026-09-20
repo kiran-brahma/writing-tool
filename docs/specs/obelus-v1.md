@@ -396,13 +396,16 @@ RunResult {
   droppedAnchors: number
   rawResponse: string
   fromCache: boolean
+  chunks: number
   usage?: { inputTokens?: number; outputTokens?: number }
 }
 ```
 
 `violations` carries praise and rewrite-shaped strings detected by the linter. They are **rendered
 struck through, not removed**, so prompt drift stays visible. A global "show raw response" toggle
-exposes `rawResponse` for any finding.
+exposes `rawResponse` for any finding. `chunks` is story 50's: a document-scope Run past the
+character limit is sent Section by Section, and this reports how many calls it took (`1` when the
+Document fit in a single call).
 
 ### Judge protocol
 

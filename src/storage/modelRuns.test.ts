@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { DEFAULT_CHARACTER_LIMIT } from "../core/chunking";
 import type { DocTree } from "../core/docTree";
 import { responseKey } from "../core/finding";
 import { hashPass } from "../core/pass";
@@ -67,6 +68,7 @@ function runOptions(document: DocumentRecord, respond = RESPONSE) {
     transport: createFixtureTransport({ respond: () => respond }),
     target: targetFor(document),
     screeningFrame: true,
+    characterLimit: DEFAULT_CHARACTER_LIMIT,
   };
 }
 
@@ -189,5 +191,56 @@ describe("runModelPass", () => {
     await expect(
       listFindingsForPass(database, document.id, TOPIC_STRINGS_PASS.id),
     ).resolves.toHaveLength(1);
+  });
+
+  it("chunks a document past the limit and stores one Run of merged Findings", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const tree: DocTree = {
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "One" }] },
+        { type: "paragraph", content: [{ type: "text", text: "Alpha alpha alpha alpha alpha." }] },
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Two" }] },
+        { type: "paragraph", content: [{ type: "text", text: "Bravo bravo bravo bravo bravo." }] },
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Three" }] },
+        { type: "paragraph", content: [{ type: "text", text: "Charlie charlie charlie charlie." }] },
+      ],
+    };
+    const saved = withTree(document, tree, 1_100);
+    await persistDocument(database, saved);
+    const wholeDocument = documentContext(saved.tree, saved.title);
+    if (wholeDocument === null) throw new Error("fixture has no document text");
+
+    const transport = createFixtureTransport({
+      respond: (request) => {
+        const prompt = request.messages[0].content;
+        const chunk = prompt.slice(prompt.indexOf("DOC[") + 4, prompt.lastIndexOf("]"));
+        const line = chunk.split("\n").filter((entry) => entry.trim() !== "").pop() ?? chunk;
+        return JSON.stringify({
+          findings: [{ issue: "Problem", diagnosis: "D", quote: line, offset: chunk.indexOf(line) }],
+        });
+      },
+    });
+
+    const pass = { ...TOPIC_STRINGS_PASS, prompt: "DOC[{{document}}]" };
+    const run = await runModelPass(database, saved, {
+      pass,
+      connection: connection(),
+      transport,
+      target: wholeDocument,
+      screeningFrame: true,
+      characterLimit: 40,
+    });
+
+    expect(run.chunks).toBeGreaterThan(1);
+    expect(transport.requests).toHaveLength(run.chunks);
+    expect(run.findings.length).toBeGreaterThan(1);
+
+    const stored = await listFindingsForPass(database, saved.id, pass.id);
+    expect(stored).toHaveLength(run.findings.length);
+    await expect(
+      loadRunResponse(database, saved.id, pass.id, hashPass(pass)),
+    ).resolves.toContain("--- chunk ---");
   });
 });

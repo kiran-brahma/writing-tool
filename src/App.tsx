@@ -41,6 +41,9 @@ export default function App() {
     runStructuralSet,
     screeningFrame,
     setScreeningFrame,
+    characterLimit,
+    setCharacterLimit,
+    documentChunks,
     rawResponses,
     judgeResult,
     judgeError,
@@ -319,10 +322,14 @@ export default function App() {
             runError={runError}
             criticName={criticConnection?.name ?? null}
             screeningFrame={screeningFrame}
+            documentLength={document?.canonical.length ?? 0}
+            characterLimit={characterLimit}
+            chunkCount={documentChunks}
             onRun={(passId) => void runModelPass(passId)}
             onRunStructural={() => void runStructuralSet()}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
             onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
+            onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
           />
 
           <ConnectionsPanel

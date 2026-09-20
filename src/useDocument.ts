@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { reResolveFindings, type FindingResolution } from "./core/anchor";
+import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
 import { type DeclineReason, type Finding, type Interval } from "./core/finding";
@@ -9,7 +10,7 @@ import {
   type JudgeResult,
 } from "./core/judge";
 import { structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
-import { targetForPass } from "./core/passContext";
+import { documentContext, targetForPass } from "./core/passContext";
 import { STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
@@ -49,7 +50,7 @@ import {
 import { listRevisions, takeRevision } from "./storage/revisions";
 import { runRulePasses } from "./storage/ruleRuns";
 import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
-import { loadScreeningFrame, saveScreeningFrame } from "./storage/settings";
+import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
 import { createCustomConnection, type Connection } from "./wire/connection";
 import { createFetchTransport, type Transport } from "./wire/transport";
 
@@ -84,6 +85,18 @@ export interface DocumentHandle {
   /** Stories 76, 77: the Critic's Screening frame, a settable global toggle. */
   screeningFrame: boolean;
   setScreeningFrame: (enabled: boolean) => Promise<void>;
+  /**
+   * Story 50: the character limit above which a document-scope Run is chunked
+   * Section by Section. Configurable, with the Core default as its seed.
+   */
+  characterLimit: number;
+  setCharacterLimit: (limit: number) => Promise<void>;
+  /**
+   * Story 50: how many chunks a document-scope Run of the current Document
+   * would make at the current limit. `1` when it fits in a single call, so the
+   * warning never promises a split the Document cannot support.
+   */
+  documentChunks: number;
   /** Story 73: every model Run's raw response, keyed by Pass id. */
   rawResponses: Record<string, string>;
   /** The Judge's answer for the comparison the Writer ran, or null. */
@@ -159,6 +172,21 @@ export function useDocument(): DocumentHandle {
   const [runError, setRunError] = useState<string | null>(null);
   const [lastRunReport, setLastRunReport] = useState<DocumentHandle["lastRunReport"]>(null);
   const [screeningFrame, setScreeningFrameState] = useState(true);
+  const [characterLimit, setCharacterLimitState] = useState(DEFAULT_CHARACTER_LIMIT);
+
+  /**
+   * Story 50: the chunk plan for a document-scope Run of the current Document.
+   * Computed from the same Target and limit the Run will use, so the panel's
+   * warning and the Run's actual chunking cannot disagree.
+   */
+  const documentChunks = useMemo(() => {
+    if (documentRecord === null) return 1;
+    // A Document under the limit is never split, so the common case does not
+    // pay for building the Target just to count one chunk.
+    if (documentRecord.canonical.length <= characterLimit) return 1;
+    const target = documentContext(documentRecord.tree, documentRecord.title);
+    return target === null ? 1 : chunkTarget(target, characterLimit).length;
+  }, [documentRecord, characterLimit]);
   const [rawResponses, setRawResponses] = useState<Record<string, string>>({});
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
   const [judgeError, setJudgeError] = useState<string | null>(null);
@@ -253,6 +281,7 @@ export function useDocument(): DocumentHandle {
         setConnections(await loadOrCreateConnections(database));
         setSlots(await loadSlots(database));
         setScreeningFrameState(await loadScreeningFrame(database));
+        setCharacterLimitState(await loadCharacterLimit(database));
         setRawResponses(await listRunResponses(database, opened.id));
         // The one seam. The app builds it once; every model Run leaves through it.
         transportRef.current = createFetchTransport();
@@ -539,6 +568,7 @@ export function useDocument(): DocumentHandle {
           transport,
           target,
           screeningFrame,
+          characterLimit,
         });
         await refreshFindings(current);
         setRawResponses(await listRunResponses(database, current.id));
@@ -546,6 +576,7 @@ export function useDocument(): DocumentHandle {
           passId,
           droppedAnchors: result.droppedAnchors,
           violations: result.violations,
+          chunks: result.chunks,
         });
         return result;
       } catch (error) {
@@ -558,7 +589,7 @@ export function useDocument(): DocumentHandle {
         setRunStartedAt(null);
       }
     },
-    [criticConnection, refreshFindings, screeningFrame, targetBlockIndex],
+    [criticConnection, refreshFindings, screeningFrame, characterLimit, targetBlockIndex],
   );
 
   /**
@@ -640,6 +671,17 @@ export function useDocument(): DocumentHandle {
     }
   }, []);
 
+  /** Story 50: the character limit above which a document Run is chunked. */
+  const setCharacterLimit = useCallback(async (limit: number) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setCharacterLimitState(await saveCharacterLimit(database, limit));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
   const saveConnection = useCallback(async (connection: Connection) => {
     const database = databaseRef.current;
     if (database === null) return;
@@ -706,6 +748,9 @@ export function useDocument(): DocumentHandle {
     runStructuralSet,
     screeningFrame,
     setScreeningFrame,
+    characterLimit,
+    setCharacterLimit,
+    documentChunks,
     rawResponses,
     judgeResult,
     judgeError,

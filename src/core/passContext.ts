@@ -1,7 +1,7 @@
 import { canonicalBlocks, canonicalText } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import type { Pass } from "./pass";
-import { outline, sectionAt } from "./sections";
+import { outline, sectionAt, sections } from "./sections";
 import type { Target } from "./target";
 
 /**
@@ -37,7 +37,8 @@ export function passContext(
     outline: outline(tree),
     contextAbove: above?.text ?? "",
     contextBelow: below?.text ?? "",
-    // A local Pass never receives body text beyond its Target.
+    // A local Pass never receives body text beyond its Target, and is never
+    // chunked, so it carries no split structure.
     documentText: "",
   };
 }
@@ -66,7 +67,8 @@ export function sectionContext(
     outline: outline(tree),
     contextAbove: "",
     contextBelow: "",
-    // The Section is the Target; the whole Document is not handed to it.
+    // The Section is the Target; the whole Document is not handed to it, and a
+    // Section Target is not split.
     documentText: "",
   };
 }
@@ -93,6 +95,12 @@ export function documentContext(tree: DocTree, title: string): Target | null {
     contextAbove: "",
     contextBelow: "",
     documentText: canonical,
+    // Story 50: the boundaries `chunkTarget` splits on when the Document is too
+    // long for one call, both in the one canonical string.
+    structure: {
+      blocks: canonicalBlocks(tree).map((block) => ({ start: block.start, end: block.end })),
+      sections: sections(tree).map((section) => section.interval),
+    },
   };
 }
 
