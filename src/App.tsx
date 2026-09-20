@@ -17,6 +17,7 @@ import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 import { ConnectionsPanel } from "./wire/ConnectionsPanel";
+import { WorkbenchView } from "./workbench/WorkbenchView";
 
 /**
  * The Obelus shell. It opens the one Document of record and puts the Writer
@@ -93,13 +94,25 @@ export default function App() {
     lastBackedUp,
     backupError,
     clearBackupError,
+    savePass,
+    newPassDraft,
+    exportPassSet,
+    importPassSet,
+    restoreStarterPack,
+    passSetError,
+    clearPassSetError,
+    assistantRunning,
+    assistantError,
+    runPromptAssistant,
   } = useDocument();
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20: the Library is a view of its own; the Editor is the default. */
-  const [view, setView] = useState<"editor" | "library" | "privacy">("editor");
+  const [view, setView] = useState<"editor" | "library" | "privacy" | "workbench">("editor");
   /** Which view the Privacy page returns to when the Writer leaves it. */
   const [privacyReturn, setPrivacyReturn] = useState<"editor" | "library">("editor");
+  /** Which view the Pass workbench returns to when the Writer leaves it. */
+  const [workbenchReturn, setWorkbenchReturn] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
   /** Stories 91–93: the sidebar's two tabs keep Reader output apart from the queue. */
@@ -151,6 +164,12 @@ export default function App() {
   const openPrivacy = useCallback(() => {
     setPrivacyReturn(view === "library" ? "library" : "editor");
     setView("privacy");
+  }, [view]);
+
+  /** Story 98: the Pass workbench, reachable from the Editor and the Library. */
+  const openWorkbench = useCallback(() => {
+    setWorkbenchReturn(view === "library" ? "library" : "editor");
+    setView("workbench");
   }, [view]);
 
   /** Clears the Editor's view state that belongs to the Document being left. */
@@ -284,6 +303,15 @@ export default function App() {
     );
   };
 
+  /** Story 102: downloads the whole Pass set as one JSON file. */
+  const onExportPassSet = useCallback(() => {
+    downloadText(
+      `obelus-pass-set-${fileStamp()}.json`,
+      exportPassSet(),
+      "application/json;charset=utf-8",
+    );
+  }, [exportPassSet]);
+
   /** Story 111: download a whole-Library backup, then the reminder updates. */
   const onBackupLibrary = useCallback(
     (includeKeys: boolean) => {
@@ -374,7 +402,7 @@ export default function App() {
             </button>
           ) : (
             <>
-              {view === "library" ? (
+              {view === "library" && (
                 <button
                   type="button"
                   onClick={() => setView("editor")}
@@ -382,7 +410,17 @@ export default function App() {
                 >
                   Back to the Editor
                 </button>
-              ) : (
+              )}
+              {view === "workbench" && (
+                <button
+                  type="button"
+                  onClick={() => setView(workbenchReturn)}
+                  className={HEADER_BUTTON_CLASS}
+                >
+                  Back to the {workbenchReturn === "library" ? "Library" : "Editor"}
+                </button>
+              )}
+              {view === "editor" && (
                 <>
                   <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
                   <label className={`cursor-pointer ${HEADER_BUTTON_CLASS}`}>
@@ -401,6 +439,11 @@ export default function App() {
                     Library
                   </button>
                 </>
+              )}
+              {view !== "workbench" && (
+                <button type="button" onClick={openWorkbench} className={HEADER_BUTTON_CLASS}>
+                  Pass workbench
+                </button>
               )}
               <button type="button" onClick={openPrivacy} className={HEADER_BUTTON_CLASS}>
                 Privacy
@@ -441,6 +484,25 @@ export default function App() {
       )}
 
       {view === "privacy" && <PrivacyView />}
+
+      {view === "workbench" && (
+        <WorkbenchView
+          passes={passes}
+          passSetError={passSetError}
+          onClearPassSetError={clearPassSetError}
+          onSavePass={savePass}
+          onNewPass={newPassDraft}
+          onExport={onExportPassSet}
+          onImport={importPassSet}
+          onRestore={restoreStarterPack}
+          onToggle={(passId, enabled) => void togglePass(passId, enabled)}
+          onSaveRuleConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
+          assistantRunning={assistantRunning}
+          assistantError={assistantError}
+          onAssist={runPromptAssistant}
+          criticName={criticConnection?.name ?? null}
+        />
+      )}
 
       {view === "editor" && (
         <div className="flex min-h-0 flex-1">

@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { blankModelPass } from "../core/starterPasses";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
-import { loadOrCreatePasses, setPassEnabled, updateRuleConfig } from "./passes";
+import {
+  loadOrCreatePasses,
+  replacePasses,
+  restoreStarterPasses,
+  savePass,
+  setPassEnabled,
+  updateRuleConfig,
+} from "./passes";
 
 const openedDatabases: ObelusDatabase[] = [];
 
@@ -130,5 +138,68 @@ describe("updateRuleConfig", () => {
     await expect(database.passes.get("hedges")).resolves.toMatchObject({
       ruleConfig: { hedges: ["blatantly"] },
     });
+  });
+
+  it("keeps the Writer's edit when the Rule config is reloaded", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    await updateRuleConfig(database, "hedges", { hedges: ["blatantly"] });
+
+    const passes = await loadOrCreatePasses(database);
+
+    expect(passes.find((pass) => pass.id === "hedges")?.ruleConfig).toEqual({
+      hedges: ["blatantly"],
+    });
+  });
+});
+
+describe("savePass", () => {
+  it("stores a Pass the Writer wrote and returns it", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    const pass = { ...blankModelPass("my-pass"), name: "My Pass" };
+
+    await savePass(database, pass);
+
+    await expect(database.passes.get("my-pass")).resolves.toMatchObject({ name: "My Pass" });
+  });
+
+  it("replaces an edited Pass in place", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    const pass = blankModelPass("my-pass");
+    await savePass(database, pass);
+
+    await savePass(database, { ...pass, prompt: "A different prompt." });
+
+    const stored = await database.passes.get("my-pass");
+    expect(stored?.prompt).toBe("A different prompt.");
+  });
+});
+
+describe("replacePasses", () => {
+  it("replaces the whole set in one write", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+
+    await replacePasses(database, [blankModelPass("only-pass")]);
+
+    const stored = await database.passes.toArray();
+    expect(stored.map((pass) => pass.id)).toEqual(["only-pass"]);
+  });
+});
+
+describe("restoreStarterPasses", () => {
+  it("brings the Starter pack back over the Writer's edits", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    await setPassEnabled(database, "hedges", false);
+    await savePass(database, blankModelPass("my-pass"));
+
+    await restoreStarterPasses(database);
+    const passes = await loadOrCreatePasses(database);
+
+    expect(passes.map((pass) => pass.id)).not.toContain("my-pass");
+    expect(passes.find((pass) => pass.id === "hedges")?.enabled).toBe(true);
   });
 });

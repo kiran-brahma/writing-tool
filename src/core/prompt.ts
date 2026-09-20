@@ -18,9 +18,45 @@ export const PROMPT_PLACEHOLDERS = [
 
 export type PromptPlaceholder = (typeof PROMPT_PLACEHOLDERS)[number];
 
+/**
+ * The placeholders as they are written in a template, in order. One source for
+ * the assistant's instruction, the Workbench's legend and the validator, so the
+ * closed set cannot drift between them.
+ */
+export function placeholderTokens(): string[] {
+  return PROMPT_PLACEHOLDERS.map((name) => `{{${name}}}`);
+}
+
 export type PromptValues = Partial<Record<PromptPlaceholder, string>>;
 
 const PLACEHOLDER_PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/g;
+
+const KNOWN_PLACEHOLDERS = new Set<string>(PROMPT_PLACEHOLDERS);
+
+/**
+ * Any `{{...}}` in a template, whether or not it names a known placeholder. The
+ * inner text is captured loosely — including uppercase and spaces — so a typo
+ * like `{{Title}}` or `{{context}}` is caught on save rather than left verbatim
+ * when the prompt is filled at Run time (story 100).
+ */
+const ANY_PLACEHOLDER_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
+
+/**
+ * Story 100: the unknown placeholder names in a template, in first-seen order
+ * and deduplicated. An empty list means every placeholder the template names is
+ * one Obelus can fill.
+ */
+export function findUnknownPlaceholders(template: string): string[] {
+  const unknown: string[] = [];
+  const seen = new Set<string>();
+  for (const match of template.matchAll(ANY_PLACEHOLDER_PATTERN)) {
+    const name = match[1];
+    if (KNOWN_PLACEHOLDERS.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    unknown.push(name);
+  }
+  return unknown;
+}
 
 /** Replaces every `{{name}}` that has a value; leaves the rest verbatim. */
 export function fillPrompt(template: string, values: PromptValues): string {

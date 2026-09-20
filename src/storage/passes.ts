@@ -1,5 +1,6 @@
 import type { Pass, RuleConfig } from "../core/pass";
 import { STARTER_PASSES } from "../core/starterPasses";
+import { enqueueMutation } from "./mutationQueue";
 import type { ObelusDatabase } from "./obelusDatabase";
 
 /**
@@ -75,4 +76,41 @@ export function updateRuleConfig(
   ruleConfig: RuleConfig,
 ): Promise<Pass | null> {
   return updatePass(database, passId, (pass) => ({ ...pass, ruleConfig }));
+}
+
+/**
+ * Story 98: stores a Pass the Writer wrote or edited. The whole record is
+ * written as one unit, so a prompt and the scope and output shape that go with
+ * it cannot be saved half-changed.
+ */
+export async function savePass(database: ObelusDatabase, pass: Pass): Promise<Pass> {
+  await database.passes.put(pass);
+  return pass;
+}
+
+/**
+ * Stories 102 and 103: replaces the whole Pass set in one transaction. The two
+ * actions that need it — importing a pass set and restoring the Starter pack —
+ * share this write, so a failure leaves the previous set in place rather than
+ * half of each.
+ */
+export function replacePasses(database: ObelusDatabase, passes: Pass[]): Promise<void> {
+  // Queued with Runs, so a replacement cannot interleave with a Run writing its
+  // Findings, and a cache read cannot see a set midway through changing.
+  return enqueueMutation(database, () =>
+    database.transaction("rw", database.passes, async () => {
+      await database.passes.clear();
+      await database.passes.bulkPut(passes);
+    }),
+  );
+}
+
+/** Story 103: the Starter pack, restored over whatever the Writer has now. */
+export function restoreStarterPasses(database: ObelusDatabase): Promise<void> {
+  // Copies, so a later edit of a restored Pass cannot mutate the shared pack
+  // constant this module ships with.
+  return replacePasses(
+    database,
+    STARTER_PASSES.map((pass) => ({ ...pass })),
+  );
 }

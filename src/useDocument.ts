@@ -11,9 +11,15 @@ import {
   type JudgeResult,
 } from "./core/judge";
 import { isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
+import { passProblem, parsePassSet, serializePassSet } from "./core/passSet";
 import { documentContext, targetForPass } from "./core/passContext";
+import {
+  assistPassPrompt,
+  type PromptAssistantRequest,
+  type PromptAssistantResult,
+} from "./core/promptAssistant";
 import { sections } from "./core/sections";
-import { STARTER_PASSES } from "./core/starterPasses";
+import { blankModelPass, STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
 import {
@@ -47,6 +53,9 @@ import {
 } from "./storage/obelusDatabase";
 import {
   loadOrCreatePasses,
+  replacePasses as replacePassesRecord,
+  restoreStarterPasses,
+  savePass as savePassRecord,
   setPassEnabled as setStoredPassEnabled,
   updateRuleConfig,
 } from "./storage/passes";
@@ -163,6 +172,32 @@ export interface DocumentHandle {
   togglePass: (passId: string, enabled: boolean) => Promise<void>;
   /** Story 34: replace a rule Pass's word lists and patterns, then re-run. */
   saveRuleConfig: (passId: string, ruleConfig: RuleConfig) => Promise<void>;
+  /** Story 98: store a model Pass the Writer wrote or edited. */
+  savePass: (pass: Pass) => Promise<boolean>;
+  /**
+   * Story 98: a blank model Pass for the Workbench to edit. It is not stored
+   * until the Writer saves it, so cancelling a new Pass leaves nothing behind.
+   */
+  newPassDraft: () => Pass;
+  /** Story 102: the whole Pass set as JSON text, ready to download. */
+  exportPassSet: () => string;
+  /** Story 102: replace the Pass set from JSON text. */
+  importPassSet: (json: string) => Promise<boolean>;
+  /** Story 103: restore the Starter pack over the Writer's current set. */
+  restoreStarterPack: () => Promise<void>;
+  /** A Pass set save, import or restore failure, surfaced verbatim. */
+  passSetError: string | null;
+  clearPassSetError: () => void;
+  /** Stories 104 and 105: true while the prompt-authoring assistant is in flight. */
+  assistantRunning: boolean;
+  /** A prompt-assistant failure, surfaced verbatim rather than swallowed. */
+  assistantError: string | null;
+  /**
+   * Story 104: asks the assistant for a Pass prompt draft. It receives the
+   * Writer's request and current prompt and nothing else, so no prose can reach
+   * it (story 105).
+   */
+  runPromptAssistant: (input: PromptAssistantRequest) => Promise<PromptAssistantResult | null>;
   /** Story 2–7: the Writer's Connections, with prefills seeded. */
   connections: Connection[];
   /** Story 14: which Connection is the Critic and which the Judge. */
@@ -214,6 +249,8 @@ export function useDocument(): DocumentHandle {
    * showing them against prose they never read.
    */
   const savedCanonicalRef = useRef<string | null>(null);
+  /** Guards the prompt assistant against a second click before its state renders. */
+  const assistantInFlightRef = useRef(false);
 
   const [status, setStatus] = useState<DocumentHandle["status"]>("loading");
   const [openError, setOpenError] = useState("");
@@ -236,6 +273,11 @@ export function useDocument(): DocumentHandle {
   const [characterLimit, setCharacterLimitState] = useState(DEFAULT_CHARACTER_LIMIT);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  /** Story 102: a Pass set save, import or restore failure. */
+  const [passSetError, setPassSetError] = useState<string | null>(null);
+  /** Stories 104 and 105: the prompt-authoring assistant's state. */
+  const [assistantRunning, setAssistantRunning] = useState(false);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
 
   /**
    * Story 50: the chunk plan for a document-scope Run of the current Document.
@@ -301,9 +343,12 @@ export function useDocument(): DocumentHandle {
     [applyResolution],
   );
 
-  /** Replaces one Pass in the loaded set after a persisted edit. */
+  /** Replaces one Pass in the loaded set, or appends it when it is new. */
   const applyPass = useCallback((updated: Pass) => {
-    const next = passesRef.current.map((pass) => (pass.id === updated.id ? updated : pass));
+    const exists = passesRef.current.some((pass) => pass.id === updated.id);
+    const next = exists
+      ? passesRef.current.map((pass) => (pass.id === updated.id ? updated : pass))
+      : [...passesRef.current, updated];
     passesRef.current = next;
     setPasses(next);
   }, []);
@@ -744,6 +789,94 @@ export function useDocument(): DocumentHandle {
     [applyPass, rerunRules],
   );
 
+  /**
+   * Story 98: stores a model Pass the Writer wrote or edited. The same
+   * `passProblem` the importer uses validates it, so a prompt with an unknown
+   * placeholder (story 100) or an out-of-set scope or output shape (story 101)
+   * is refused and the error is shown rather than saved.
+   */
+  const savePass = useCallback(
+    async (pass: Pass): Promise<boolean> => {
+      const database = databaseRef.current;
+      if (database === null) return false;
+      const problem = passProblem(pass);
+      if (problem !== null) {
+        setPassSetError(problem);
+        return false;
+      }
+      try {
+        await savePassRecord(database, pass);
+        applyPass(pass);
+        setPassSetError(null);
+        // A rule Pass is re-derived on every save; a model Pass runs on demand,
+        // so its edit only changes what the next Run sends.
+        if (pass.kind === "rule") await rerunRules();
+        return true;
+      } catch (error) {
+        setPassSetError(describeError(error));
+        return false;
+      }
+    },
+    [applyPass, rerunRules],
+  );
+
+  /** Story 98: a blank model Pass for the Workbench to edit, not yet stored. */
+  const newPassDraft = useCallback((): Pass => blankModelPass(crypto.randomUUID()), []);
+
+  /** Story 102: the Pass set as a file's text. */
+  const exportPassSet = useCallback((): string => serializePassSet(passesRef.current), []);
+
+  /**
+   * Story 102: replaces the Pass set from a file. The import is the set the
+   * Writer chose, so it lands whole; `loadOrCreatePasses` then seeds any
+   * Starter Pass the file omitted, which is the same reconciliation a reload
+   * performs, so the session and the next open agree.
+   */
+  const importPassSet = useCallback(
+    async (json: string): Promise<boolean> => {
+      const database = databaseRef.current;
+      if (database === null) return false;
+      let imported: Pass[];
+      try {
+        imported = parsePassSet(json);
+      } catch (error) {
+        setPassSetError(describeError(error));
+        return false;
+      }
+      try {
+        await replacePassesRecord(database, imported);
+        const reconciled = await loadOrCreatePasses(database);
+        passesRef.current = reconciled;
+        setPasses(reconciled);
+        setPassSetError(null);
+        await rerunRules();
+        return true;
+      } catch (error) {
+        setPassSetError(describeError(error));
+        return false;
+      }
+    },
+    [rerunRules],
+  );
+
+  /** Story 103: restores the Starter pack, custom Passes and all. */
+  const restoreStarterPack = useCallback(async (): Promise<void> => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      await restoreStarterPasses(database);
+      const restored = await loadOrCreatePasses(database);
+      passesRef.current = restored;
+      setPasses(restored);
+      setPassSetError(null);
+      await rerunRules();
+    } catch (error) {
+      setPassSetError(describeError(error));
+    }
+  }, [rerunRules]);
+
+  const clearPassSetError = useCallback(() => setPassSetError(null), []);
+
   /** The Connection in the critic Slot, or null when none is assigned. */
   const criticConnection = useMemo(() => {
     const id = slots.critic;
@@ -772,6 +905,41 @@ export function useDocument(): DocumentHandle {
   const sameModelWarning = useMemo(
     () => sameModelWarningFor(criticConnection, judgeConnection),
     [criticConnection, judgeConnection],
+  );
+
+  /**
+   * Stories 104 and 105: the prompt-authoring assistant. It sends the Writer's
+   * request and current Pass prompt through the one seam; no Document, Target
+   * or prose is available to hand it, which is what makes the assistance legal
+   * under the tool's own rules.
+   */
+  const runPromptAssistant = useCallback(
+    async (input: PromptAssistantRequest): Promise<PromptAssistantResult | null> => {
+      const transport = transportRef.current;
+      if (transport === null) {
+        setAssistantError("Obelus is still opening. Try again in a moment.");
+        return null;
+      }
+      if (assistantInFlightRef.current) return null;
+      if (!hasCritic(criticConnection)) {
+        setAssistantError(criticGuardMessage(criticConnection, "the prompt assistant"));
+        return null;
+      }
+      assistantInFlightRef.current = true;
+      setAssistantRunning(true);
+      setAssistantError(null);
+      try {
+        return await assistPassPrompt(input, criticConnection, { transport });
+      } catch (error) {
+        // The assistant's own words, surfaced verbatim; never a silent failure.
+        setAssistantError(describeError(error));
+        return null;
+      } finally {
+        assistantInFlightRef.current = false;
+        setAssistantRunning(false);
+      }
+    },
+    [criticConnection],
   );
 
   const runInFlightRef = useRef(false);
@@ -1104,6 +1272,16 @@ export function useDocument(): DocumentHandle {
     decline,
     togglePass,
     saveRuleConfig,
+    savePass,
+    newPassDraft,
+    exportPassSet,
+    importPassSet,
+    restoreStarterPack,
+    passSetError,
+    clearPassSetError,
+    assistantRunning,
+    assistantError,
+    runPromptAssistant,
     connections,
     slots,
     saveConnection,

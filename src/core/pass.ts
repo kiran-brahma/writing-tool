@@ -10,6 +10,31 @@ export type OutputShape = "findings" | "section-summary" | "note";
 export type Slot = "critic";
 
 /**
+ * Story 101: the fixed set a Pass's scope is chosen from. It is exported as
+ * data so the Workbench's picker, the importer's validator and the type cannot
+ * disagree about what a legal scope is.
+ */
+export const PASS_SCOPES: readonly PassScope[] = ["document", "section", "paragraph"];
+
+/**
+ * Story 101: the fixed set a Pass's output shape is chosen from. A
+ * user-editable JSON Schema is explicitly not supported.
+ */
+export const OUTPUT_SHAPES: readonly OutputShape[] = [
+  "findings",
+  "section-summary",
+  "note",
+];
+
+export function isPassScope(value: unknown): value is PassScope {
+  return typeof value === "string" && (PASS_SCOPES as readonly string[]).includes(value);
+}
+
+export function isOutputShape(value: unknown): value is OutputShape {
+  return typeof value === "string" && (OUTPUT_SHAPES as readonly string[]).includes(value);
+}
+
+/**
  * The output shape of the Reader pass. One name for it, so the UI, the storage
  * runner, the Core entry point and the harness cannot disagree about which
  * shape is a Reader account.

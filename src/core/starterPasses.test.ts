@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { constitutionPromptClauses, STARTER_PASSES } from "./starterPasses";
+import { blankModelPass, constitutionPromptClauses, STARTER_PASSES } from "./starterPasses";
 
 /**
  * The Starter pack is data, but which data ships — its scope, its output shape,
@@ -96,5 +96,27 @@ describe("Starter model passes", () => {
       const pass = STARTER_PASSES.find((entry) => entry.id === id);
       expect(pass?.prompt).toMatch(looksFor);
     }
+  });
+});
+
+describe("blankModelPass", () => {
+  it("seeds a new model Pass with the target scaffold and the constitutional clauses", () => {
+    const pass = blankModelPass("new-pass");
+
+    expect(pass).toMatchObject({
+      id: "new-pass",
+      kind: "model",
+      scope: "paragraph",
+      output: "findings",
+      slot: "critic",
+      enabled: true,
+    });
+    // Literal clauses, not the shared helper, so the template can disagree with
+    // the validator about what it contains.
+    expect(pass.prompt ?? "").toMatch(/analyze only this paragraph/i);
+    expect(pass.prompt ?? "").toMatch(/do not praise/i);
+    expect(pass.prompt ?? "").toMatch(/do not suggest replacement prose/i);
+    expect(pass.prompt).toContain("{{target}}");
+    expect(pass.prompt).toContain("{{context_above}}");
   });
 });

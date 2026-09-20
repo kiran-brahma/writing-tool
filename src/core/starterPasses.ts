@@ -160,6 +160,15 @@ export function paragraphPassPrompt(intro: string, task: string): string {
 }
 
 /**
+ * The two constitutional clauses every model prompt carries, in the exact
+ * wording the harness checks. One constant for the Starter reporting clauses
+ * and the prompt assistant's instruction, so the text a model is asked to keep
+ * cannot drift from the text the harness requires.
+ */
+export const CONSTITUTION_CLAUSES =
+  "Do not praise the writing and do not suggest replacement prose.";
+
+/**
  * The reporting clause every paragraph-scope model Pass shares. It carries the
  * two clauses the constitution harness checks for — no praise and no
  * replacement prose — and it names the Anchor a Finding needs (a quote and its
@@ -169,7 +178,34 @@ export function paragraphPassPrompt(intro: string, task: string): string {
 const PARAGRAPH_REPORTING_CLAUSE =
   "For each problem, quote the exact span from the target, give its zero-based offset within " +
   "the target, a short issue label and a diagnosis. Report only problems in the target " +
-  "paragraph. Do not praise the writing and do not suggest replacement prose.";
+  "paragraph. " +
+  CONSTITUTION_CLAUSES;
+
+/**
+ * Story 98: a starting point for a Pass the Writer writes themselves. It
+ * carries the same scaffold as the Starter local passes, so a new Pass begins
+ * with the target, the context and the two constitutional clauses rather than a
+ * blank field. The Writer edits everything about it, including the id's name.
+ */
+export function blankModelPass(id: string): Pass {
+  return {
+    id,
+    name: "New Pass",
+    description: "",
+    kind: "model",
+    scope: "paragraph",
+    output: "findings",
+    slot: "critic",
+    enabled: true,
+    prompt: paragraphPassPrompt(
+      "Check one paragraph of a piece of writing.",
+      [
+        "Describe here what this Pass should find in the TARGET PARAGRAPH.",
+        PARAGRAPH_REPORTING_CLAUSE,
+      ].join("\n"),
+    ),
+  };
+}
 
 /**
  * The prompt shape every section-scope model Pass shares: the task and one
@@ -229,8 +265,8 @@ export function documentPassPrompt(intro: string, task: string): string {
  */
 const SECTION_REPORTING_CLAUSE =
   "Return what_this_section_says, what_a_distracted_reader_would_miss and " +
-  "gap_between_intent_and_effect. Report only on this section. Do not praise the " +
-  "writing and do not suggest replacement prose.";
+  "gap_between_intent_and_effect. Report only on this section. " +
+  CONSTITUTION_CLAUSES;
 
 /**
  * The reporting clause every document-scope model Pass shares. It carries the
@@ -242,7 +278,8 @@ const SECTION_REPORTING_CLAUSE =
 const DOCUMENT_REPORTING_CLAUSE =
   "For each problem, quote the exact span from the document, give its zero-based offset " +
   "within the document, a short issue label and a diagnosis. Report only problems in the " +
-  "document. Do not praise the writing and do not suggest replacement prose.";
+  "document. " +
+  CONSTITUTION_CLAUSES;
 
 export interface ConstitutionPromptClause {
   name: string;

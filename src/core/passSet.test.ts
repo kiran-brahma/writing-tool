@@ -1,0 +1,98 @@
+import { describe, expect, it } from "vitest";
+import { CLICHE_PASS, HEDGES_PASS, STARTER_PASSES } from "./starterPasses";
+import {
+  parsePassSet,
+  passProblem,
+  PASS_SET_FORMAT,
+  PASS_SET_FORMAT_VERSION,
+  PassSetFormatError,
+  serializePassSet,
+} from "./passSet";
+
+describe("Pass set round trip", () => {
+  it("returns the same Passes after export and import", () => {
+    const passes = [HEDGES_PASS, CLICHE_PASS];
+
+    const imported = parsePassSet(serializePassSet(passes));
+
+    expect(imported).toEqual(passes);
+  });
+
+  it("round-trips the whole Starter pack", () => {
+    expect(parsePassSet(serializePassSet(STARTER_PASSES))).toEqual(STARTER_PASSES);
+  });
+
+  it("writes the format tag and version", () => {
+    const value = JSON.parse(serializePassSet([CLICHE_PASS])) as Record<string, unknown>;
+    expect(value.format).toBe(PASS_SET_FORMAT);
+    expect(value.version).toBe(PASS_SET_FORMAT_VERSION);
+  });
+});
+
+describe("parsePassSet refusal", () => {
+  it("refuses a file that is not JSON", () => {
+    expect(() => parsePassSet("not json")).toThrow(PassSetFormatError);
+  });
+
+  it("refuses a file that is not an Obelus pass set", () => {
+    expect(() => parsePassSet(JSON.stringify({ format: "something-else", passes: [] }))).toThrow(
+      /not an Obelus pass set/i,
+    );
+  });
+
+  it("refuses a set written by a newer Obelus", () => {
+    const newer = JSON.stringify({
+      format: PASS_SET_FORMAT,
+      version: PASS_SET_FORMAT_VERSION + 1,
+      passes: [],
+    });
+    expect(() => parsePassSet(newer)).toThrow(/newer Obelus/i);
+  });
+
+  it("refuses a set with no passes list", () => {
+    const noList = JSON.stringify({ format: PASS_SET_FORMAT, version: 1 });
+    expect(() => parsePassSet(noList)).toThrow(/"passes" list/i);
+  });
+
+  it("refuses a Pass with an unknown placeholder (story 100)", () => {
+    const text = JSON.stringify({
+      format: PASS_SET_FORMAT,
+      version: 1,
+      passes: [{ ...CLICHE_PASS, prompt: "Look at {{paragraf}}" }],
+    });
+
+    expect(() => parsePassSet(text)).toThrow(/\{\{paragraf\}\}/);
+  });
+
+  it("refuses two Passes sharing one id", () => {
+    const text = JSON.stringify({
+      format: PASS_SET_FORMAT,
+      version: 1,
+      passes: [CLICHE_PASS, { ...HEDGES_PASS, id: CLICHE_PASS.id }],
+    });
+
+    expect(() => parsePassSet(text)).toThrow(/same id/i);
+  });
+});
+
+describe("passProblem", () => {
+  it("accepts a Starter Pass", () => {
+    expect(passProblem(CLICHE_PASS)).toBeNull();
+    expect(passProblem(HEDGES_PASS)).toBeNull();
+  });
+
+  it("names a model Pass with no prompt", () => {
+    expect(passProblem({ ...CLICHE_PASS, prompt: "" })).toMatch(/needs a prompt/i);
+  });
+
+  it("names an unknown scope and an unknown output shape", () => {
+    expect(passProblem({ ...CLICHE_PASS, scope: "chapter" })).toMatch(/unknown scope/i);
+    expect(passProblem({ ...CLICHE_PASS, output: "json-schema" })).toMatch(/unknown output shape/i);
+  });
+
+  it("names an unreadable Rule config", () => {
+    expect(passProblem({ ...HEDGES_PASS, ruleConfig: { hedges: [1] } })).toMatch(
+      /unreadable Rule config/i,
+    );
+  });
+});
