@@ -43,6 +43,14 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
   let revisionHandle: ReturnType<typeof setTimeout> | null = null;
   let changesSinceRevision = 0;
   let disposed = false;
+  /**
+   * The save currently running, so `flush` can await it. Without this, a
+   * flush that starts a second save resolves when the second finishes while
+   * the first is still writing — and its continuations (rule runs, anchor
+   * re-resolution, Reader-account clearing) can land after the caller believed
+   * the Document was quiescent.
+   */
+  let inFlightSave: Promise<void> | null = null;
 
   async function run(action: () => Promise<void>): Promise<void> {
     try {
@@ -50,6 +58,16 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
     } catch (error) {
       onError(error);
     }
+  }
+
+  /** One save at a time; a second caller joins the running one. */
+  function startSave(): Promise<void> {
+    if (inFlightSave !== null) return inFlightSave;
+    const running = run(save).finally(() => {
+      if (inFlightSave === running) inFlightSave = null;
+    });
+    inFlightSave = running;
+    return running;
   }
 
   function clearIdleRevision(): void {
@@ -65,7 +83,7 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
     if (saveHandle !== null) clearTimeout(saveHandle);
     saveHandle = setTimeout(() => {
       saveHandle = null;
-      void run(save);
+      void startSave();
     }, SAVE_DEBOUNCE_MS);
 
     clearIdleRevision();
@@ -87,7 +105,12 @@ export function createPersistence(options: PersistenceOptions): PersistenceContr
       clearTimeout(saveHandle);
       saveHandle = null;
     }
-    await run(save);
+    // Await a save already running before starting another: this resolves only
+    // once the Writer's latest text has been persisted, not when an overlapping
+    // second save finishes while the first is still writing.
+    const previous = inFlightSave;
+    if (previous !== null) await previous;
+    await startSave();
   }
 
   async function takeRevision(): Promise<void> {

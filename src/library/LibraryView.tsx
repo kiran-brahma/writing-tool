@@ -8,6 +8,7 @@ import {
   type DocumentStatus,
   type LibraryEntry,
 } from "../core/library";
+import { BackupPanel } from "./BackupPanel";
 
 /**
  * The Library: a flat list of every Document in this browser, with search over
@@ -23,6 +24,19 @@ export interface LibraryViewProps {
   onCreate: () => void;
   onStatus: (documentId: string, status: DocumentStatus) => void;
   onTags: (documentId: string, tags: string[]) => void;
+  /** Story 113: when the Writer last backed up, or null when never. */
+  lastBackedUp: number | null;
+  /** A backup or restore failure, surfaced verbatim. */
+  backupError: string | null;
+  /** Story 111: downloads a whole-Library backup. */
+  onBackup: (includeKeys: boolean) => void;
+  /** Story 111: replaces the Library from a backup file's text. */
+  onRestore: (json: string) => Promise<boolean>;
+  /** Story 114: downloads one Document's bundle. */
+  onExportBundle: (documentId: string) => void;
+  /** Story 114: imports a Document bundle as a new Document. */
+  onImportBundle: (json: string) => void;
+  onDismissBackupError: () => void;
 }
 
 export function LibraryView({
@@ -32,6 +46,13 @@ export function LibraryView({
   onCreate,
   onStatus,
   onTags,
+  lastBackedUp,
+  backupError,
+  onBackup,
+  onRestore,
+  onExportBundle,
+  onImportBundle,
+  onDismissBackupError,
 }: LibraryViewProps) {
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string | null>(null);
@@ -70,6 +91,15 @@ export function LibraryView({
             New Document
           </button>
         </div>
+
+        <BackupPanel
+          lastBackedUp={lastBackedUp}
+          error={backupError}
+          onBackup={onBackup}
+          onRestore={onRestore}
+          onImportBundle={onImportBundle}
+          onDismissError={onDismissBackupError}
+        />
 
         <div className="mt-6 space-y-3">
           <input
@@ -113,6 +143,7 @@ export function LibraryView({
               onOpen={onOpen}
               onStatus={onStatus}
               onTags={onTags}
+              onExportBundle={onExportBundle}
             />
           ))}
         </ol>
@@ -127,12 +158,14 @@ function LibraryRow({
   onOpen,
   onStatus,
   onTags,
+  onExportBundle,
 }: {
   entry: LibraryEntry;
   active: boolean;
   onOpen: (documentId: string) => void;
   onStatus: (documentId: string, status: DocumentStatus) => void;
   onTags: (documentId: string, tags: string[]) => void;
+  onExportBundle: (documentId: string) => void;
 }) {
   return (
     <li
@@ -173,6 +206,13 @@ function LibraryRow({
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => onExportBundle(entry.id)}
+            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+          >
+            Export bundle
+          </button>
         </div>
       </div>
 
@@ -261,3 +301,4 @@ function TagFilterChip({
     </button>
   );
 }
+

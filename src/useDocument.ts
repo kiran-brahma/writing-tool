@@ -62,6 +62,8 @@ import { runRulePasses } from "./storage/ruleRuns";
 import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
 import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
 import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
+import { loadLastBackedUp } from "./storage/durability";
+import { useDurability } from "./durability/useDurability";
 import { createCustomConnection, type Connection } from "./wire/connection";
 import { createFetchTransport, type Transport } from "./wire/transport";
 
@@ -170,6 +172,22 @@ export interface DocumentHandle {
   assignSlot: (slot: Slot, connectionId: string | null) => Promise<void>;
   importFromMarkdown: (markdown: string) => Promise<void>;
   exportToMarkdown: () => string;
+  /**
+   * Story 111: the whole Library as one backup file's text. `deliver` hands the
+   * text to the shell; the reminder is stamped only after it returns.
+   */
+  backupLibrary: (includeKeys: boolean, deliver: (json: string) => void) => Promise<boolean>;
+  /** Story 111: replaces the whole Library from a backup file's text. */
+  restoreLibrary: (json: string) => Promise<boolean>;
+  /** Story 114: one Document as a bundle file's text, or null on failure. */
+  exportBundle: (documentId: string) => Promise<string | null>;
+  /** Story 114: imports a Document bundle as a new Document and opens it. */
+  importBundle: (json: string) => Promise<string | null>;
+  /** Story 113: when the Writer last backed up, or null when never. */
+  lastBackedUp: number | null;
+  /** A backup or restore failure, surfaced verbatim rather than swallowed. */
+  backupError: string | null;
+  clearBackupError: () => void;
 }
 
 /**
@@ -215,6 +233,8 @@ export function useDocument(): DocumentHandle {
   const [lastRunReport, setLastRunReport] = useState<DocumentHandle["lastRunReport"]>(null);
   const [screeningFrame, setScreeningFrameState] = useState(true);
   const [characterLimit, setCharacterLimitState] = useState(DEFAULT_CHARACTER_LIMIT);
+  const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
 
   /**
    * Story 50: the chunk plan for a document-scope Run of the current Document.
@@ -285,6 +305,23 @@ export function useDocument(): DocumentHandle {
     const next = passesRef.current.map((pass) => (pass.id === updated.id ? updated : pass));
     passesRef.current = next;
     setPasses(next);
+  }, []);
+
+  /**
+   * Loads the global stores every part of the shell reads: the Pass set, the
+   * Connections and Slots, the Screening frame, the character limit and the
+   * last-backed-up reminder. Shared by the mount path and the restore path, so
+   * the two cannot drift when a global store is added.
+   */
+  const loadGlobalState = useCallback(async (database: ObelusDatabase) => {
+    const loadedPasses = await loadOrCreatePasses(database);
+    passesRef.current = loadedPasses;
+    setPasses(loadedPasses);
+    setConnections(await loadOrCreateConnections(database));
+    setSlots(await loadSlots(database));
+    setScreeningFrameState(await loadScreeningFrame(database));
+    setCharacterLimitState(await loadCharacterLimit(database));
+    setLastBackedUp(await loadLastBackedUp(database));
   }, []);
 
   const refreshRevisions = useCallback(async () => {
@@ -362,17 +399,9 @@ export function useDocument(): DocumentHandle {
 
         databaseRef.current = database;
 
-        const loadedPasses = await loadOrCreatePasses(database);
-        passesRef.current = loadedPasses;
-        setPasses(loadedPasses);
-
-        setConnections(await loadOrCreateConnections(database));
-        setSlots(await loadSlots(database));
-        setScreeningFrameState(await loadScreeningFrame(database));
-        setCharacterLimitState(await loadCharacterLimit(database));
+        await loadGlobalState(database);
         // The one seam. The app builds it once; every model Run leaves through it.
         transportRef.current = createFetchTransport();
-
         await enterDocument(database, opened);
         setLibrary(await listLibrary(database));
 
@@ -421,7 +450,7 @@ export function useDocument(): DocumentHandle {
       databaseRef.current = null;
       transportRef.current = null;
     };
-  }, [enterDocument, refreshRevisions, refreshFindings]);
+  }, [enterDocument, loadGlobalState, refreshRevisions, refreshFindings]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -583,6 +612,40 @@ export function useDocument(): DocumentHandle {
     },
     [enterDocument, readLibrary],
   );
+
+  /**
+   * Story 111: reloads the whole in-memory view from the database after an
+   * import replaces every store — the Passes the Writer edited, the
+   * Connections, the global settings, and the Document the Library opens into.
+   * The import itself is transactional; this only re-reads what it wrote.
+   */
+  const reloadLibrary = useCallback(
+    async (database: ObelusDatabase) => {
+      await loadGlobalState(database);
+      // The run readouts belonged to the Document the restore replaced.
+      setRunError(null);
+      setLastRunReport(null);
+      setReaderError(null);
+      setJudgeResult(null);
+      setJudgeError(null);
+      const opened = await loadOrCreateDocument(database);
+      await enterDocument(database, opened);
+      await readLibrary();
+    },
+    [loadGlobalState, enterDocument, readLibrary],
+  );
+
+  const { backupLibrary, restoreLibrary, exportBundle, importBundle } = useDurability({
+    databaseRef,
+    persistenceRef,
+    documentRef,
+    openDocument,
+    reloadLibrary,
+    onBackedUp: setLastBackedUp,
+    onError: setBackupError,
+  });
+
+  const clearBackupError = useCallback(() => setBackupError(null), []);
 
   /**
    * Writes a title, status or tag change and reflects it in the Library. The
@@ -1044,6 +1107,13 @@ export function useDocument(): DocumentHandle {
     assignSlot,
     importFromMarkdown,
     exportToMarkdown,
+    backupLibrary,
+    restoreLibrary,
+    exportBundle,
+    importBundle,
+    lastBackedUp,
+    backupError,
+    clearBackupError,
   };
 }
 

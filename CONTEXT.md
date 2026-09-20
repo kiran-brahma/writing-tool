@@ -36,6 +36,21 @@ _Avoid_: snapshot, version, save, checkpoint
 Every Document held in this browser.
 _Avoid_: workspace, project, vault
 
+**Backup**:
+One file holding the whole Library, so an eviction is survivable. A backup excludes API keys unless
+the Writer explicitly opts in.
+_Avoid_: archive, dump, snapshot, export
+
+**Restore**:
+Replacing this browser's Library with a Backup, behind an explicit confirmation. The mechanism is an
+import; the action is a restore.
+_Avoid_: load, sync, recover
+
+**Bundle**:
+One Document as a single file, carrying its Revisions, Findings, Run results and Reader accounts, so
+it can move intact.
+_Avoid_: package, archive, export
+
 ## Analysis
 
 **Pass**:

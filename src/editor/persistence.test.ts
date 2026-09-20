@@ -62,6 +62,30 @@ describe("createPersistence", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for a save already in flight before flush resolves", async () => {
+    let release!: () => void;
+    const firstSave = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const save = vi.fn(() => firstSave);
+    const controller = createPersistence({ save, takeRevision: async () => {}, onError: () => {} });
+
+    controller.markDirty();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    const flushing = controller.flush();
+    let settled = false;
+    void flushing.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    release();
+    await flushing;
+  });
+
   it("reports a failed save instead of swallowing it", async () => {
     const failure = new Error("quota exceeded");
     const onError = vi.fn();

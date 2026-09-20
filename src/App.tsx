@@ -82,6 +82,13 @@ export default function App() {
     assignSlot,
     importFromMarkdown,
     exportToMarkdown,
+    backupLibrary,
+    restoreLibrary,
+    exportBundle,
+    importBundle,
+    lastBackedUp,
+    backupError,
+    clearBackupError,
   } = useDocument();
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
@@ -258,8 +265,66 @@ export default function App() {
   };
 
   const onExport = () => {
-    downloadText(`${slug(document?.title ?? "document")}.md`, exportToMarkdown());
+    downloadText(
+      `${slug(document?.title ?? "document")}.md`,
+      exportToMarkdown(),
+      "text/markdown;charset=utf-8",
+    );
   };
+
+  /** Story 111: download a whole-Library backup, then the reminder updates. */
+  const onBackupLibrary = useCallback(
+    (includeKeys: boolean) => {
+      void backupLibrary(includeKeys, (json) => {
+        downloadText(
+          `obelus-library-${fileStamp()}.json`,
+          json,
+          "application/json;charset=utf-8",
+        );
+      });
+    },
+    [backupLibrary],
+  );
+
+  /**
+   * Story 111: replace the Library from a backup. The Editor is remounted even
+   * when the imported Library reuses the active Document's id, so it cannot
+   * keep showing prose the restore replaced.
+   */
+  const onRestoreLibrary = useCallback(
+    async (json: string) => {
+      const restored = await restoreLibrary(json);
+      if (restored) leaveEditor();
+      return restored;
+    },
+    [restoreLibrary, leaveEditor],
+  );
+
+  /** Story 114: download one Document's bundle. */
+  const onExportBundle = useCallback(
+    async (documentId: string) => {
+      const json = await exportBundle(documentId);
+      if (json === null) return;
+      const entry = library.find((candidate) => candidate.id === documentId);
+      downloadText(
+        `${slug(entry?.title ?? "document")}-bundle.json`,
+        json,
+        "application/json;charset=utf-8",
+      );
+    },
+    [exportBundle, library],
+  );
+
+  /** Story 114: import a bundle as a new Document and open it. */
+  const onImportBundle = useCallback(
+    async (json: string) => {
+      const id = await importBundle(json);
+      if (id === null) return;
+      leaveEditor();
+      setView("editor");
+    },
+    [importBundle, leaveEditor],
+  );
 
   const onImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.target;
@@ -346,6 +411,13 @@ export default function App() {
           onCreate={startNewDocument}
           onStatus={(id, status) => void setDocumentStatus(id, status)}
           onTags={(id, tags) => void setDocumentTags(id, tags)}
+          lastBackedUp={lastBackedUp}
+          backupError={backupError}
+          onBackup={(includeKeys) => void onBackupLibrary(includeKeys)}
+          onRestore={onRestoreLibrary}
+          onExportBundle={(documentId) => void onExportBundle(documentId)}
+          onImportBundle={(json) => void onImportBundle(json)}
+          onDismissBackupError={clearBackupError}
         />
       )}
 
@@ -623,14 +695,19 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /** Saves a string as a download. Local only: no request leaves the browser. */
-function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+function downloadText(filename: string, text: string, mime = "text/plain;charset=utf-8"): void {
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+/** A date stamp for a download filename, e.g. `2026-09-19`. */
+function fileStamp(now: number = Date.now()): string {
+  return new Date(now).toISOString().slice(0, 10);
 }
 
 function slug(title: string): string {
