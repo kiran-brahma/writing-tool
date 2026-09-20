@@ -2,7 +2,7 @@ import type { Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
 import { ruleMatches, runRulePass, type RuleMatch } from "../core/rulePass";
-import { listFindingsForPass, replaceFindingsForPass } from "./findings";
+import { listFindingsForPass, provenanceLookup, replaceFindingsForPass } from "./findings";
 import { enqueueMutation } from "./mutationQueue";
 import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
 import { ensureRevision } from "./revisions";
@@ -55,6 +55,12 @@ async function runRulePassesNow(
   // and so never mints an empty baseline Revision.
   const needsRevision = runs.some((run) => run.matches.length > 0);
   const revision = needsRevision ? await ensureRevision(database, document, now) : null;
+  // Reconciliation resolves stored Findings the way re-resolution does, from
+  // their provenance Revision; load the projection sources once for the Run.
+  const provenance = await provenanceLookup(
+    database,
+    runs.flatMap((run) => run.existing),
+  );
   const findings: Finding[] = [];
 
   for (const { pass, matches, existing } of runs) {
@@ -62,7 +68,7 @@ async function runRulePassesNow(
       revision === null
         ? []
         : runRulePass(document.canonical, pass, { at: now, revisionId: revision.id }, matches);
-    const merged = reconcileFindings(produced, existing, document.canonical);
+    const merged = reconcileFindings(produced, existing, document.canonical, provenance);
     await replaceFindingsForPass(database, document.id, pass.id, merged);
     findings.push(...merged);
   }

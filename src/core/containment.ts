@@ -23,8 +23,10 @@ export interface ContainmentResult<T extends AnchorDraft> {
 /**
  * Keeps only the Anchors that resolve inside the Target interval; everything
  * else — outside the Target, or unresolvable in the current canonical string —
- * is dropped and counted. The current canonical string is what quote matching
- * runs against; diff-projection from the Finding's Revision is #5's.
+ * is dropped and counted. A parsed draft is fresh: its offset is already in the
+ * current canonical string, so containment resolves it by quote match (the
+ * two-argument `resolveAnchor`) rather than diff-projecting from a Revision.
+ * Re-location of *stored* Findings across edits is `reResolveFindings`.
  *
  * A model is asked for an offset within the Target it was shown, so that hint is
  * first moved into canonical coordinates. Without that, a quote that appears in

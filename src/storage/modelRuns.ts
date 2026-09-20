@@ -4,7 +4,7 @@ import { hashPass, type Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
 import type { Connection } from "../wire/connection";
 import type { Transport } from "../wire/transport";
-import { listFindingsForPass, replaceFindingsForPass } from "./findings";
+import { listFindingsForPass, provenanceLookup, replaceFindingsForPass } from "./findings";
 import { enqueueMutation } from "./mutationQueue";
 import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
 import { ensureRevision } from "./revisions";
@@ -95,7 +95,8 @@ async function runModelPassNow(
   });
 
   const existing = await listFindingsForPass(database, document.id, options.pass.id);
-  const merged = reconcileFindings(result.findings, existing, document.canonical);
+  const provenance = await provenanceLookup(database, existing);
+  const merged = reconcileFindings(result.findings, existing, document.canonical, provenance);
   await replaceFindingsForPass(database, document.id, options.pass.id, merged);
   await saveRunResponse(
     database,

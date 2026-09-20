@@ -89,6 +89,41 @@ describe("reconcileFindings", () => {
     expect(merged.map((entry) => entry.id)).toEqual(["first"]);
   });
 
+  it("re-projects a stored Finding from its provenance Revision before matching", () => {
+    const stored = finding(
+      { quote: "very", offset: 0 },
+      { id: "stored", provenance: { providerId: "local", model: "rule", at: 1, revisionId: "r0" } },
+    );
+    const produced = finding({ quote: "really", offset: 0 }, { id: "fresh", issue: "new issue" });
+
+    const merged = reconcileFindings([produced], [stored], "really good\n", (id) =>
+      id === "r0" ? "very good\n" : undefined,
+    );
+
+    // The old "very" is gone verbatim; projection onto "really" makes it the
+    // same span the Run re-found, so the two are one Finding, not two.
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe("stored");
+    expect(merged[0].anchor).toEqual({ quote: "very", offset: 0, state: "attached" });
+    expect(merged[0].issue).toBe("new issue");
+  });
+
+  it("keeps produced Findings in current coordinates for ordering", () => {
+    // Both anchors are fresh, in the current string. A lookup that would move
+    // them backwards must not be applied: their provenance Revision is a
+    // coordinate system they were not authored in.
+    const produced = [
+      finding({ quote: "X", offset: 0 }, { id: "pX" }),
+      finding({ quote: "Y", offset: 6 }, { id: "pY" }),
+    ];
+
+    const merged = reconcileFindings(produced, [], "X aaa Y\n", (id) =>
+      id === "r1" ? "Y aaa X\n" : undefined,
+    );
+
+    expect(merged.map((entry) => entry.id)).toEqual(["pX", "pY"]);
+  });
+
   it("orders attached Findings in document order with Orphaned last", () => {
     const later = finding({ quote: "quite", offset: 8 }, { id: "later" });
     const gone = finding({ quote: "gone", offset: 0 }, { id: "gone" });

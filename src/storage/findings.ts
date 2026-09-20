@@ -1,6 +1,7 @@
+import { reResolveFindings, type FindingResolution } from "../core/anchor";
 import type { DeclineReason, Finding } from "../core/finding";
 import { enqueueMutation } from "./mutationQueue";
-import type { FindingRecord, ObelusDatabase } from "./obelusDatabase";
+import type { DocumentRecord, FindingRecord, ObelusDatabase } from "./obelusDatabase";
 
 /**
  * The Findings repository. Findings belong to a Document, so storage carries
@@ -55,6 +56,80 @@ export async function replaceFindingsForPass(
     await database.findings.where("[documentId+passId]").equals([documentId, passId]).delete();
     await database.findings.bulkPut(records);
   });
+}
+
+/**
+ * A re-resolution of a Document's Findings plus the provenance strings it used,
+ * so a caller can re-resolve against a new canonical string as the Writer types
+ * without another storage read.
+ */
+export interface DocumentFindingResolution extends FindingResolution {
+  /** The canonical string of each provenance Revision, keyed by id. */
+  canonicals: Map<string, string>;
+}
+
+/**
+ * Re-resolves every Finding for a Document against its current canonical string
+ * — diff-projecting each from its provenance Revision — and persists any
+ * `anchor.state` change, so the rendered state survives a reload. Serialised
+ * with rule and model Runs through `enqueueMutation`, so it cannot read a
+ * Finding set a Run is midway through replacing.
+ *
+ * A Finding whose provenance Revision is missing (pruned, or a Revision that
+ * never existed) resolves by quote match against the current string, which is
+ * the same fallback `resolveAnchor` uses when projection is impossible.
+ */
+export function resolveDocumentFindings(
+  database: ObelusDatabase,
+  document: DocumentRecord,
+): Promise<DocumentFindingResolution> {
+  return enqueueMutation(database, () =>
+    database.transaction("rw", database.findings, database.revisions, async () => {
+      const findings = await listFindings(database, document.id);
+      const canonicals = await loadProvenanceCanonicals(
+        database,
+        findings.map((finding) => finding.provenance.revisionId),
+      );
+      const resolution = reResolveFindings(findings, document.canonical, (id) => canonicals.get(id));
+      if (resolution.changed.length > 0) {
+        await database.findings.bulkPut(
+          resolution.changed.map((finding) => toFindingRecord(finding, document.id)),
+        );
+      }
+      return { ...resolution, canonicals };
+    }),
+  );
+}
+
+/** The canonical string of each named Revision, keyed by id. */
+export async function loadProvenanceCanonicals(
+  database: ObelusDatabase,
+  revisionIds: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(revisionIds)];
+  const canonical = new Map<string, string>();
+  if (unique.length === 0) return canonical;
+
+  for (const record of await database.revisions.bulkGet(unique)) {
+    if (record !== undefined) canonical.set(record.id, record.canonical);
+  }
+  return canonical;
+}
+
+/**
+ * A lookup from a Finding's provenance Revision id to its canonical string, for
+ * `reconcileFindings` and `reResolveFindings`. A Revision that is gone is
+ * absent, which makes resolution fall back to quote matching.
+ */
+export async function provenanceLookup(
+  database: ObelusDatabase,
+  findings: Finding[],
+): Promise<(revisionId: string) => string | undefined> {
+  const canonicals = await loadProvenanceCanonicals(
+    database,
+    findings.map((finding) => finding.provenance.revisionId),
+  );
+  return (revisionId) => canonicals.get(revisionId);
 }
 
 /**

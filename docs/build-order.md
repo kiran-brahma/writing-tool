@@ -35,8 +35,11 @@ with its dropped-anchor count, the raw-response toggle, `promptHash` and the Scr
 #24 (When the model misbehaves), #18 (Constitution harness), #16 (Run control) and #19 (Starter
 passes) have since landed: model drift is linted and struck through, the harness guards the prompts,
 Runs are cached, estimated, cancellable and honest about an unreadable auth failure, and the
-paragraph-scope Starter model pack is complete. The frontier is **row 12**: #5 (Anchor survival) is
-first, blocked only by #4 and #14, both closed.
+paragraph-scope Starter model pack is complete. #5 (Anchor survival) has landed: `resolveAnchor`
+diff-projects an Anchor from its provenance Revision, falls back to quote match, then reports
+Orphaned; re-resolution runs on every Document change, persists `anchor.state`, and reconciliation
+shares the one coordinate system. The frontier is **row 13**: #9 (Judge), blocked only by #3 and #5,
+both closed.
 
 ## How to work a ticket
 
@@ -65,7 +68,7 @@ first, blocked only by #4 and #14, both closed.
 
 | 11 | **#19** | Starter passes | The five remaining paragraph-scope Starter model passes | - Completed
 
-| 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` |
+| 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` | - Completed
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning |
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes |
 | 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path |

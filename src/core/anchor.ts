@@ -1,24 +1,134 @@
+import { diffChars, type Change } from "diff";
 import { canonicalTextWithMap } from "./canonicalText";
 import type { DocTree } from "./docTree";
-import type { AnchorDraft, EditorRange, Interval } from "./finding";
+import {
+  isOpenFinding,
+  type AnchorDraft,
+  type AnchorState,
+  type EditorRange,
+  type Finding,
+  type Interval,
+} from "./finding";
 
 /**
- * Anchors resolve in Core, never in the Editor. Resolution is quote-first with
- * the stored offset as a hint, never the sole basis: an offset rots on the
- * first keystroke, a quote does not.
+ * Anchors resolve in Core, never in the Editor. `resolveAnchor` is the three-step
+ * re-location the spec requires, in order:
  *
- * Diff-projection from `provenance.revisionId` — the common case where the
- * Writer edits *inside* the anchored span — is #5's work; this is the quote
- * fallback and tie-break it builds on. `canonical` is always the canonical
- * string of the Document as it stands now.
+ * 1. **Diff-projection.** Locate the Anchor in the canonical string of the
+ *    Finding's provenance Revision, then project that interval forward through a
+ *    character diff onto the current canonical string. This is the common case:
+ *    the Writer edits *inside* the anchored span, so the quote no longer exists
+ *    verbatim and the Finding must still follow the text.
+ * 2. **Quote match.** If projection collapses (the anchored span was deleted),
+ *    match the quote exactly against the current string. If it matches more than
+ *    once, prefer the occurrence nearest where projection pointed, then the
+ *    first.
+ * 3. **Orphaned.** If neither holds, the Finding is Orphaned.
+ *
+ * `null` is the Orphaned condition: a Finding with no interval in the current
+ * canonical string. An Orphaned Finding stays `open` and actionable; it simply
+ * has no Highlight.
+ *
+ * When no provenance canonical string is supplied the two arguments are the same
+ * string, so projection is the identity and this is exactly a quote match with
+ * the offset as the tie-break hint. Fresh Findings use that form; re-resolution
+ * passes the provenance Revision's canonical string.
  */
 export function resolveAnchor(
   anchor: AnchorDraft,
-  canonical: string,
+  currentCanonical: string,
+  provenanceCanonical: string = currentCanonical,
+): Interval | null {
+  return resolveWithEdits(
+    anchor,
+    currentCanonical,
+    provenanceCanonical,
+    diffEdits(provenanceCanonical, currentCanonical),
+  );
+}
+
+/** `resolveAnchor`'s body, with the character diff already computed. */
+function resolveWithEdits(
+  anchor: AnchorDraft,
+  currentCanonical: string,
+  provenanceCanonical: string,
+  edits: Change[],
 ): Interval | null {
   const { quote, offset } = anchor;
   if (quote === "") return null;
 
+  // Step 1: diff-projection from the string the model (or rule pass) saw.
+  const provenanceInterval = matchQuote(quote, provenanceCanonical, offset);
+  if (provenanceInterval !== null) {
+    const projected = projectSpan(edits, provenanceInterval);
+    if (projected !== null) return projected;
+    // The anchored span was deleted, so projection collapsed. Where it used to
+    // be is still the best hint for disambiguating a surviving quote.
+    return matchQuote(quote, currentCanonical, projectBoundary(edits, provenanceInterval.start));
+  }
+
+  // Step 2: exact quote match against the current string. When projection was
+  // possible, the occurrence nearest where the anchor used to be wins; when the
+  // provenance string never held the quote there is no projected position, so
+  // the stored offset is the hint.
+  return matchQuote(quote, currentCanonical, offset);
+}
+
+/** The resolved anchors of a Finding set, ready to render. */
+export interface FindingResolution {
+  findings: Finding[];
+  /** Canonical intervals of the open Findings, in their relative order. */
+  intervals: Interval[];
+  /** The Findings whose `anchor.state` changed, for the caller to persist. */
+  changed: Finding[];
+}
+
+/**
+ * Re-resolves every Finding against the current canonical string, using each
+ * Finding's provenance Revision as the projection source, and returns the
+ * Findings with `anchor.state` recomputed. Pure and DOM-free; the caller
+ * persists `changed`. `anchor.state` is computed from resolution, never
+ * authored by a model and never set by hand.
+ */
+export function reResolveFindings(
+  findings: Finding[],
+  currentCanonical: string,
+  provenanceCanonical: (revisionId: string) => string | undefined,
+): FindingResolution {
+  const resolved: Finding[] = [];
+  const changed: Finding[] = [];
+  const intervals: Interval[] = [];
+  const editsByProvenance = new Map<string, Change[]>();
+
+  for (const finding of findings) {
+    const provenance = provenanceCanonical(finding.provenance.revisionId) ?? currentCanonical;
+    // Every Finding from one Revision shares a diff; compute it once.
+    let edits = editsByProvenance.get(provenance);
+    if (edits === undefined) {
+      edits = diffEdits(provenance, currentCanonical);
+      editsByProvenance.set(provenance, edits);
+    }
+    const interval = resolveWithEdits(finding.anchor, currentCanonical, provenance, edits);
+    const state: AnchorState = interval === null ? "orphaned" : "attached";
+    if (finding.anchor.state === state) {
+      resolved.push(finding);
+    } else {
+      const updated = { ...finding, anchor: { ...finding.anchor, state } };
+      resolved.push(updated);
+      changed.push(updated);
+    }
+    if (isOpenFinding(finding) && interval !== null) intervals.push(interval);
+  }
+
+  return { findings: resolved, intervals, changed };
+}
+
+/**
+ * The occurrences of `quote`, choosing the one nearest `preferredOffset` and
+ * keeping the earliest on a tie. The offset is a hint, never the sole basis: an
+ * offset rots on the first keystroke, a quote does not.
+ */
+function matchQuote(quote: string, canonical: string, preferredOffset: number): Interval | null {
   const starts: number[] = [];
   let index = canonical.indexOf(quote);
   while (index !== -1) {
@@ -27,13 +137,63 @@ export function resolveAnchor(
   }
   if (starts.length === 0) return null;
 
-  // Prefer the occurrence nearest the offset hint, then the first: a strict
-  // comparison keeps the earlier occurrence on a tie.
   let start = starts[0];
   for (const candidate of starts) {
-    if (Math.abs(candidate - offset) < Math.abs(start - offset)) start = candidate;
+    if (Math.abs(candidate - preferredOffset) < Math.abs(start - preferredOffset)) start = candidate;
   }
   return { start, end: start + quote.length };
+}
+
+/**
+ * The character diff between two canonical strings. Identical strings need no
+ * diff and one common run, which keeps the fresh-Finding path (provenance equal
+ * to current) free of a diff call.
+ */
+function diffEdits(provenance: string, current: string): Change[] {
+  return provenance === current
+    ? [{ value: provenance, added: false, removed: false, count: provenance.length }]
+    : diffChars(provenance, current);
+}
+
+/**
+ * Projects an interval from the provenance string onto the current string by
+ * mapping both boundaries. A boundary inside removed text maps to the point of
+ * deletion, so an inserted run immediately after extends the end of the span but
+ * never its start: a rewrite of the anchored text maps to the rewritten span,
+ * while a pure deletion collapses to an empty interval and reports failure.
+ */
+function projectSpan(edits: Change[], interval: Interval): Interval | null {
+  const start = projectBoundary(edits, interval.start);
+  const end = projectBoundary(edits, interval.end);
+  return end > start ? { start, end } : null;
+}
+
+/**
+ * Maps one provenance offset to a current offset across the diff. A provenance
+ * character that survives maps to its partner; one that was deleted maps to the
+ * current position where it stood.
+ */
+function projectBoundary(edits: Change[], index: number): number {
+  let provenance = 0;
+  let current = 0;
+
+  for (const edit of edits) {
+    const length = edit.value.length;
+    if (edit.added) {
+      current += length;
+      continue;
+    }
+    if (edit.removed) {
+      if (index < provenance + length) return current;
+      provenance += length;
+      continue;
+    }
+    if (index < provenance + length) return current + (index - provenance);
+    provenance += length;
+    current += length;
+  }
+
+  return current;
 }
 
 /**

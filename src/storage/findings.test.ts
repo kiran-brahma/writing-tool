@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
+import type { Finding } from "../core/finding";
 import { HEDGES_PASS } from "../core/starterPasses";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
-import { listFindings, listFindingsForPass, replaceFindingsForPass, declineFinding, markFindingAddressed } from "./findings";
+import {
+  listFindings,
+  listFindingsForPass,
+  replaceFindingsForPass,
+  declineFinding,
+  markFindingAddressed,
+  resolveDocumentFindings,
+} from "./findings";
 import { openObelusDatabase, type DocumentRecord, type ObelusDatabase } from "./obelusDatabase";
-import { listRevisions } from "./revisions";
+import { listRevisions, takeRevision } from "./revisions";
 import { runRulePasses } from "./ruleRuns";
 
 const openedDatabases: ObelusDatabase[] = [];
@@ -128,6 +136,26 @@ describe("runRulePasses", () => {
     expect(second[0].status).toBe("open");
     expect(second[0].anchor.state).toBe("orphaned");
     expect((await listFindings(database, document.id))[0].anchor.state).toBe("orphaned");
+  });
+
+  it("reconciles a rewritten hedge rather than double-flagging it", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const withVery = await save(database, document, paragraphDoc("very good"), 1_100);
+    const first = await runRulePasses(database, withVery, { passes: [HEDGES_PASS], now: 1_200 });
+
+    // "very" is rewritten to another hedge. Projection resolves the stored
+    // Finding onto the same span the Run re-found, so it is one Finding.
+    const withReally = await save(database, withVery, paragraphDoc("really good"), 1_300);
+    const second = await runRulePasses(database, withReally, {
+      passes: [HEDGES_PASS],
+      now: 1_400,
+    });
+
+    expect(second).toHaveLength(1);
+    expect(second[0].id).toBe(first[0].id);
+    expect(second[0].anchor.state).toBe("attached");
+    expect(await listFindings(database, document.id)).toHaveLength(1);
   });
 
   it("does not mint a Revision on the fast save debounce", async () => {
@@ -262,5 +290,65 @@ describe("finding status", () => {
 
     expect(await markFindingAddressed(database, "missing")).toBeNull();
     expect(await declineFinding(database, "missing", "advice")).toBeNull();
+  });
+});
+
+describe("resolveDocumentFindings", () => {
+  function storedFinding(quote: string, offset: number, revisionId: string): Finding {
+    return {
+      id: crypto.randomUUID(),
+      passId: "cliche",
+      promptHash: "hash",
+      anchor: { quote, offset, state: "attached" },
+      issue: "Cliché",
+      diagnosis: "Worn.",
+      status: "open",
+      provenance: { providerId: "openai", model: "gpt-test", at: 1_200, revisionId },
+    };
+  }
+
+  /** A Document with one manually stored Finding pinned to a Revision. */
+  async function documentWithFinding(quote: string, offset: number) {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("The very good cat sat."), 1_100);
+    const revision = await takeRevision(database, saved, { now: 1_150 });
+    if (revision === null) throw new Error("expected a baseline Revision");
+    const finding = storedFinding(quote, offset, revision.id);
+    await replaceFindingsForPass(database, saved.id, finding.passId, [finding]);
+    return { database, documentId: saved.id, saved };
+  }
+
+  it("keeps a Finding attached and following a rewrite inside its span", async () => {
+    const { database, documentId, saved } = await documentWithFinding("very good", 4);
+    const rewritten = await save(database, saved, paragraphDoc("The very great cat sat."), 1_300);
+
+    const resolution = await resolveDocumentFindings(database, rewritten);
+
+    expect(resolution.findings).toHaveLength(1);
+    expect(resolution.findings[0].anchor.state).toBe("attached");
+    expect(resolution.intervals).toEqual([{ start: 4, end: 14 }]);
+    expect((await listFindings(database, documentId))[0].anchor.state).toBe("attached");
+  });
+
+  it("persists orphaned and drops the Highlight when the quote is deleted", async () => {
+    const { database, documentId, saved } = await documentWithFinding("very good", 4);
+    const rewritten = await save(database, saved, paragraphDoc("The cat sat."), 1_300);
+
+    const resolution = await resolveDocumentFindings(database, rewritten);
+
+    expect(resolution.findings[0]).toMatchObject({ status: "open", anchor: { state: "orphaned" } });
+    expect(resolution.intervals).toEqual([]);
+    expect((await listFindings(database, documentId))[0].anchor.state).toBe("orphaned");
+  });
+
+  it("leaves other Passes' Findings in place rather than dropping them", async () => {
+    const { database, saved } = await documentWithFinding("very good", 4);
+    const ruleFindings = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+
+    const resolution = await resolveDocumentFindings(database, saved);
+
+    expect(resolution.findings).toHaveLength(1 + ruleFindings.length);
+    expect(ruleFindings.length).toBeGreaterThan(0);
   });
 });

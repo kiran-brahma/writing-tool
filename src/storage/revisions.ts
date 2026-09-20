@@ -32,10 +32,10 @@ export interface TakeRevisionOptions {
 /**
  * The latest Revision, taking a baseline one when the Document has none. A
  * Finding records the Revision current when it was produced; because Revisions
- * are taken on their own slower cadence, that Revision need not contain the
- * anchored quote, and `resolveAnchor` resolves by quote first. #5's
- * diff-projection reads `provenance.revisionId` as the projection source and
- * falls back to quote match when it does not hold the Anchor.
+ * are taken on their own slower cadence, that Revision need not be the text the
+ * Run saw, so the Anchor's quote may not be in it. `resolveAnchor` diff-projects
+ * from `provenance.revisionId` when the Revision holds the Anchor and falls back
+ * to quote match in the current string when it does not.
  */
 export async function ensureRevision(
   database: ObelusDatabase,

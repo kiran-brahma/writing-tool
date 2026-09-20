@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { resolveAnchor } from "./core/anchor";
+import { reResolveFindings, type FindingResolution } from "./core/anchor";
 import type { RunReport, RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
-import {
-  isOpenFinding,
-  type DeclineReason,
-  type Finding,
-  type Interval,
-} from "./core/finding";
+import { type DeclineReason, type Finding, type Interval } from "./core/finding";
 import type { Pass, RuleConfig } from "./core/pass";
 import { passContext } from "./core/passContext";
 import { STARTER_PASSES } from "./core/starterPasses";
@@ -29,7 +24,11 @@ import {
   persistDocument,
   withTree,
 } from "./storage/documents";
-import { declineFinding, listFindings, markFindingAddressed } from "./storage/findings";
+import {
+  declineFinding,
+  markFindingAddressed,
+  resolveDocumentFindings,
+} from "./storage/findings";
 import {
   openObelusDatabase,
   type DocumentRecord,
@@ -112,7 +111,8 @@ export function useDocument(): DocumentHandle {
   const documentRef = useRef<DocumentRecord | null>(null);
   const persistenceRef = useRef<PersistenceController | null>(null);
   const findingsRef = useRef<Finding[]>([]);
-  const canonicalRef = useRef("");
+  /** Canonical strings of the provenance Revisions the stored Findings name. */
+  const canonicalsRef = useRef<Map<string, string>>(new Map());
   const passesRef = useRef<Pass[]>(STARTER_PASSES);
   const transportRef = useRef<Transport | null>(null);
 
@@ -135,18 +135,46 @@ export function useDocument(): DocumentHandle {
   const [rawResponses, setRawResponses] = useState<Record<string, string>>({});
 
   /**
-   * The Findings and the intervals the Editor should draw. The interval is
-   * resolved here, in Core-adjacent code, against the canonical string the Run
-   * saw; the Editor only projects and draws it. A Finding that has left the
-   * queue — addressed or declined — draws no Highlight, so the prose shows what
-   * still needs work rather than a growing residue.
+   * The Findings and the intervals the Editor should draw. Resolution happened
+   * in Core against the canonical string the Run saw; the Editor only projects
+   * and draws the intervals. A Finding that has left the queue — addressed or
+   * declined — draws no Highlight, so the prose shows what still needs work
+   * rather than a growing residue.
    */
-  const applyFindings = useCallback((run: Finding[], canonical: string) => {
-    findingsRef.current = run;
-    canonicalRef.current = canonical;
-    setFindings(run);
-    setHighlights(intervalsForOpen(run, canonical));
+  const applyResolution = useCallback((resolution: FindingResolution) => {
+    findingsRef.current = resolution.findings;
+    setFindings(resolution.findings);
+    setHighlights(resolution.intervals);
   }, []);
+
+  /**
+   * Re-resolves the Document's stored Findings against the given canonical
+   * string — diff-projecting each from its provenance Revision — persists any
+   * `anchor.state` change and applies the result. This is the storage-touching
+   * path, used on open, on save, after a rule or model Run, and after a status
+   * write. `handleChange` re-resolves in memory directly so a Highlight follows
+   * the text as the Writer types.
+   */
+  const refreshFindings = useCallback(
+    async (document: DocumentRecord | null = documentRef.current) => {
+      const database = databaseRef.current;
+      if (database === null || document === null) return;
+      const resolution = await resolveDocumentFindings(database, document);
+      canonicalsRef.current = resolution.canonicals;
+      // A keystroke during the await may have advanced the Document. Apply
+      // against the latest text rather than clobbering a newer Highlight with
+      // intervals computed for the text that was persisted.
+      const latest = documentRef.current ?? document;
+      applyResolution(
+        latest.canonical === document.canonical
+          ? resolution
+          : reResolveFindings(resolution.findings, latest.canonical, (id) =>
+              resolution.canonicals.get(id),
+            ),
+      );
+    },
+    [applyResolution],
+  );
 
   /** Replaces one Pass in the loaded set after a persisted edit. */
   const applyPass = useCallback((updated: Pass) => {
@@ -167,10 +195,10 @@ export function useDocument(): DocumentHandle {
     const database = databaseRef.current;
     const current = documentRef.current;
     if (database === null || current === null) return;
-    const run = await runRulePasses(database, current, { passes: passesRef.current });
-    applyFindings(run, current.canonical);
+    await runRulePasses(database, current, { passes: passesRef.current });
+    await refreshFindings(current);
     await refreshRevisions();
-  }, [applyFindings, refreshRevisions]);
+  }, [refreshFindings, refreshRevisions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,8 +233,8 @@ export function useDocument(): DocumentHandle {
             if (current === null) return;
             await persistDocument(database, current);
             setSaveError(null);
-            const run = await runRulePasses(database, current, { passes: passesRef.current });
-            applyFindings(run, current.canonical);
+            await runRulePasses(database, current, { passes: passesRef.current });
+            await refreshFindings(current);
             await refreshRevisions();
           },
           takeRevision: async () => {
@@ -220,8 +248,8 @@ export function useDocument(): DocumentHandle {
           },
         });
 
-        const run = await runRulePasses(database, opened, { passes: loadedPasses });
-        applyFindings(run, opened.canonical);
+        await runRulePasses(database, opened, { passes: loadedPasses });
+        await refreshFindings(opened);
         await refreshRevisions();
         setStatus("ready");
       } catch (error) {
@@ -240,7 +268,7 @@ export function useDocument(): DocumentHandle {
       databaseRef.current = null;
       transportRef.current = null;
     };
-  }, [refreshRevisions, applyFindings]);
+  }, [refreshRevisions, refreshFindings]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -260,14 +288,25 @@ export function useDocument(): DocumentHandle {
     };
   }, [status]);
 
-  const handleChange = useCallback((tree: DocTree) => {
-    const current = documentRef.current;
-    if (current === null) return;
-    const updated = withTree(current, tree);
-    documentRef.current = updated;
-    setDocumentRecord(updated);
-    persistenceRef.current?.markDirty();
-  }, []);
+  const handleChange = useCallback(
+    (tree: DocTree) => {
+      const current = documentRef.current;
+      if (current === null) return;
+      const updated = withTree(current, tree);
+      documentRef.current = updated;
+      setDocumentRecord(updated);
+      // Re-resolve immediately, not only on the save debounce, so the Highlight
+      // follows the text as the Writer types. Persistence of `anchor.state`
+      // rides the save.
+      applyResolution(
+        reResolveFindings(findingsRef.current, updated.canonical, (id) =>
+          canonicalsRef.current.get(id),
+        ),
+      );
+      persistenceRef.current?.markDirty();
+    },
+    [applyResolution],
+  );
 
   const flagMilestone = useCallback(
     async (note: string) => {
@@ -304,17 +343,17 @@ export function useDocument(): DocumentHandle {
       try {
         const updated = await write(database, findingId);
         if (updated === null) return false;
-        applyFindings(
-          findingsRef.current.map((finding) => (finding.id === findingId ? updated : finding)),
-          canonicalRef.current,
-        );
+        // The status write changed which Findings are open, so re-resolve from
+        // storage: a Finding that left the queue drops its Highlight, and an
+        // Orphaned one stays put rather than reappearing attached.
+        await refreshFindings();
         return true;
       } catch (error) {
         setSaveError(describeError(error));
         return false;
       }
     },
-    [applyFindings],
+    [refreshFindings],
   );
 
   const markAddressed = useCallback(
@@ -346,11 +385,11 @@ export function useDocument(): DocumentHandle {
       documentRef.current = updated;
       setDocumentRecord(updated);
 
-      const run = await runRulePasses(database, updated, { passes: passesRef.current });
-      applyFindings(run, updated.canonical);
+      await runRulePasses(database, updated, { passes: passesRef.current });
+      await refreshFindings(updated);
       await refreshRevisions();
     },
-    [applyFindings, refreshRevisions],
+    [refreshFindings, refreshRevisions],
   );
 
   const exportToMarkdown = useCallback(() => {
@@ -400,14 +439,6 @@ export function useDocument(): DocumentHandle {
     return connections.find((connection) => connection.id === id) ?? null;
   }, [connections, slots]);
 
-  /** Reloads every stored Finding, so state does not drift from storage. */
-  const refreshFindings = useCallback(async () => {
-    const database = databaseRef.current;
-    const current = documentRef.current;
-    if (database === null || current === null) return;
-    applyFindings(await listFindings(database, current.id), current.canonical);
-  }, [applyFindings]);
-
   const runInFlightRef = useRef(false);
 
   /**
@@ -453,7 +484,7 @@ export function useDocument(): DocumentHandle {
           target,
           screeningFrame,
         });
-        await refreshFindings();
+        await refreshFindings(current);
         setRawResponses(await listRunResponses(database, current.id));
         setLastRunReport({
           passId,
@@ -573,12 +604,4 @@ function replaceConnection(current: Connection[], connection: Connection): Conne
   return exists
     ? current.map((entry) => (entry.id === connection.id ? connection : entry))
     : [...current, connection];
-}
-
-/** The canonical intervals of the Findings still open, for the Editor to draw. */
-function intervalsForOpen(findings: Finding[], canonical: string): Interval[] {
-  return findings
-    .filter(isOpenFinding)
-    .map((finding) => resolveAnchor(finding.anchor, canonical))
-    .filter((interval): interval is Interval => interval !== null);
 }

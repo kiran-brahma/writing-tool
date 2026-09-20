@@ -9,17 +9,20 @@ import type { Finding, Interval } from "./finding";
  *
  * Matching is by *resolved interval*, not by id or offset: offsets rot and the
  * fresh Run carries new ids, but a quote that resolves to the same span is the
- * same problem.
+ * same problem. A stored Finding is resolved the same way re-resolution does —
+ * diff-projected from its provenance Revision — so a Finding the Writer rewrote
+ * inside still matches the span the Run re-found, and reconciliation and
+ * re-resolution never disagree about where a Finding sits.
  *
  * A matched Finding keeps the fields the Writer owns (`id`, `status`,
  * `declineReason`) and the fields that pin it to a coordinate system (`anchor`,
  * `provenance`): the anchor's offset and its `provenance.revisionId` must name
- * the same canonical string, or #5's diff-projection projects in the wrong
- * coordinates. The Run-derived prose (`issue`, `diagnosis`, `pattern`,
- * `promptHash`) refreshes, so an edited Rule config is reflected. A matched
- * Finding is `attached` by construction — the match required its stored Anchor
- * to resolve to the same span — and an unmatched one has its `anchor.state`
- * recomputed by resolution.
+ * the same canonical string, or projection would move in the wrong coordinates.
+ * The Run-derived prose (`issue`, `diagnosis`, `pattern`, `promptHash`)
+ * refreshes, so an edited Rule config is reflected. A matched Finding is
+ * `attached` by construction — the match required its stored Anchor to resolve
+ * to the same span — and an unmatched one has its `anchor.state` recomputed by
+ * resolution.
  *
  * Findings the Run did not re-produce are dropped, with one exception: a
  * Finding whose quote is no longer in the canonical string is kept as
@@ -28,27 +31,46 @@ import type { Finding, Interval } from "./finding";
  * the authority on what it flags — so editing a Rule config takes effect on the
  * next Run, and a duplicate of a span the Run already accounted for is removed.
  *
- * Pure and DOM-free.
+ * Pure and DOM-free. `provenanceCanonical` supplies the projection source for a
+ * stored Finding; without it, stored Findings resolve by quote match, which is
+ * the identity projection and the behaviour a Run on unchanged text needs.
  */
 export function reconcileFindings(
   produced: Finding[],
   existing: Finding[],
   canonical: string,
+  provenanceCanonical: (revisionId: string) => string | undefined = () => undefined,
 ): Finding[] {
   const producedIntervals = produced.map((finding) => resolveAnchor(finding.anchor, canonical));
   const claimed = new Set<string>();
-  const result: Finding[] = [];
+  // A resolved Finding travels with its already-computed interval. A produced
+  // Finding's interval is in current coordinates and must not be re-projected
+  // from a provenance string, which is a coordinate system it never saw.
+  const entries: { finding: Finding; interval: Interval | null }[] = [];
+
+  // Resolve each stored Finding once; a pass can hold many, and the diff is the
+  // expensive part.
+  const resolvedExisting = new Map<string, Interval | null>();
+  const intervalFor = (finding: Finding): Interval | null => {
+    if (resolvedExisting.has(finding.id)) return resolvedExisting.get(finding.id) ?? null;
+    const interval = resolveAnchor(
+      finding.anchor,
+      canonical,
+      provenanceCanonical(finding.provenance.revisionId),
+    );
+    resolvedExisting.set(finding.id, interval);
+    return interval;
+  };
 
   for (let index = 0; index < produced.length; index++) {
     const finding = produced[index];
     const interval = producedIntervals[index];
     const match = existing.find(
-      (candidate) =>
-        !claimed.has(candidate.id) && sameInterval(resolveAnchor(candidate.anchor, canonical), interval),
+      (candidate) => !claimed.has(candidate.id) && sameInterval(intervalFor(candidate), interval),
     );
 
     if (match === undefined) {
-      result.push(finding);
+      entries.push({ finding, interval });
       continue;
     }
 
@@ -57,30 +79,35 @@ export function reconcileFindings(
     // fields and the coordinates stay. A violation the Run no longer produces
     // must clear, so `violations` is dropped from the match before it is set.
     const { violations: _previousViolations, ...writerFields } = match;
-    result.push({
-      ...writerFields,
-      issue: finding.issue,
-      diagnosis: finding.diagnosis,
-      pattern: finding.pattern,
-      promptHash: finding.promptHash,
-      anchor: { ...match.anchor, state: "attached" },
-      ...(finding.violations === undefined ? {} : { violations: finding.violations }),
+    entries.push({
+      finding: {
+        ...writerFields,
+        issue: finding.issue,
+        diagnosis: finding.diagnosis,
+        pattern: finding.pattern,
+        promptHash: finding.promptHash,
+        anchor: { ...match.anchor, state: "attached" },
+        ...(finding.violations === undefined ? {} : { violations: finding.violations }),
+      },
+      interval,
     });
   }
 
   for (const finding of existing) {
     if (claimed.has(finding.id)) continue;
-    const interval = resolveAnchor(finding.anchor, canonical);
-    // Orphaned: the quoted text is gone, so the Finding stays open and
-    // actionable. Attached but not re-produced: either a duplicate of a span
-    // the Run already claimed, or a problem the current Pass no longer flags.
-    // The Run decides the whole set, so it drops.
-    if (interval === null) {
-      result.push({ ...finding, anchor: { ...finding.anchor, state: "orphaned" } });
+    // Orphaned: the text the Anchor named is gone, so the Finding stays open
+    // and actionable. Attached but not re-produced: either a duplicate of a
+    // span the Run already claimed, or a problem the current Pass no longer
+    // flags. The Run decides the whole set, so it drops.
+    if (intervalFor(finding) === null) {
+      entries.push({
+        finding: { ...finding, anchor: { ...finding.anchor, state: "orphaned" } },
+        interval: null,
+      });
     }
   }
 
-  return documentOrder(result, canonical);
+  return documentOrder(entries);
 }
 
 function sameInterval(a: Interval | null, b: Interval | null): boolean {
@@ -88,9 +115,11 @@ function sameInterval(a: Interval | null, b: Interval | null): boolean {
 }
 
 /** Findings within a Pass in document order, Orphaned ones last. */
-function documentOrder(findings: Finding[], canonical: string): Finding[] {
-  return findings
-    .map((finding, index) => ({ finding, index, interval: resolveAnchor(finding.anchor, canonical) }))
+function documentOrder(
+  entries: { finding: Finding; interval: Interval | null }[],
+): Finding[] {
+  return entries
+    .map((entry, index) => ({ ...entry, index }))
     .sort((a, b) => {
       if (a.interval === null && b.interval === null) return a.index - b.index;
       if (a.interval === null) return 1;
