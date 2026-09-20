@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
+import type { Connection } from "../wire/connection";
 
 /**
  * Storage is one database, versioned, with forward-only migrations. A database
@@ -41,7 +42,17 @@ export interface FindingRecord extends Finding {
   documentId: string;
 }
 
-export const OBELUS_DATABASE_VERSION = 3;
+/**
+ * A settings row, keyed by name. Slots live here rather than on a Connection,
+ * because which Connection is the Critic is about the Writer's pairing, not
+ * about either Connection.
+ */
+export interface SettingsRecord {
+  key: string;
+  value: unknown;
+}
+
+export const OBELUS_DATABASE_VERSION = 4;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -66,6 +77,8 @@ export class ObelusDatabase extends Dexie {
   revisions!: Table<RevisionRecord, string>;
   findings!: Table<FindingRecord, string>;
   passes!: Table<Pass, string>;
+  connections!: Table<Connection, string>;
+  settings!: Table<SettingsRecord, string>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
@@ -91,6 +104,17 @@ export class ObelusDatabase extends Dexie {
       revisions: "id, documentId, createdAt, [documentId+createdAt]",
       findings: "id, documentId, [documentId+passId]",
       passes: "id, kind",
+    });
+    // Migration 4: Connections and settings, the repository #3 introduces.
+    // Additive once more: prefilled Connections are seeded by id on first load,
+    // so the Writer's Documents, Revisions, Findings and Passes are untouched.
+    this.version(4).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
+      connections: "id, builtIn",
+      settings: "key",
     });
   }
 }

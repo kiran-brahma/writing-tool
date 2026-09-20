@@ -6,11 +6,13 @@ import { MetricsPanel } from "./editor/MetricsPanel";
 import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
+import { ConnectionsPanel } from "./wire/ConnectionsPanel";
 
 /**
  * The Obelus shell. It opens the one Document of record and puts the Writer
- * straight into it: no account, no sign-in. Everything is local — this ticket
- * adds no Connection and makes no outbound request.
+ * straight into it: no account, no sign-in. Connections are configured in the
+ * sidebar; nothing is sent anywhere until the Writer tests a Connection or runs
+ * a pass through one.
  */
 export default function App() {
   const {
@@ -28,6 +30,12 @@ export default function App() {
     decline,
     togglePass,
     saveRuleConfig,
+    connections,
+    slots,
+    saveConnection,
+    addCustomConnection,
+    removeConnection,
+    assignSlot,
     importFromMarkdown,
     exportToMarkdown,
   } = useDocument();
@@ -201,6 +209,15 @@ export default function App() {
             passes={passes}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
             onSaveConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
+          />
+
+          <ConnectionsPanel
+            connections={connections}
+            slots={slots}
+            onSave={(connection) => void saveConnection(connection)}
+            onAddCustom={() => void addCustomConnection()}
+            onRemove={(connectionId) => void removeConnection(connectionId)}
+            onAssignSlot={(slot, connectionId) => void assignSlot(slot, connectionId)}
           />
 
           <section className="border-t border-stone-300">

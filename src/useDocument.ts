@@ -7,6 +7,15 @@ import { STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
 import {
+  assignSlot as assignSlotRecord,
+  loadOrCreateConnections,
+  loadSlots,
+  removeConnection as removeConnectionRecord,
+  saveConnection as saveConnectionRecord,
+  type Slot,
+  type SlotAssignment,
+} from "./storage/connections";
+import {
   exportDocument,
   importDocument,
   loadOrCreateDocument,
@@ -27,6 +36,7 @@ import {
 } from "./storage/passes";
 import { listRevisions, takeRevision } from "./storage/revisions";
 import { runRulePasses } from "./storage/ruleRuns";
+import { createCustomConnection, type Connection } from "./wire/connection";
 
 export interface DocumentHandle {
   status: "loading" | "ready" | "error";
@@ -48,6 +58,14 @@ export interface DocumentHandle {
   togglePass: (passId: string, enabled: boolean) => Promise<void>;
   /** Story 34: replace a rule Pass's word lists and patterns, then re-run. */
   saveRuleConfig: (passId: string, ruleConfig: RuleConfig) => Promise<void>;
+  /** Story 2–7: the Writer's Connections, with prefills seeded. */
+  connections: Connection[];
+  /** Story 14: which Connection is the Critic and which the Judge. */
+  slots: SlotAssignment;
+  saveConnection: (connection: Connection) => Promise<void>;
+  addCustomConnection: () => Promise<void>;
+  removeConnection: (connectionId: string) => Promise<void>;
+  assignSlot: (slot: Slot, connectionId: string | null) => Promise<void>;
   importFromMarkdown: (markdown: string) => Promise<void>;
   exportToMarkdown: () => string;
 }
@@ -76,6 +94,8 @@ export function useDocument(): DocumentHandle {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [passes, setPasses] = useState<Pass[]>(STARTER_PASSES);
   const [highlights, setHighlights] = useState<Interval[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [slots, setSlots] = useState<SlotAssignment>({ critic: null, judge: null });
 
   /**
    * The Findings and the intervals the Editor should draw. The interval is
@@ -134,6 +154,9 @@ export function useDocument(): DocumentHandle {
         const loadedPasses = await loadOrCreatePasses(database);
         passesRef.current = loadedPasses;
         setPasses(loadedPasses);
+
+        setConnections(await loadOrCreateConnections(database));
+        setSlots(await loadSlots(database));
 
         persistenceRef.current = createPersistence({
           save: async () => {
@@ -325,6 +348,52 @@ export function useDocument(): DocumentHandle {
     [applyPass, rerunRules],
   );
 
+  const saveConnection = useCallback(async (connection: Connection) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      await saveConnectionRecord(database, connection);
+      setConnections((current) => replaceConnection(current, connection));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
+  const addCustomConnection = useCallback(async () => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    const connection = createCustomConnection(crypto.randomUUID());
+    try {
+      await saveConnectionRecord(database, connection);
+      setConnections((current) => [...current, connection]);
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
+  const removeConnection = useCallback(async (connectionId: string) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      const removed = await removeConnectionRecord(database, connectionId);
+      if (!removed) return;
+      setConnections((current) => current.filter((connection) => connection.id !== connectionId));
+      setSlots(await loadSlots(database));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
+  const assignSlot = useCallback(async (slot: Slot, connectionId: string | null) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setSlots(await assignSlotRecord(database, slot, connectionId));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
   return {
     status,
     openError,
@@ -340,9 +409,23 @@ export function useDocument(): DocumentHandle {
     decline,
     togglePass,
     saveRuleConfig,
+    connections,
+    slots,
+    saveConnection,
+    addCustomConnection,
+    removeConnection,
+    assignSlot,
     importFromMarkdown,
     exportToMarkdown,
   };
+}
+
+/** Replace one Connection in the list, or append it if it is new. */
+function replaceConnection(current: Connection[], connection: Connection): Connection[] {
+  const exists = current.some((entry) => entry.id === connection.id);
+  return exists
+    ? current.map((entry) => (entry.id === connection.id ? connection : entry))
+    : [...current, connection];
 }
 
 /** The canonical intervals of the Findings still open, for the Editor to draw. */
