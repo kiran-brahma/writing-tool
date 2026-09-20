@@ -52,7 +52,11 @@ distracted reader would miss, and the gap between the two — one model call per
 its own output shape and shown in its own Reader accounts tab, never mixed with Findings. #8
 (Library) has landed: many Documents, the auto-created Scratchpad, tags and tag filtering, search
 over title and body text, Document status, and the open-Finding count; the one-Document app is now
-a flat Library. The frontier is **row 18**: #12 (Durability).
+a flat Library. #12 (Durability) has landed: the whole Library backs up to one file and restores
+back behind an explicit confirmation, API keys are excluded unless the Writer opts in, a visible
+last-backed-up reminder sits on the Library screen, and a single Document exports and imports as a
+bundle carrying its Revisions, Findings, Run results and Reader accounts. The frontier is **row 19**:
+#23 (Offline shell and migration policy).
 
 ## How to work a ticket
 
@@ -87,7 +91,7 @@ a flat Library. The frontier is **row 18**: #12 (Durability).
 | 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path | - Completed
 | 16 | **#11** | Reader pass | The reader account schema and the Reader tab | - Completed
 | 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count | - Completed
-| 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle |
+| 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle | - Completed
 | 19 | **#23** | Offline shell and migration policy | Service worker and offline shell, `storage.persist()`, the forward-only migration policy, the no-migration-with-a-behaviour-change rule |
 | 20 | **#22** | Privacy page | The plain-language page and the verify-this-yourself steps |
 | 21 | **#10** | Workbench | Pass editor with placeholder validation and output shapes, Rule config editor, pass-set JSON round trip, Starter-pack restore |
