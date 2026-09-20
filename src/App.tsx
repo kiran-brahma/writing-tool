@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import type { Interval } from "./core/finding";
+import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
+import { sectionAt } from "./core/sections";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
+import { JudgePanel } from "./editor/JudgePanel";
 import { MetricsPanel } from "./editor/MetricsPanel";
 import { ModelPassesPanel } from "./editor/ModelPassesPanel";
 import { RulePassesPanel } from "./editor/RulePassesPanel";
@@ -25,6 +29,7 @@ export default function App() {
     findings,
     passes,
     highlights,
+    targetBlockIndex,
     setTargetBlockIndex,
     runningPassId,
     runStartedAt,
@@ -34,6 +39,13 @@ export default function App() {
     screeningFrame,
     setScreeningFrame,
     rawResponses,
+    judgeResult,
+    judgeError,
+    judgeRunning,
+    runJudge,
+    criticConnection,
+    judgeConnection,
+    sameModelWarning,
     handleChange,
     flagMilestone,
     markAddressed,
@@ -57,9 +69,24 @@ export default function App() {
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
   const [editorGeneration, setEditorGeneration] = useState(0);
+  /** The Writer's current text selection, as a canonical interval. */
+  const [selectionInterval, setSelectionInterval] = useState<Interval | null>(null);
 
   const openQueue = useMemo(() => openFindings(findings, passes), [findings, passes]);
   const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
+
+  /** The selected span, or null when the selection is collapsed. */
+  const selection = useMemo(() => {
+    if (document === null || selectionInterval === null) return null;
+    return selectionAnchorFor(document.canonical, selectionInterval);
+  }, [document, selectionInterval]);
+
+  /** The Section the cursor is in, ready to be projected across Revisions. */
+  const section = useMemo(() => {
+    if (document === null) return null;
+    const found = sectionAt(document.tree, targetBlockIndex);
+    return found === null ? null : selectionAnchorFor(document.canonical, found.interval);
+  }, [document, targetBlockIndex]);
 
   /**
    * Runs a queue write and, when it stored, moves the selection to the Finding
@@ -156,6 +183,7 @@ export default function App() {
     try {
       await importFromMarkdown(await file.text());
       setCurrentFindingId(null);
+      setSelectionInterval(null);
       setEditorGeneration((generation) => generation + 1);
       setImportError(null);
     } catch (error) {
@@ -212,6 +240,7 @@ export default function App() {
               onChange={handleChange}
               highlights={highlights}
               onTargetChange={setTargetBlockIndex}
+              onSelectionChange={setSelectionInterval}
             />
           )}
         </main>
@@ -259,7 +288,7 @@ export default function App() {
             runningSince={runStartedAt}
             lastRunReport={lastRunReport}
             runError={runError}
-            criticName={connections.find((connection) => connection.id === slots.critic)?.name ?? null}
+            criticName={criticConnection?.name ?? null}
             screeningFrame={screeningFrame}
             onRun={(passId) => void runModelPass(passId)}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
@@ -273,6 +302,19 @@ export default function App() {
             onAddCustom={() => void addCustomConnection()}
             onRemove={(connectionId) => void removeConnection(connectionId)}
             onAssignSlot={(slot, connectionId) => void assignSlot(slot, connectionId)}
+          />
+
+          <JudgePanel
+            revisions={revisions}
+            currentCanonical={document?.canonical ?? ""}
+            selection={selection}
+            section={section}
+            judge={judgeConnection}
+            sameModelWarning={sameModelWarning}
+            running={judgeRunning}
+            error={judgeError}
+            result={judgeResult}
+            onJudge={(before, after) => void runJudge(before, after)}
           />
 
           <section className="border-t border-stone-300">

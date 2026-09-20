@@ -3,6 +3,11 @@ import { reResolveFindings, type FindingResolution } from "./core/anchor";
 import type { RunReport, RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
 import { type DeclineReason, type Finding, type Interval } from "./core/finding";
+import {
+  judge as judgeCore,
+  sameModelWarning as sameModelWarningFor,
+  type JudgeResult,
+} from "./core/judge";
 import type { Pass, RuleConfig } from "./core/pass";
 import { passContext } from "./core/passContext";
 import { STARTER_PASSES } from "./core/starterPasses";
@@ -76,6 +81,20 @@ export interface DocumentHandle {
   setScreeningFrame: (enabled: boolean) => Promise<void>;
   /** Story 73: every model Run's raw response, keyed by Pass id. */
   rawResponses: Record<string, string>;
+  /** The Judge's answer for the comparison the Writer ran, or null. */
+  judgeResult: JudgeResult | null;
+  /** A Judge run's failure, surfaced verbatim rather than swallowed. */
+  judgeError: string | null;
+  /** True while the swapped double call is in flight. */
+  judgeRunning: boolean;
+  /** Story 78: compare two extracted passages and receive a Verdict. */
+  runJudge: (before: string, after: string) => Promise<JudgeResult | null>;
+  /** The Connection in the critic Slot, or null. */
+  criticConnection: Connection | null;
+  /** The Connection in the judge Slot, or null. */
+  judgeConnection: Connection | null;
+  /** Stories 15, 90: a soft warning when the Critic and the Judge share a model. */
+  sameModelWarning: string | null;
   handleChange: (tree: DocTree) => void;
   flagMilestone: (note: string) => Promise<void>;
   /** Writes a status, returning whether it was stored. Failures surface in `saveError`. */
@@ -133,6 +152,9 @@ export function useDocument(): DocumentHandle {
   const [lastRunReport, setLastRunReport] = useState<DocumentHandle["lastRunReport"]>(null);
   const [screeningFrame, setScreeningFrameState] = useState(true);
   const [rawResponses, setRawResponses] = useState<Record<string, string>>({});
+  const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
+  const [judgeError, setJudgeError] = useState<string | null>(null);
+  const [judgeRunning, setJudgeRunning] = useState(false);
 
   /**
    * The Findings and the intervals the Editor should draw. Resolution happened
@@ -439,6 +461,23 @@ export function useDocument(): DocumentHandle {
     return connections.find((connection) => connection.id === id) ?? null;
   }, [connections, slots]);
 
+  /** The Connection in the judge Slot, or null when none is assigned. */
+  const judgeConnection = useMemo(() => {
+    const id = slots.judge;
+    if (id === null) return null;
+    return connections.find((connection) => connection.id === id) ?? null;
+  }, [connections, slots]);
+
+  /**
+   * Stories 15 and 90: the Judge defaults to a different model, and a
+   * same-model pairing raises this soft warning. It is never a block; the
+   * Writer may run the comparison anyway.
+   */
+  const sameModelWarning = useMemo(
+    () => sameModelWarningFor(criticConnection, judgeConnection),
+    [criticConnection, judgeConnection],
+  );
+
   const runInFlightRef = useRef(false);
 
   /**
@@ -503,6 +542,46 @@ export function useDocument(): DocumentHandle {
       }
     },
     [criticConnection, refreshFindings, screeningFrame, targetBlockIndex],
+  );
+
+  /**
+   * Story 78: the Judge end to end. The Writer has already seen both extracted
+   * passages; this sends them, twice with the labels swapped, and stores the
+   * Verdict. A failure is surfaced as `judgeError`, never swallowed.
+   */
+  const runJudge = useCallback(
+    async (before: string, after: string): Promise<JudgeResult | null> => {
+      const transport = transportRef.current;
+      if (transport === null) return null;
+      if (judgeConnection === null) {
+        setJudgeError("Assign a Connection to the Judge Slot before running the Judge.");
+        return null;
+      }
+      if (judgeConnection.model.trim() === "") {
+        setJudgeError(`Set a model on the ${judgeConnection.name} Connection first.`);
+        return null;
+      }
+      if (before.trim() === "" || after.trim() === "") {
+        setJudgeError("Both versions must contain some text before the Judge can compare them.");
+        return null;
+      }
+
+      setJudgeRunning(true);
+      setJudgeError(null);
+      setJudgeResult(null);
+      try {
+        const result = await judgeCore(before, after, judgeConnection, { transport });
+        setJudgeResult(result);
+        return result;
+      } catch (error) {
+        // The Provider's own words, surfaced verbatim; never a silent failure.
+        setJudgeError(describeError(error));
+        return null;
+      } finally {
+        setJudgeRunning(false);
+      }
+    },
+    [judgeConnection],
   );
 
   /** Stories 76, 77: the Screening frame, a settable global toggle. */
@@ -581,6 +660,13 @@ export function useDocument(): DocumentHandle {
     screeningFrame,
     setScreeningFrame,
     rawResponses,
+    judgeResult,
+    judgeError,
+    judgeRunning,
+    runJudge,
+    criticConnection,
+    judgeConnection,
+    sameModelWarning,
     handleChange,
     flagMilestone,
     markAddressed,

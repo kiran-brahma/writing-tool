@@ -1,7 +1,7 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useReducer, useRef, type ReactNode } from "react";
-import { projectIntervals } from "../core/anchor";
+import { canonicalIntervalForRange, projectIntervals } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
 import type { Interval } from "../core/finding";
 import { HighlightExtension, setHighlightRanges } from "./highlight";
@@ -16,6 +16,12 @@ export interface DocumentEditorProps {
    * that Paragraph; the shell turns it into the Target and its context.
    */
   onTargetChange?: (blockIndex: number) => void;
+  /**
+   * The current text selection as a canonical interval, so the Judge can
+   * compare the Writer's chosen span across two Revisions. `null` when the
+   * selection is collapsed.
+   */
+  onSelectionChange?: (interval: Interval | null) => void;
 }
 
 /**
@@ -29,6 +35,7 @@ export function DocumentEditor({
   onChange,
   highlights,
   onTargetChange,
+  onSelectionChange,
 }: DocumentEditorProps) {
   const [, refresh] = useReducer((count: number) => count + 1, 0);
   const lastTargetRef = useRef(-1);
@@ -39,6 +46,14 @@ export function DocumentEditor({
     if (index === lastTargetRef.current) return;
     lastTargetRef.current = index;
     onTargetChange(index);
+  };
+
+  const reportSelection = (instance: Editor) => {
+    if (onSelectionChange === undefined) return;
+    const { from, to } = instance.state.selection;
+    onSelectionChange(
+      canonicalIntervalForRange(instance.getJSON() as unknown as DocTree, { from, to }),
+    );
   };
 
   const editor = useEditor({
@@ -59,10 +74,12 @@ export function DocumentEditor({
     onUpdate: ({ editor: instance }) => {
       onChange(instance.getJSON() as unknown as DocTree);
       reportTarget(instance);
+      reportSelection(instance);
       refresh();
     },
     onSelectionUpdate: ({ editor: instance }) => {
       reportTarget(instance);
+      reportSelection(instance);
       refresh();
     },
   });

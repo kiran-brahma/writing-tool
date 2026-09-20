@@ -210,6 +210,31 @@ export function projectInterval(tree: DocTree, interval: Interval): EditorRange 
 }
 
 /**
+ * The inverse of `projectInterval`: the canonical interval covering an Editor
+ * range. The Editor reports a text selection as ProseMirror positions; the
+ * Writer's selection is compared across Revisions in the one canonical string,
+ * so the selection has to be expressed there first. Characters this renderer
+ * inserted carry no source position, so the interval brackets the source prose
+ * the range covers. Returns `null` when the range covers no source character.
+ */
+export function canonicalIntervalForRange(tree: DocTree, range: EditorRange): Interval | null {
+  const { positions } = canonicalTextWithMap(tree);
+  let start = Number.POSITIVE_INFINITY;
+  let end = Number.NEGATIVE_INFINITY;
+
+  for (let index = 0; index < positions.length; index++) {
+    const position = positions[index];
+    if (position === null) continue;
+    if (position < range.from || position >= range.to) continue;
+    if (index < start) start = index;
+    if (index + 1 > end) end = index + 1;
+  }
+
+  if (start === Number.POSITIVE_INFINITY) return null;
+  return { start, end };
+}
+
+/**
  * Projects many intervals with one walk of the tree, so drawing H Highlights
  * costs one canonical render rather than H of them.
  */
