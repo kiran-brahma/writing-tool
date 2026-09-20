@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveAnchor } from "./core/anchor";
+import type { RunResult, Target } from "./core/critique";
 import type { DocTree } from "./core/docTree";
 import { isOpenFinding, type Finding, type Interval } from "./core/finding";
 import type { Pass, RuleConfig } from "./core/pass";
+import { passContext } from "./core/passContext";
 import { STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
@@ -22,7 +24,7 @@ import {
   persistDocument,
   withTree,
 } from "./storage/documents";
-import { declineFinding, markFindingAddressed } from "./storage/findings";
+import { declineFinding, listFindings, markFindingAddressed } from "./storage/findings";
 import {
   openObelusDatabase,
   type DocumentRecord,
@@ -36,7 +38,10 @@ import {
 } from "./storage/passes";
 import { listRevisions, takeRevision } from "./storage/revisions";
 import { runRulePasses } from "./storage/ruleRuns";
+import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
+import { loadScreeningFrame, saveScreeningFrame } from "./storage/settings";
 import { createCustomConnection, type Connection } from "./wire/connection";
+import { createFetchTransport, type Transport } from "./wire/transport";
 
 export interface DocumentHandle {
   status: "loading" | "ready" | "error";
@@ -49,6 +54,24 @@ export interface DocumentHandle {
   passes: Pass[];
   /** Canonical intervals of open Findings, for the Editor to draw. */
   highlights: Interval[];
+  /** The top-level block the Writer's cursor is in, the paragraph-scope Target. */
+  targetBlockIndex: number;
+  setTargetBlockIndex: (index: number) => void;
+  /** The Pass currently running, or null. */
+  runningPassId: string | null;
+  /** When the running Pass started, for the elapsed timer. */
+  runStartedAt: number | null;
+  /** A model Run's failure, surfaced verbatim rather than swallowed. */
+  runError: string | null;
+  /** The most recent Run's reported Containment count, per Pass. */
+  lastRun: { passId: string; droppedAnchors: number } | null;
+  /** Story 36: run one model Pass on demand against the current Target. */
+  runModelPass: (passId: string) => Promise<RunResult | null>;
+  /** Stories 76, 77: the Critic's Screening frame, a settable global toggle. */
+  screeningFrame: boolean;
+  setScreeningFrame: (enabled: boolean) => Promise<void>;
+  /** Story 73: every model Run's raw response, keyed by Pass id. */
+  rawResponses: Record<string, string>;
   handleChange: (tree: DocTree) => void;
   flagMilestone: (note: string) => Promise<void>;
   /** Writes a status, returning whether it was stored. Failures surface in `saveError`. */
@@ -85,6 +108,7 @@ export function useDocument(): DocumentHandle {
   const findingsRef = useRef<Finding[]>([]);
   const canonicalRef = useRef("");
   const passesRef = useRef<Pass[]>(STARTER_PASSES);
+  const transportRef = useRef<Transport | null>(null);
 
   const [status, setStatus] = useState<DocumentHandle["status"]>("loading");
   const [openError, setOpenError] = useState("");
@@ -96,6 +120,13 @@ export function useDocument(): DocumentHandle {
   const [highlights, setHighlights] = useState<Interval[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [slots, setSlots] = useState<SlotAssignment>({ critic: null, judge: null });
+  const [targetBlockIndex, setTargetBlockIndex] = useState(0);
+  const [runningPassId, setRunningPassId] = useState<string | null>(null);
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [lastRun, setLastRun] = useState<DocumentHandle["lastRun"]>(null);
+  const [screeningFrame, setScreeningFrameState] = useState(true);
+  const [rawResponses, setRawResponses] = useState<Record<string, string>>({});
 
   /**
    * The Findings and the intervals the Editor should draw. The interval is
@@ -157,6 +188,10 @@ export function useDocument(): DocumentHandle {
 
         setConnections(await loadOrCreateConnections(database));
         setSlots(await loadSlots(database));
+        setScreeningFrameState(await loadScreeningFrame(database));
+        setRawResponses(await listRunResponses(database, opened.id));
+        // The one seam. The app builds it once; every model Run leaves through it.
+        transportRef.current = createFetchTransport();
 
         persistenceRef.current = createPersistence({
           save: async () => {
@@ -197,6 +232,7 @@ export function useDocument(): DocumentHandle {
       persistenceRef.current = null;
       databaseRef.current?.close();
       databaseRef.current = null;
+      transportRef.current = null;
     };
   }, [refreshRevisions, applyFindings]);
 
@@ -348,6 +384,104 @@ export function useDocument(): DocumentHandle {
     [applyPass, rerunRules],
   );
 
+  /** The Connection in the critic Slot, or null when none is assigned. */
+  const criticConnection = useMemo(() => {
+    const id = slots.critic;
+    if (id === null) return null;
+    return connections.find((connection) => connection.id === id) ?? null;
+  }, [connections, slots]);
+
+  /** Reloads every stored Finding, so state does not drift from storage. */
+  const refreshFindings = useCallback(async () => {
+    const database = databaseRef.current;
+    const current = documentRef.current;
+    if (database === null || current === null) return;
+    applyFindings(await listFindings(database, current.id), current.canonical);
+  }, [applyFindings]);
+
+  const runInFlightRef = useRef(false);
+
+  /**
+   * Story 36: one model Pass on demand against the current Target. The Target is
+   * the Paragraph the cursor is in; the Run goes out through the one seam and
+   * its Findings are persisted alongside the rule Findings. A failure is
+   * surfaced as `runError`, never swallowed.
+   */
+  const runModelPass = useCallback(
+    async (passId: string): Promise<RunResult | null> => {
+      const database = databaseRef.current;
+      const current = documentRef.current;
+      const transport = transportRef.current;
+      if (database === null || current === null || transport === null) return null;
+      if (runInFlightRef.current) return null;
+
+      const pass = passesRef.current.find((entry) => entry.id === passId);
+      if (pass === undefined || pass.kind !== "model" || !pass.enabled) return null;
+      if (criticConnection === null) {
+        setRunError("Assign a Connection to the critic Slot before running a model Pass.");
+        return null;
+      }
+      if (criticConnection.model.trim() === "") {
+        setRunError(`Set a model on the ${criticConnection.name} Connection first.`);
+        return null;
+      }
+
+      const context = passContext(current.tree, targetBlockIndex, current.title);
+      if (context === null) {
+        setRunError("Add a paragraph before running a local Pass.");
+        return null;
+      }
+
+      const target: Target = {
+        canonical: current.canonical,
+        interval: context.targetInterval,
+        text: context.target,
+        title: context.title,
+        outline: context.outline,
+        contextAbove: context.contextAbove,
+        contextBelow: context.contextBelow,
+      };
+
+      runInFlightRef.current = true;
+      setRunError(null);
+      setRunningPassId(passId);
+      setRunStartedAt(Date.now());
+      try {
+        const result = await runModelPassRecord(database, current, {
+          pass,
+          connection: criticConnection,
+          transport,
+          target,
+          screeningFrame,
+        });
+        await refreshFindings();
+        setRawResponses(await listRunResponses(database, current.id));
+        setLastRun({ passId, droppedAnchors: result.droppedAnchors });
+        return result;
+      } catch (error) {
+        // The Provider's own words, surfaced verbatim; never a silent failure.
+        setRunError(describeError(error));
+        return null;
+      } finally {
+        runInFlightRef.current = false;
+        setRunningPassId(null);
+        setRunStartedAt(null);
+      }
+    },
+    [criticConnection, refreshFindings, screeningFrame, targetBlockIndex],
+  );
+
+  /** Stories 76, 77: the Screening frame, a settable global toggle. */
+  const setScreeningFrame = useCallback(async (enabled: boolean) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setScreeningFrameState(await saveScreeningFrame(database, enabled));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
   const saveConnection = useCallback(async (connection: Connection) => {
     const database = databaseRef.current;
     if (database === null) return;
@@ -403,6 +537,16 @@ export function useDocument(): DocumentHandle {
     findings,
     passes,
     highlights,
+    targetBlockIndex,
+    setTargetBlockIndex,
+    runningPassId,
+    runStartedAt,
+    runError,
+    lastRun,
+    runModelPass,
+    screeningFrame,
+    setScreeningFrame,
+    rawResponses,
     handleChange,
     flagMilestone,
     markAddressed,

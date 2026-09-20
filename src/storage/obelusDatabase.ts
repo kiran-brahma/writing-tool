@@ -43,6 +43,19 @@ export interface FindingRecord extends Finding {
 }
 
 /**
+ * The raw provider response behind a model Run, kept so the global
+ * "show raw response" toggle can expose it for any Finding — including one
+ * loaded after a reload. The Run cache (#16) will key a fuller Run record on
+ * the same pair.
+ */
+export interface RunResponseRecord {
+  documentId: string;
+  passId: string;
+  rawResponse: string;
+  at: number;
+}
+
+/**
  * A settings row, keyed by name. Slots live here rather than on a Connection,
  * because which Connection is the Critic is about the Writer's pairing, not
  * about either Connection.
@@ -52,7 +65,7 @@ export interface SettingsRecord {
   value: unknown;
 }
 
-export const OBELUS_DATABASE_VERSION = 4;
+export const OBELUS_DATABASE_VERSION = 5;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -79,6 +92,7 @@ export class ObelusDatabase extends Dexie {
   passes!: Table<Pass, string>;
   connections!: Table<Connection, string>;
   settings!: Table<SettingsRecord, string>;
+  runResponses!: Table<RunResponseRecord, [string, string]>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
@@ -115,6 +129,18 @@ export class ObelusDatabase extends Dexie {
       passes: "id, kind",
       connections: "id, builtIn",
       settings: "key",
+    });
+    // Migration 5: raw provider responses, the repository #4 introduces so the
+    // raw-response toggle works for a Finding after a reload. Additive: a new
+    // store keyed by Document and Pass, and nothing existing is rewritten.
+    this.version(5).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
+      connections: "id, builtIn",
+      settings: "key",
+      runResponses: "[documentId+passId], documentId",
     });
   }
 }

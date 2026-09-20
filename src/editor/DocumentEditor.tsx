@@ -1,6 +1,6 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useReducer, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, type ReactNode } from "react";
 import { projectIntervals } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
 import type { Interval } from "../core/finding";
@@ -11,6 +11,11 @@ export interface DocumentEditorProps {
   onChange: (tree: DocTree) => void;
   /** Canonical intervals Core resolved; the Editor only draws them. */
   highlights: Interval[];
+  /**
+   * The top-level block the cursor moved into. A paragraph-scope Pass targets
+   * that Paragraph; the shell turns it into the Target and its context.
+   */
+  onTargetChange?: (blockIndex: number) => void;
 }
 
 /**
@@ -19,8 +24,22 @@ export interface DocumentEditorProps {
  * edits. The editor owns no anchoring: Core resolves an Anchor to a canonical
  * interval and projects it to an Editor range; this component draws the range.
  */
-export function DocumentEditor({ initialContent, onChange, highlights }: DocumentEditorProps) {
+export function DocumentEditor({
+  initialContent,
+  onChange,
+  highlights,
+  onTargetChange,
+}: DocumentEditorProps) {
   const [, refresh] = useReducer((count: number) => count + 1, 0);
+  const lastTargetRef = useRef(-1);
+
+  const reportTarget = (instance: Editor) => {
+    if (onTargetChange === undefined) return;
+    const index = instance.state.selection.$from.index(0);
+    if (index === lastTargetRef.current) return;
+    lastTargetRef.current = index;
+    onTargetChange(index);
+  };
 
   const editor = useEditor({
     extensions: [
@@ -39,9 +58,13 @@ export function DocumentEditor({ initialContent, onChange, highlights }: Documen
     },
     onUpdate: ({ editor: instance }) => {
       onChange(instance.getJSON() as unknown as DocTree);
+      reportTarget(instance);
       refresh();
     },
-    onSelectionUpdate: () => refresh(),
+    onSelectionUpdate: ({ editor: instance }) => {
+      reportTarget(instance);
+      refresh();
+    },
   });
 
   useEffect(() => {

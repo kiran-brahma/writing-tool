@@ -131,10 +131,55 @@ export const REPETITION_PASS: Pass = {
   },
 };
 
+/**
+ * The one paragraph-scope model Pass that proves the mechanism (#4). The rest of
+ * the Starter model passes ship in #19, and the document-scope ones in #7. It
+ * is enabled by default, so a Writer with a critic Connection has something real
+ * to run the moment the mechanism lands.
+ *
+ * The prompt names what to look for and states the two rules Core also enforces:
+ * the surrounding text is context, not target, and only problems in the target
+ * are wanted. It never asks for praise and never asks for replacement prose.
+ */
+export const CLICHE_PASS: Pass = {
+  id: "cliche",
+  name: "Cliché and headline-ese",
+  description: "Flags phrases that read like a magazine headline rather than like writing.",
+  kind: "model",
+  scope: "paragraph",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  prompt: [
+    "Check one paragraph of a piece of writing for clichés and headline-ese.",
+    "",
+    "Title: {{title}}",
+    "",
+    "Outline (headings only):",
+    "{{outline}}",
+    "",
+    "Context above — this is context, not target:",
+    "{{context_above}}",
+    "",
+    "TARGET PARAGRAPH — analyze only this paragraph:",
+    "{{target}}",
+    "",
+    "Context below — this is context, not target:",
+    "{{context_below}}",
+    "",
+    "Flag phrases in the TARGET PARAGRAPH that are clichés or that read like a magazine",
+    "headline: stock figures of speech, hype, and phrasing worn smooth by overuse. For each",
+    "problem, quote the exact span from the target, give its zero-based offset within the",
+    "target, a short issue label and a diagnosis. Report only problems in the target",
+    "paragraph. Do not praise the writing and do not suggest replacement prose.",
+  ].join("\n"),
+};
+
 export const STARTER_PASSES: Pass[] = [
   HEDGES_PASS,
   NOMINALIZATIONS_PASS,
   OPENERS_PASS,
   WORDINESS_PASS,
   REPETITION_PASS,
+  CLICHE_PASS,
 ];

@@ -89,6 +89,46 @@ export function canonicalTextWithMap(tree: DocTree): CanonicalMap {
 }
 
 /**
+ * One top-level block's place in the canonical string. `start` and the length of
+ * `text` name the block's half-open interval, which is how a paragraph-scope
+ * Pass knows the Target and how Containment measures against it, without a
+ * second coordinate system.
+ */
+export interface CanonicalBlock {
+  block: BlockNode;
+  /** The block's index in `tree.content`. */
+  index: number;
+  /** The canonical offset the block starts at. */
+  start: number;
+  /** The block's canonical source, without the blank-line separator. */
+  text: string;
+}
+
+/**
+ * The top-level blocks with their canonical offsets. Empty blocks are omitted,
+ * exactly as `canonicalText` omits them, so the offsets and text match the one
+ * canonical string. Trailing whitespace is trimmed per block; because the
+ * renderer trims per line, this is the same result as trimming the joined body.
+ */
+export function canonicalBlocks(tree: DocTree): CanonicalBlock[] {
+  const blocks: CanonicalBlock[] = [];
+  let position = 0;
+  let start = 0;
+
+  for (const [index, block] of (tree.content ?? []).entries()) {
+    const rendered = renderBlock(block, position);
+    position += rendered.size;
+    if (rendered.value.text.length === 0) continue;
+
+    const text = trimTrailingWhitespace(rendered.value).text;
+    blocks.push({ block, index, start, text });
+    start += text.length + 2;
+  }
+
+  return blocks;
+}
+
+/**
  * Word count over a canonical string. A line's leading block marker (`#`, `>`,
  * `-`, `N.`) is syntax, not prose, so it is skipped, and the words are then
  * counted by the one token definition in `tokens.ts`. The header word count and

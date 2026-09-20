@@ -17,6 +17,10 @@ export interface FindingsSidebarProps {
   passes: Pass[];
   currentFindingId: string | null;
   onSelect: (findingId: string) => void;
+  /** Story 73: the global raw-response toggle. */
+  showRawResponse: boolean;
+  /** The most recent raw response per Pass, keyed by Pass id. */
+  rawResponses: Record<string, string>;
 }
 
 export function FindingsSidebar({
@@ -24,6 +28,8 @@ export function FindingsSidebar({
   passes,
   currentFindingId,
   onSelect,
+  showRawResponse,
+  rawResponses,
 }: FindingsSidebarProps) {
   const groups = groupFindingsByPass(findings, passes);
   const currentRowRef = useRef<HTMLLIElement | null>(null);
@@ -65,6 +71,7 @@ export function FindingsSidebar({
                     finding={finding}
                     current={current}
                     onSelect={onSelect}
+                    {...(showRawResponse ? { rawResponse: rawResponses[finding.passId] } : {})}
                     {...(current ? { rowRef: currentRowRef } : {})}
                   />
                 );
@@ -82,9 +89,10 @@ interface FindingRowProps {
   current: boolean;
   onSelect: (findingId: string) => void;
   rowRef?: Ref<HTMLLIElement>;
+  rawResponse?: string;
 }
 
-function FindingRow({ finding, current, onSelect, rowRef }: FindingRowProps) {
+function FindingRow({ finding, current, onSelect, rowRef, rawResponse }: FindingRowProps) {
   const attached = finding.anchor.state === "attached";
   const leftQueue = !isOpenFinding(finding);
 
@@ -118,6 +126,11 @@ function FindingRow({ finding, current, onSelect, rowRef }: FindingRowProps) {
           )}
         </p>
       </button>
+      {rawResponse !== undefined && rawResponse !== "" && (
+        <pre className="mx-4 mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-stone-900/90 p-2 font-mono text-xs text-stone-100">
+          {rawResponse}
+        </pre>
+      )}
     </li>
   );
 }

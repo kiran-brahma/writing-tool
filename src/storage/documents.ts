@@ -106,9 +106,18 @@ export async function importDocument(
   now: number = Date.now(),
 ): Promise<DocumentRecord> {
   const updated = documentFromMarkdown(document, markdown, now);
-  await database.transaction("rw", database.documents, database.findings, async () => {
-    await database.documents.put(updated);
-    await database.findings.where("documentId").equals(document.id).delete();
-  });
+  await database.transaction(
+    "rw",
+    database.documents,
+    database.findings,
+    database.runResponses,
+    async () => {
+      await database.documents.put(updated);
+      await database.findings.where("documentId").equals(document.id).delete();
+      // Raw responses belonged to the prose that was replaced, so they go with
+      // the Findings rather than being shown against unrelated text.
+      await database.runResponses.where("documentId").equals(document.id).delete();
+    },
+  );
   return updated;
 }

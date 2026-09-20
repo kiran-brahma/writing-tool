@@ -3,6 +3,7 @@ import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
 import { MetricsPanel } from "./editor/MetricsPanel";
+import { ModelPassesPanel } from "./editor/ModelPassesPanel";
 import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
@@ -24,6 +25,15 @@ export default function App() {
     findings,
     passes,
     highlights,
+    setTargetBlockIndex,
+    runningPassId,
+    runStartedAt,
+    runError,
+    lastRun,
+    runModelPass,
+    screeningFrame,
+    setScreeningFrame,
+    rawResponses,
     handleChange,
     flagMilestone,
     markAddressed,
@@ -42,6 +52,7 @@ export default function App() {
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
+  const [showRawResponse, setShowRawResponse] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
@@ -185,6 +196,7 @@ export default function App() {
               initialContent={document.tree}
               onChange={handleChange}
               highlights={highlights}
+              onTargetChange={setTargetBlockIndex}
             />
           )}
         </main>
@@ -195,13 +207,25 @@ export default function App() {
           <section className="border-b border-stone-300 bg-stone-100/60">
             <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
               <h2 className="text-sm font-semibold">Findings</h2>
-              <span className="text-xs text-stone-500">{openQueue.length} open</span>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                  <input
+                    type="checkbox"
+                    checked={showRawResponse}
+                    onChange={(event) => setShowRawResponse(event.target.checked)}
+                  />
+                  Raw response
+                </label>
+                <span className="text-xs text-stone-500">{openQueue.length} open</span>
+              </div>
             </div>
             <FindingsSidebar
               findings={findings}
               passes={passes}
               currentFindingId={currentFindingId}
               onSelect={setCurrentFindingId}
+              showRawResponse={showRawResponse}
+              rawResponses={rawResponses}
             />
           </section>
 
@@ -209,6 +233,18 @@ export default function App() {
             passes={passes}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
             onSaveConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
+          />
+
+          <ModelPassesPanel
+            passes={passes}
+            runningPassId={runningPassId}
+            runningSince={runStartedAt}
+            lastRun={lastRun}
+            runError={runError}
+            criticName={connections.find((connection) => connection.id === slots.critic)?.name ?? null}
+            screeningFrame={screeningFrame}
+            onRun={(passId) => void runModelPass(passId)}
+            onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
           />
 
           <ConnectionsPanel

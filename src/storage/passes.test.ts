@@ -30,8 +30,18 @@ describe("loadOrCreatePasses", () => {
       "openers",
       "wordiness",
       "repetition",
+      "cliche",
     ]);
-    expect(passes.every((pass) => pass.kind === "rule")).toBe(true);
+    expect(passes.filter((pass) => pass.kind === "rule").map((pass) => pass.id)).toEqual([
+      "hedges",
+      "nominalizations",
+      "openers",
+      "wordiness",
+      "repetition",
+    ]);
+    expect(passes.filter((pass) => pass.kind === "model").map((pass) => pass.id)).toEqual([
+      "cliche",
+    ]);
   });
 
   it("keeps the Writer's edit on the next open", async () => {
