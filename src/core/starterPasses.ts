@@ -132,6 +132,34 @@ export const REPETITION_PASS: Pass = {
 };
 
 /**
+ * The prompt shape every paragraph-scope model Pass shares: the task, the
+ * Document's placeholders, and the Target with its one-Paragraph context. It is
+ * one function so a Starter pass and the constitution harness fixtures cannot
+ * drift apart in the part of the prompt the constitution depends on.
+ */
+export function paragraphPassPrompt(intro: string, task: string): string {
+  return [
+    intro,
+    "",
+    "Title: {{title}}",
+    "",
+    "Outline (headings only):",
+    "{{outline}}",
+    "",
+    "Context above — this is context, not target:",
+    "{{context_above}}",
+    "",
+    "TARGET PARAGRAPH — analyze only this paragraph:",
+    "{{target}}",
+    "",
+    "Context below — this is context, not target:",
+    "{{context_below}}",
+    "",
+    task,
+  ].join("\n");
+}
+
+/**
  * The one paragraph-scope model Pass that proves the mechanism (#4). The rest of
  * the Starter model passes ship in #19, and the document-scope ones in #7. It
  * is enabled by default, so a Writer with a critic Connection has something real
@@ -150,29 +178,16 @@ export const CLICHE_PASS: Pass = {
   output: "findings",
   slot: "critic",
   enabled: true,
-  prompt: [
+  prompt: paragraphPassPrompt(
     "Check one paragraph of a piece of writing for clichés and headline-ese.",
-    "",
-    "Title: {{title}}",
-    "",
-    "Outline (headings only):",
-    "{{outline}}",
-    "",
-    "Context above — this is context, not target:",
-    "{{context_above}}",
-    "",
-    "TARGET PARAGRAPH — analyze only this paragraph:",
-    "{{target}}",
-    "",
-    "Context below — this is context, not target:",
-    "{{context_below}}",
-    "",
-    "Flag phrases in the TARGET PARAGRAPH that are clichés or that read like a magazine",
-    "headline: stock figures of speech, hype, and phrasing worn smooth by overuse. For each",
-    "problem, quote the exact span from the target, give its zero-based offset within the",
-    "target, a short issue label and a diagnosis. Report only problems in the target",
-    "paragraph. Do not praise the writing and do not suggest replacement prose.",
-  ].join("\n"),
+    [
+      "Flag phrases in the TARGET PARAGRAPH that are clichés or that read like a magazine",
+      "headline: stock figures of speech, hype, and phrasing worn smooth by overuse. For each",
+      "problem, quote the exact span from the target, give its zero-based offset within the",
+      "target, a short issue label and a diagnosis. Report only problems in the target",
+      "paragraph. Do not praise the writing and do not suggest replacement prose.",
+    ].join("\n"),
+  ),
 };
 
 export const STARTER_PASSES: Pass[] = [

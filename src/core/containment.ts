@@ -42,11 +42,7 @@ export function applyContainment<T extends AnchorDraft>(
   for (const draft of drafts) {
     const anchored: T = { ...draft, offset: target.start + draft.offset };
     const interval = resolveAnchor(anchored, canonical);
-    if (
-      interval === null ||
-      interval.start < target.start ||
-      interval.end > target.end
-    ) {
+    if (interval === null || !isContained(interval, target)) {
       dropped += 1;
       continue;
     }
@@ -54,4 +50,13 @@ export function applyContainment<T extends AnchorDraft>(
   }
 
   return { kept, dropped };
+}
+
+/**
+ * Whether a resolved interval sits inside the Target. `applyContainment` keeps
+ * only the intervals for which this is true; anything else is dropped and
+ * counted.
+ */
+export function isContained(interval: Interval | null, target: Interval): boolean {
+  return interval !== null && interval.start >= target.start && interval.end <= target.end;
 }

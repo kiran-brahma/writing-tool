@@ -13,6 +13,7 @@ export default defineConfig({
       "src/**/*.test.{ts,tsx}",
       "worker/**/*.test.ts",
       "scripts/**/*.test.mjs",
+      "harness/**/*.test.ts",
     ],
   },
 });
