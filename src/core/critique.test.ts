@@ -184,6 +184,22 @@ describe("critique", () => {
     expect(run.violations).toContainEqual({ kind: "praise", text: "great writing" });
   });
 
+  it("marks the Finding whose own diagnosis was the violation", async () => {
+    const praise = JSON.stringify({
+      findings: [
+        { issue: "Clean", diagnosis: "Neutral.", quote: "Bravo", offset: 0 },
+        { issue: "Polluted", diagnosis: "This is great writing.", quote: "target", offset: 6 },
+      ],
+    });
+
+    const run = await critique(target(), CLICHE_PASS, connection(), fixture(praise).config);
+
+    const clean = run.findings.find((finding) => finding.issue === "Clean");
+    const polluted = run.findings.find((finding) => finding.issue === "Polluted");
+    expect(clean?.violations).toBeUndefined();
+    expect(polluted?.violations).toContainEqual({ kind: "praise", text: "great writing" });
+  });
+
   it("leaves the document placeholder empty for a paragraph-scope Pass", async () => {
     const { transport, config } = fixture(RESPONSE);
     const pass: Pass = {

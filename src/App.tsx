@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
@@ -61,6 +61,21 @@ export default function App() {
   const openQueue = useMemo(() => openFindings(findings, passes), [findings, passes]);
   const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
 
+  /**
+   * Runs a queue write and, when it stored, moves the selection to the Finding
+   * that slid into the vacated slot, so the Writer keeps their place. The queue
+   * from before the write is captured here rather than at each call site.
+   */
+  const leaveQueue = useCallback(
+    (findingId: string, write: () => Promise<boolean>) => {
+      const before = openQueue;
+      return write().then((written) => {
+        if (written) setCurrentFindingId(selectionAfterLeavingQueue(before, findingId));
+      });
+    },
+    [openQueue],
+  );
+
   // The queue's keys are only live when the Writer is not typing. `j`, `k`, `a`
   // and `x` are ordinary letters: while the Editor or a field has focus they
   // must reach the prose, so the Writer clicks a Finding (or tabs to one) to
@@ -81,25 +96,25 @@ export default function App() {
 
       if (event.key === "a") {
         event.preventDefault();
-        const before = openQueue;
-        void markAddressed(currentFinding.id).then((written) => {
-          if (written) setCurrentFindingId(selectionAfterLeavingQueue(before, currentFinding.id));
-        });
+        void leaveQueue(currentFinding.id, () => markAddressed(currentFinding.id));
         return;
       }
 
       if (event.key === "x") {
         event.preventDefault();
-        const before = openQueue;
-        void decline(currentFinding.id).then((written) => {
-          if (written) setCurrentFindingId(selectionAfterLeavingQueue(before, currentFinding.id));
-        });
+        void leaveQueue(currentFinding.id, () => decline(currentFinding.id));
+        return;
+      }
+
+      if (event.key === "v" && (currentFinding.violations?.length ?? 0) > 0) {
+        event.preventDefault();
+        void leaveQueue(currentFinding.id, () => decline(currentFinding.id, "violation"));
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openQueue, currentFindingId, currentFinding, markAddressed, decline]);
+  }, [openQueue, currentFindingId, currentFinding, leaveQueue, markAddressed, decline]);
 
   if (status === "loading") {
     return (
@@ -226,6 +241,9 @@ export default function App() {
               onSelect={setCurrentFindingId}
               showRawResponse={showRawResponse}
               rawResponses={rawResponses}
+              onDecline={(findingId, reason) =>
+                void leaveQueue(findingId, () => decline(findingId, reason))
+              }
             />
           </section>
 

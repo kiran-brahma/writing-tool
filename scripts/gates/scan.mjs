@@ -56,6 +56,15 @@ export function parseSource(sourceText, fileName) {
   );
 }
 
+/** Depth-first over every node, with the parent so a gate can inspect context. */
+export function walk(sourceFile, visit) {
+  const recurse = (node, parent) => {
+    visit(node, parent);
+    ts.forEachChild(node, (child) => recurse(child, node));
+  };
+  recurse(sourceFile, undefined);
+}
+
 function scriptKindFor(fileName) {
   if (fileName.endsWith(".tsx")) return ts.ScriptKind.TSX;
   if (fileName.endsWith(".jsx")) return ts.ScriptKind.JSX;

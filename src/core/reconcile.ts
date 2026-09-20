@@ -53,13 +53,18 @@ export function reconcileFindings(
     }
 
     claimed.add(match.id);
+    // The Run's prose — and therefore its violations — refreshes; the Writer's
+    // fields and the coordinates stay. A violation the Run no longer produces
+    // must clear, so `violations` is dropped from the match before it is set.
+    const { violations: _previousViolations, ...writerFields } = match;
     result.push({
-      ...match,
+      ...writerFields,
       issue: finding.issue,
       diagnosis: finding.diagnosis,
       pattern: finding.pattern,
       promptHash: finding.promptHash,
       anchor: { ...match.anchor, state: "attached" },
+      ...(finding.violations === undefined ? {} : { violations: finding.violations }),
     });
   }
 

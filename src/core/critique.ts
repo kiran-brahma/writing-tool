@@ -36,6 +36,17 @@ export interface RunResult {
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 /**
+ * What the most recent Run reported for one Pass: its Containment count and the
+ * linter's aggregate drift, which the panel surfaces rather than a caller
+ * rebuilding the shape.
+ */
+export interface RunReport {
+  passId: string;
+  droppedAnchors: number;
+  violations: Violation[];
+}
+
+/**
  * The entry point above the seam: one model Pass end to end. It builds the
  * prompt from the Target and context, sends it through `send`, parses the
  * response tolerantly, anchors the Findings and applies Containment, and
@@ -93,6 +104,7 @@ export async function critique(
       at: now,
       revisionId: config.revisionId,
     },
+    ...(draft.violations.length === 0 ? {} : { violations: draft.violations }),
   }));
 
   return {

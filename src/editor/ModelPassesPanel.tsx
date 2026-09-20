@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import type { RunReport } from "../core/critique";
 import type { Pass } from "../core/pass";
+import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
+import { splitViolations } from "./violationMarks";
 
 /**
  * The model-Pass panel. One Pass runs on demand against the Target Paragraph the
@@ -15,7 +18,7 @@ export interface ModelPassesPanelProps {
   passes: Pass[];
   runningPassId: string | null;
   runningSince: number | null;
-  lastRunReport: { passId: string; droppedAnchors: number } | null;
+  lastRunReport: RunReport | null;
   runError: string | null;
   criticName: string | null;
   screeningFrame: boolean;
@@ -69,6 +72,8 @@ export function ModelPassesPanel({
       <ol>
         {modelPasses.map((pass) => {
           const running = pass.id === runningPassId;
+          const report = lastRunReport?.passId === pass.id ? lastRunReport : null;
+          const { strikes, rewrites } = splitViolations(report?.violations ?? []);
           return (
             <li key={pass.id} className="border-b border-stone-200/70 px-4 py-3 last:border-b-0">
               <div className="flex items-start justify-between gap-3">
@@ -98,12 +103,21 @@ export function ModelPassesPanel({
               {!pass.enabled && (
                 <p className="mt-1 text-xs italic text-stone-400">Disabled.</p>
               )}
-              {lastRunReport !== null && lastRunReport.passId === pass.id && (
-                <p className="mt-1 text-xs text-stone-500">
-                  {lastRunReport.droppedAnchors === 0
-                    ? "No Findings dropped outside the target."
-                    : `${lastRunReport.droppedAnchors} Anchor${lastRunReport.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
-                </p>
+              {report !== null && (
+                <>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {report.droppedAnchors === 0
+                      ? "No Findings dropped outside the target."
+                      : `${report.droppedAnchors} Anchor${report.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
+                  </p>
+                  {strikes.length > 0 && (
+                    <p className="mt-1 text-xs text-stone-500">
+                      Model drift, struck through rather than hidden:{" "}
+                      <StruckViolations violations={strikes} />
+                    </p>
+                  )}
+                  {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
+                </>
               )}
             </li>
           );

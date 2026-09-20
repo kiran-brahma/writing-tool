@@ -1,7 +1,9 @@
 import { useEffect, useRef, type Ref } from "react";
-import { isOpenFinding, responseKey, type Finding } from "../core/finding";
+import { isOpenFinding, responseKey, type DeclineReason, type Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
 import { groupFindingsByPass } from "./findingsGroups";
+import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
+import { splitViolations, violationsOutsideText } from "./violationMarks";
 
 /**
  * The sidebar is grouped by Pass rather than by location, because the Writer
@@ -21,6 +23,8 @@ export interface FindingsSidebarProps {
   showRawResponse: boolean;
   /** The most recent raw response per Pass, keyed by Pass id. */
   rawResponses: Record<string, string>;
+  /** Story 72: decline a Finding, recording why — `advice` or `violation`. */
+  onDecline: (findingId: string, reason: DeclineReason) => void;
 }
 
 export function FindingsSidebar({
@@ -30,6 +34,7 @@ export function FindingsSidebar({
   onSelect,
   showRawResponse,
   rawResponses,
+  onDecline,
 }: FindingsSidebarProps) {
   const groups = groupFindingsByPass(findings, passes);
   const currentRowRef = useRef<HTMLLIElement | null>(null);
@@ -52,7 +57,8 @@ export function FindingsSidebar({
         <kbd className="font-sans font-medium text-stone-700">j</kbd> /{" "}
         <kbd className="font-sans font-medium text-stone-700">k</kbd> move ·{" "}
         <kbd className="font-sans font-medium text-stone-700">a</kbd> address ·{" "}
-        <kbd className="font-sans font-medium text-stone-700">x</kbd> decline
+        <kbd className="font-sans font-medium text-stone-700">x</kbd> decline ·{" "}
+        <kbd className="font-sans font-medium text-stone-700">v</kbd> decline as violation
       </p>
       {groups.map((group) => {
         const openCount = group.findings.filter((finding) => finding.status === "open").length;
@@ -71,6 +77,7 @@ export function FindingsSidebar({
                     finding={finding}
                     current={current}
                     onSelect={onSelect}
+                    onDecline={onDecline}
                     {...(showRawResponse
                       ? { rawResponse: rawResponses[responseKey(finding.passId, finding.promptHash)] }
                       : {})}
@@ -90,13 +97,27 @@ interface FindingRowProps {
   finding: Finding;
   current: boolean;
   onSelect: (findingId: string) => void;
+  onDecline: (findingId: string, reason: DeclineReason) => void;
   rowRef?: Ref<HTMLLIElement>;
   rawResponse?: string;
 }
 
-function FindingRow({ finding, current, onSelect, rowRef, rawResponse }: FindingRowProps) {
+function FindingRow({
+  finding,
+  current,
+  onSelect,
+  onDecline,
+  rowRef,
+  rawResponse,
+}: FindingRowProps) {
   const attached = finding.anchor.state === "attached";
   const leftQueue = !isOpenFinding(finding);
+  const violations = finding.violations ?? [];
+  const { rewrites } = splitViolations(violations);
+  const elsewhere = violationsOutsideText(
+    [finding.issue, finding.diagnosis, finding.anchor.quote],
+    violations,
+  );
 
   return (
     <li ref={rowRef} className="border-b border-stone-200/70 last:border-b-0">
@@ -111,10 +132,16 @@ function FindingRow({ finding, current, onSelect, rowRef, rawResponse }: Finding
         ].join(" ")}
       >
         <p className="flex items-start gap-2 text-stone-800">
-          <span className="font-mono text-xs text-stone-500">“{finding.anchor.quote}”</span>
-          <span className="font-medium">{finding.issue}</span>
+          <span className="font-mono text-xs text-stone-500">
+            “<StruckText text={finding.anchor.quote} violations={violations} />”
+          </span>
+          <span className="font-medium">
+            <StruckText text={finding.issue} violations={violations} />
+          </span>
         </p>
-        <p className="mt-1 text-stone-600">{finding.diagnosis}</p>
+        <p className="mt-1 text-stone-600">
+          <StruckText text={finding.diagnosis} violations={violations} />
+        </p>
         {!attached && (
           <p className="mt-1 text-xs italic text-stone-500">No longer found in the text.</p>
         )}
@@ -128,6 +155,25 @@ function FindingRow({ finding, current, onSelect, rowRef, rawResponse }: Finding
           )}
         </p>
       </button>
+      {violations.length > 0 && (
+        <div className="border-t border-stone-200/70 px-4 py-2">
+          {elsewhere.length > 0 && (
+            <p className="text-xs text-stone-500">
+              Model drift: <StruckViolations violations={elsewhere} />
+            </p>
+          )}
+          {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
+          {!leftQueue && (
+            <button
+              type="button"
+              onClick={() => onDecline(finding.id, "violation")}
+              className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800 hover:bg-rose-100"
+            >
+              Decline as violation
+            </button>
+          )}
+        </div>
+      )}
       {rawResponse !== undefined && rawResponse !== "" && (
         <pre className="mx-4 mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-stone-900/90 p-2 font-mono text-xs text-stone-100">
           {rawResponse}

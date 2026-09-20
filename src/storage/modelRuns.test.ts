@@ -102,6 +102,21 @@ describe("runModelPass", () => {
     expect(revisions[0].canonical).toBe("Context paragraph.\n\nTarget with a cliché.\n");
   });
 
+  it("persists a Finding's violations so the display survives a reload", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const praise = JSON.stringify({
+      findings: [
+        { issue: "Cliché", diagnosis: "This is great writing.", quote: "cliché", offset: 14 },
+      ],
+    });
+
+    await runModelPass(database, document, runOptions(document, praise));
+
+    const stored = await listFindingsForPass(database, document.id, CLICHE_PASS.id);
+    expect(stored[0].violations).toContainEqual({ kind: "praise", text: "great writing" });
+  });
+
   it("does not raise a declined Finding again when the model returns it unchanged", async () => {
     const database = await openTestDatabase();
     const document = await savedDocument(database);

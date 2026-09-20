@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { dirname, join } from "node:path";
 import ts from "typescript";
-import { finding, parseSource, toRepoPath } from "./scan.mjs";
+import { finding, parseSource, toRepoPath, walk } from "./scan.mjs";
 
 const NODE_BUILTINS = new Set([
   ...builtinModules,
@@ -92,7 +92,7 @@ export function checkImports({ files, repoRoot, packageJson, lock }) {
 export function importSpecifiers(sourceText, fileName) {
   const sourceFile = parseSource(sourceText, fileName);
   const specifiers = [];
-  const visit = (node) => {
+  walk(sourceFile, (node) => {
     const specifier = specifierOf(node);
     if (specifier !== null) {
       specifiers.push({
@@ -100,9 +100,7 @@ export function importSpecifiers(sourceText, fileName) {
         line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
       });
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
+  });
   return specifiers;
 }
 

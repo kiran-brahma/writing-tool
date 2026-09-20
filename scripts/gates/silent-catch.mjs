@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { finding, parseSource, toRepoPath } from "./scan.mjs";
+import { finding, parseSource, toRepoPath, walk } from "./scan.mjs";
 
 /**
  * Build-discipline gate: no silent catch.
@@ -18,7 +18,7 @@ export function findSilentCatches(sourceText, fileName) {
   const comments = commentRanges(sourceText);
   const findings = [];
 
-  const visit = (node) => {
+  walk(sourceFile, (node) => {
     if (ts.isTryStatement(node) && node.catchClause !== undefined) {
       const block = node.catchClause.block;
       const binding = node.catchClause.variableDeclaration?.name;
@@ -38,10 +38,8 @@ export function findSilentCatches(sourceText, fileName) {
         );
       }
     }
-    ts.forEachChild(node, visit);
-  };
+  });
 
-  visit(sourceFile);
   return findings;
 }
 

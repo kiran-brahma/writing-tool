@@ -57,19 +57,27 @@ const RULES: LintRule[] = [
 /** Praise or rewrite-shaped content in one returned string, first seen first. */
 export function lintViolations(text: string): Violation[] {
   const violations: Violation[] = [];
-  const seen = new Set<string>();
 
   for (const rule of RULES) {
     // `matchAll` clones the regex, so a `g` pattern's `lastIndex` cannot leak
     // between calls; the same rule can lint many strings.
     for (const match of text.matchAll(rule.pattern)) {
-      const found = match[0].trim();
-      const key = `${rule.kind}:${found.toLowerCase()}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      violations.push({ kind: rule.kind, text: found });
+      violations.push({ kind: rule.kind, text: match[0].trim() });
     }
   }
 
-  return violations;
+  return dedupeViolations(violations);
+}
+
+/** First seen first, one entry per kind and text. */
+export function dedupeViolations(violations: Violation[]): Violation[] {
+  const seen = new Set<string>();
+  const result: Violation[] = [];
+  for (const violation of violations) {
+    const key = `${violation.kind}:${violation.text.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(violation);
+  }
+  return result;
 }

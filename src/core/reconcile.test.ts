@@ -49,6 +49,18 @@ describe("reconcileFindings", () => {
     expect(merged[0].issue).toBe("new issue");
   });
 
+  it("refreshes a matched Finding's violations and clears a stale one", () => {
+    const stored = finding(
+      { quote: "very", offset: 0 },
+      { id: "stored", violations: [{ kind: "praise", text: "great writing" }] },
+    );
+    const produced = finding({ quote: "very", offset: 0 }, { id: "fresh" });
+
+    const merged = reconcileFindings([produced], [stored], "very good\n");
+
+    expect(merged[0].violations).toBeUndefined();
+  });
+
   it("keeps a Finding the Run did not re-produce, orphaned when its quote is gone", () => {
     const stored = finding({ quote: "gone", offset: 0 }, { id: "stored" });
     const produced = finding({ quote: "very", offset: 0 }, { id: "fresh" });

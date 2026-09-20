@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkForbiddenAffordances } from "./gates/affordances.mjs";
 import { checkImports } from "./gates/imports.mjs";
 import { checkLockfileDrift } from "./gates/lockfile.mjs";
 import { collectSourceFiles } from "./gates/scan.mjs";
@@ -25,6 +26,7 @@ function runChecks() {
       checkImports({ files, repoRoot: REPO_ROOT, packageJson, lock }),
     ],
     ["no silent catch", checkSilentCatches({ files, repoRoot: REPO_ROOT })],
+    ["no forbidden affordance in the UI source", checkForbiddenAffordances({ files, repoRoot: REPO_ROOT })],
     ["lockfile in sync", checkLockfileDrift(packageJson, lock)],
   ];
 }

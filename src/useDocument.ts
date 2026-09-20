@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveAnchor } from "./core/anchor";
-import type { RunResult } from "./core/critique";
+import type { RunReport, RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
-import { isOpenFinding, type Finding, type Interval } from "./core/finding";
+import {
+  isOpenFinding,
+  type DeclineReason,
+  type Finding,
+  type Interval,
+} from "./core/finding";
 import type { Pass, RuleConfig } from "./core/pass";
 import { passContext } from "./core/passContext";
 import { STARTER_PASSES } from "./core/starterPasses";
@@ -63,8 +68,8 @@ export interface DocumentHandle {
   runStartedAt: number | null;
   /** A model Run's failure, surfaced verbatim rather than swallowed. */
   runError: string | null;
-  /** The most recent Run's reported Containment count, per Pass. */
-  lastRunReport: { passId: string; droppedAnchors: number } | null;
+  /** The most recent Run's reported Containment count and drift, per Pass. */
+  lastRunReport: RunReport | null;
   /** Story 36: run one model Pass on demand against the current Target. */
   runModelPass: (passId: string) => Promise<RunResult | null>;
   /** Stories 76, 77: the Critic's Screening frame, a settable global toggle. */
@@ -76,7 +81,8 @@ export interface DocumentHandle {
   flagMilestone: (note: string) => Promise<void>;
   /** Writes a status, returning whether it was stored. Failures surface in `saveError`. */
   markAddressed: (findingId: string) => Promise<boolean>;
-  decline: (findingId: string) => Promise<boolean>;
+  /** Stories 64 and 72: decline a Finding, recording why — `advice` or `violation`. */
+  decline: (findingId: string, reason?: DeclineReason) => Promise<boolean>;
   /** Story 35: turn one rule Pass on or off, then re-run the rules. */
   togglePass: (passId: string, enabled: boolean) => Promise<void>;
   /** Story 34: replace a rule Pass's word lists and patterns, then re-run. */
@@ -317,8 +323,8 @@ export function useDocument(): DocumentHandle {
   );
 
   const decline = useCallback(
-    (findingId: string) =>
-      applyStatus((database, id) => declineFinding(database, id, "advice"), findingId),
+    (findingId: string, reason: DeclineReason = "advice") =>
+      applyStatus((database, id) => declineFinding(database, id, reason), findingId),
     [applyStatus],
   );
 
@@ -446,7 +452,11 @@ export function useDocument(): DocumentHandle {
         });
         await refreshFindings();
         setRawResponses(await listRunResponses(database, current.id));
-        setLastRunReport({ passId, droppedAnchors: result.droppedAnchors });
+        setLastRunReport({
+          passId,
+          droppedAnchors: result.droppedAnchors,
+          violations: result.violations,
+        });
         return result;
       } catch (error) {
         // The Provider's own words, surfaced verbatim; never a silent failure.

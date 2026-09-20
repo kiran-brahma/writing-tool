@@ -1,10 +1,12 @@
 import type { Violation } from "./finding";
-import { lintViolations } from "./lintViolations";
+import { FINDING_FIELDS } from "./findingsSchema";
+import { lintViolations, dedupeViolations } from "./lintViolations";
 import type { OutputShape } from "./pass";
 
 /**
- * A Finding before it is anchored and given provenance: exactly the fields the
- * findings schema exposes. There is no rewrite field here either.
+ * A Finding before it is anchored and given provenance: the fields the findings
+ * schema exposes, plus what the linter found about them. The schema carries no
+ * field for rewritten prose, so there is none for the model to fill.
  */
 export interface FindingDraft {
   issue: string;
@@ -12,14 +14,20 @@ export interface FindingDraft {
   pattern?: string;
   quote: string;
   offset: number;
+  /**
+   * Praise or rewrite-shaped content caught in *this* Finding's returned
+   * strings, so the display can mark the exact Finding polluted rather than
+   * only reporting that something, somewhere, drifted.
+   */
+  violations: Violation[];
 }
 
 export interface ParsedFindings {
   findings: FindingDraft[];
   /**
-   * Praise or rewrite-shaped content the linter caught in the returned strings.
-   * The schema has no rewrite field, so this is about drift inside the fields
-   * the model was allowed to fill.
+   * The linter's findings across the whole response: praise and rewrite-shaped
+   * content in the model's fields, and any out-of-schema string. The Run reports
+   * them so drift stays visible instead of being silently dropped.
    */
   violations: Violation[];
 }
@@ -42,20 +50,42 @@ export class UnsupportedOutputShapeError extends Error {
 export function parseFindings(raw: string, shape: OutputShape): ParsedFindings {
   if (shape !== "findings") throw new UnsupportedOutputShapeError(shape);
 
-  const value = extractJson(raw);
+  const { value, span } = extractJsonWithSpan(raw);
   const candidates = candidatesOf(value);
   const findings: FindingDraft[] = [];
-  const strings: string[] = [];
+  const violations: Violation[] = [];
 
   for (const candidate of candidates) {
+    // A candidate is linted whether or not it validates, and whether or not it
+    // is even a record: a malformed Finding, or a smuggled string standing in
+    // for one, can still carry a breach that discarding it must not discard.
+    const candidateViolations = isRecord(candidate)
+      ? violationsOf(candidate)
+      : outOfSchemaViolations(candidate);
+    violations.push(...candidateViolations);
+
     const draft = validateFinding(candidate);
     if (draft === null) continue;
+    draft.violations = candidateViolations;
     findings.push(draft);
-    // Every string the model returned is scanned, the quote included.
-    strings.push(draft.issue, draft.diagnosis, draft.pattern ?? "", draft.quote);
   }
 
-  return { findings, violations: lintViolations([...strings, flattened(raw)].join("\n")) };
+  // The wrapper's own fields are a schema breach too, so a rewrite smuggled
+  // alongside the array — or a `findings` value that is not an array at all —
+  // is quarantined rather than ignored. A bare array has no wrapper to scan.
+  if (isRecord(value) && !Array.isArray(value)) {
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "findings" && Array.isArray(child)) continue;
+      violations.push(...outOfSchemaViolations(child));
+    }
+  }
+
+  // The aggregate is what the Run reports: every candidate's violations plus
+  // the model's prose around the JSON. The JSON span itself is not linted
+  // wholesale — its `quote` field is the Writer's own prose, and a Violation is
+  // never about the prose — so only the text outside it is scanned.
+  const prose = span === raw ? "" : raw.split(span).join(" ");
+  return { findings, violations: dedupeViolations([...violations, ...lintViolations(prose)]) };
 }
 
 /**
@@ -64,9 +94,17 @@ export function parseFindings(raw: string, shape: OutputShape): ParsedFindings {
  * order, so the most literal reading wins.
  */
 export function extractJson(raw: string): unknown {
+  return extractJsonWithSpan(raw).value;
+}
+
+/**
+ * The parsed value and the exact raw substring it was read from, so a caller
+ * can tell the model's prose around the JSON from the JSON itself.
+ */
+export function extractJsonWithSpan(raw: string): { value: unknown; span: string } {
   for (const candidate of jsonCandidates(raw)) {
     const parsed = tryParse(candidate);
-    if (parsed !== undefined) return parsed;
+    if (parsed !== undefined) return { value: parsed, span: candidate };
   }
   throw new Error("The model response contained no JSON Obelus could read.");
 }
@@ -137,6 +175,17 @@ function candidatesOf(value: unknown): unknown[] {
   return [];
 }
 
+/** The schema's closed field set. Anything else the model returns is a breach. */
+const KNOWN_FIELDS = new Set(FINDING_FIELDS);
+
+/**
+ * The fields the model authors. `quote` is deliberately absent: a Finding that
+ * survives Containment quotes text that resolves inside the Target, so the
+ * quote is the Writer's own prose. Flagging it would flag the Writer rather than
+ * the model, and CONTEXT.md defines a Violation as never about the prose.
+ */
+const AUTHORED_FIELDS = ["issue", "diagnosis", "pattern"];
+
 function validateFinding(candidate: unknown): FindingDraft | null {
   if (!isRecord(candidate)) return null;
 
@@ -151,9 +200,67 @@ function validateFinding(candidate: unknown): FindingDraft | null {
     diagnosis,
     quote,
     offset: integerOrZero(candidate.offset),
+    violations: [],
   };
   if (pattern !== null) draft.pattern = pattern;
   return draft;
+}
+
+/**
+ * Praise and rewrite-shaped content in this candidate: the fields the model
+ * authored, plus every string under any other field. The schema's field set is
+ * closed, so an out-of-schema string is both linted — praise in it is named as
+ * praise — and quarantined whole as a rewrite, since no out-of-schema field may
+ * carry model prose toward a Document. Fields are never joined, so two adjacent
+ * values cannot manufacture a phrase neither one contains.
+ */
+function violationsOf(candidate: Record<string, unknown>): Violation[] {
+  const authored: string[] = [];
+  const breaches: unknown[] = [];
+
+  for (const [key, value] of Object.entries(candidate)) {
+    if (AUTHORED_FIELDS.includes(key) && typeof value === "string") {
+      authored.push(value);
+    } else if (KNOWN_FIELDS.has(key) && typeof value === "string") {
+      // A known field the model does not author, such as the Writer's `quote`.
+      continue;
+    } else {
+      breaches.push(value);
+    }
+  }
+
+  return dedupeViolations([
+    ...authored.flatMap((text) => lintViolations(text)),
+    ...breaches.flatMap((value) => outOfSchemaViolations(value)),
+  ]);
+}
+
+/** Every string at or below `value`: linted for praise and quarantined whole. */
+function outOfSchemaViolations(value: unknown): Violation[] {
+  const strings: string[] = [];
+  collectStrings(value, strings);
+
+  const violations: Violation[] = [];
+  for (const text of strings) {
+    violations.push(...lintViolations(text));
+    const prose = text.trim();
+    if (prose !== "") violations.push({ kind: "rewrite", text: prose });
+  }
+  return violations;
+}
+
+function collectStrings(value: unknown, strings: string[]): void {
+  if (typeof value === "string") {
+    strings.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStrings(item, strings);
+    return;
+  }
+  if (isRecord(value)) {
+    for (const child of Object.values(value)) collectStrings(child, strings);
+  }
 }
 
 function stringOrNull(value: unknown): string | null {
@@ -166,13 +273,4 @@ function integerOrZero(value: unknown): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-/**
- * The whole response with JSON structure folded to spaces. The field strings are
- * linted exactly and separately; this flattened form adds any prose around the
- * JSON, so drift outside the fields is caught too.
- */
-function flattened(raw: string): string {
-  return raw.replace(/[{}\[\]",:]/g, " ").replace(/\s+/g, " ").trim();
 }
