@@ -1,5 +1,7 @@
 import { canonicalBlocks, canonicalText } from "./canonicalText";
 import type { DocTree } from "./docTree";
+import type { Pass } from "./pass";
+import { outline, sectionAt } from "./sections";
 import type { Target } from "./target";
 
 /**
@@ -32,13 +34,87 @@ export function passContext(
     interval: { start: target.start, end: target.start + target.text.length },
     text: target.text,
     title,
-    outline: blocks
-      .filter((entry) => entry.block.type === "heading")
-      .map((entry) => entry.text)
-      .join("\n"),
+    outline: outline(tree),
     contextAbove: above?.text ?? "",
     contextBelow: below?.text ?? "",
+    // A local Pass never receives body text beyond its Target.
+    documentText: "",
   };
+}
+
+/**
+ * The Target a section-scope model Pass is shown: one Section — its heading plus
+ * the body that follows it — with the heading outline. Story 25 makes the
+ * Section a thing a Pass can reason about, so a section Pass is bounded by the
+ * same interval the outline and the Judge use, and Containment cannot keep a
+ * Finding from a neighbouring Section.
+ */
+export function sectionContext(
+  tree: DocTree,
+  blockIndex: number,
+  title: string,
+): Target | null {
+  const section = sectionAt(tree, blockIndex);
+  if (section === null) return null;
+
+  const canonical = canonicalText(tree);
+  return {
+    canonical,
+    interval: section.interval,
+    text: canonical.slice(section.interval.start, section.interval.end),
+    title,
+    outline: outline(tree),
+    contextAbove: "",
+    contextBelow: "",
+    // The Section is the Target; the whole Document is not handed to it.
+    documentText: "",
+  };
+}
+
+/**
+ * The Target a document-scope (structural) model Pass is shown: the whole
+ * Document and nothing less. Story 48 is explicit that advice about Paragraph
+ * order cannot come from a Pass that cannot see the order, so the `{{document}}`
+ * placeholder is filled here and the Target interval is the whole canonical
+ * string — Containment then keeps a Finding anchored anywhere in it, rather than
+ * dropping every Finding the local rule would have discarded.
+ */
+export function documentContext(tree: DocTree, title: string): Target | null {
+  const canonical = canonicalText(tree);
+  if (canonical.trim() === "") return null;
+
+  return {
+    canonical,
+    interval: { start: 0, end: canonical.length },
+    text: canonical,
+    title,
+    outline: outline(tree),
+    // The whole Document is the target; there is no "above" or "below" it.
+    contextAbove: "",
+    contextBelow: "",
+    documentText: canonical,
+  };
+}
+
+/**
+ * The one place a Pass's scope decides what it is shown. `runModelPass` asks
+ * for a Target and never branches on scope; adding a scope is a case here, plus
+ * the prompt clause that names it.
+ */
+export function targetForPass(
+  pass: Pass,
+  tree: DocTree,
+  blockIndex: number,
+  title: string,
+): Target | null {
+  switch (pass.scope) {
+    case "paragraph":
+      return passContext(tree, blockIndex, title);
+    case "section":
+      return sectionContext(tree, blockIndex, title);
+    case "document":
+      return documentContext(tree, title);
+  }
 }
 
 /** The Paragraph nearest the cursor's block, preferring the earlier on a tie. */

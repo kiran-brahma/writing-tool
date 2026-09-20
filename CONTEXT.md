@@ -18,6 +18,11 @@ _Avoid_: draft, piece, article, text, file
 A heading-delimited division of a Document.
 _Avoid_: chapter, part
 
+**Outline**:
+The list of a Document's Sections, derived from its headings; the Writer jumps between Sections by
+it, and a structural pass receives it.
+_Avoid_: table of contents, headings list
+
 **Paragraph**:
 A block of prose within a Section, and the unit a local pass is examined against.
 _Avoid_: block
@@ -50,7 +55,8 @@ The editable data behind a rule pass: its word lists, patterns and windows.
 _Avoid_: settings, options, config
 
 **Pass scope**:
-How much of a Document a Pass is shown: `document`, `section` or `paragraph`.
+How much of a Document a Pass is shown: `document`, `section` or `paragraph`. A *structural pass* is
+`document`-scope; a *local pass* is `paragraph`-scope.
 _Avoid_: range, coverage
 
 **Target**:

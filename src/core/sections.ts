@@ -1,5 +1,5 @@
 import { canonicalBlocks } from "./canonicalText";
-import type { DocTree } from "./docTree";
+import type { BlockNode, DocTree } from "./docTree";
 import type { Interval } from "./finding";
 
 /**
@@ -15,10 +15,25 @@ import type { Interval } from "./finding";
 export interface Section {
   /** The heading's text without its Markdown markers. */
   heading: string;
+  /** The heading's level, so the outline can nest. */
+  level: number;
   /** The heading line plus its body, up to the next heading. */
   interval: Interval;
-  /** The heading's top-level block index, for `sectionAt`. */
+  /** The heading's top-level block index, for `sectionAt` and for jumping. */
   headingBlockIndex: number;
+}
+
+/**
+ * The heading lines of a Document, in document order, rendered as their
+ * canonical Markdown source (`# Title`). This is the `{{outline}}` a Pass
+ * receives: headings only, never body text, so a local Pass can place a
+ * Paragraph without being handed the whole Document.
+ */
+export function outline(tree: DocTree): string {
+  return canonicalBlocks(tree)
+    .filter((entry) => entry.block.type === "heading")
+    .map((entry) => entry.text)
+    .join("\n");
 }
 
 /** The heading-delimited Sections of a Document, in document order. */
@@ -39,6 +54,7 @@ export function sections(tree: DocTree): Section[] {
       nextPosition === undefined ? blocks[blocks.length - 1].end : blocks[nextPosition - 1].end;
     return {
       heading: headingText(heading.text),
+      level: headingLevel(heading.block),
       interval: { start: heading.start, end },
       headingBlockIndex: heading.index,
     };
@@ -62,4 +78,9 @@ export function sectionAt(tree: DocTree, blockIndex: number): Section | null {
 /** A canonical heading line `## Title` as its text `Title`. */
 function headingText(canonicalLine: string): string {
   return canonicalLine.replace(/^#+\s*/, "");
+}
+
+/** A heading's level, defaulting to 1 when the tree carries no attrs. */
+function headingLevel(block: BlockNode): number {
+  return block.type === "heading" ? block.attrs?.level ?? 1 : 1;
 }

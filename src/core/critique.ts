@@ -53,9 +53,10 @@ export interface RunReport {
  * records the `promptHash` on every Finding so a cache can never return
  * Findings the current Pass would not have produced.
  *
- * The `{{document}}` placeholder is empty for a paragraph-scope Pass: the rule
- * that local Passes never receive body text is enforced here, not in the
- * prompt. A non-`findings` output shape is not implemented yet and raises.
+ * The `{{document}}` placeholder comes from the Target (`target.documentText`),
+ * which the scope resolver fills: empty for a local Pass, the whole Document for
+ * a structural one. A non-`findings` output shape is not implemented yet and
+ * raises.
  */
 export async function critique(
   target: Target,
@@ -70,7 +71,7 @@ export async function critique(
   // request rather than sending and then throwing away the response.
   if (pass.output !== "findings") throw new UnsupportedOutputShapeError(pass.output);
 
-  const prompt = fillPrompt(pass.prompt ?? "", valuesFor(target, pass));
+  const prompt = fillPrompt(pass.prompt ?? "", valuesFor(target));
   const request: ModelRequest = {
     connection,
     model: connection.model,
@@ -117,8 +118,8 @@ export async function critique(
   };
 }
 
-/** The placeholder values a Pass's scope permits. */
-function valuesFor(target: Target, pass: Pass): PromptValues {
+/** The placeholder values a Pass's scope permits, all carried on the Target. */
+function valuesFor(target: Target): PromptValues {
   return {
     title: target.title,
     outline: target.outline,
@@ -126,8 +127,8 @@ function valuesFor(target: Target, pass: Pass): PromptValues {
     target: target.text,
     context_above: target.contextAbove,
     context_below: target.contextBelow,
-    // Local Passes receive headings only, never body text; a document-scope
-    // Pass is given the whole Document and nothing else is withheld.
-    document: pass.scope === "paragraph" ? "" : target.canonical,
+    // The whole Document for a structural (document-scope) Target; empty for a
+    // local (paragraph-scope) Target. The Target decides it, not the caller.
+    document: target.documentText,
   };
 }

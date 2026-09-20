@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import type { RunReport } from "../core/critique";
-import type { Pass } from "../core/pass";
+import { structuralPasses, type Pass } from "../core/pass";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
 import { splitViolations } from "./violationMarks";
 
 /**
- * The model-Pass panel. One Pass runs on demand against the Target Paragraph the
- * cursor is in; the Run shows a spinner and an elapsed timer rather than a
- * half-parsed object, because there is no streaming in v1. When Containment
- * drops an Anchor the count is shown here, so the Writer knows the model tried
- * to speak about text it was not asked about.
+ * The model-Pass panel. One Pass runs on demand: a local Pass against the
+ * Target Paragraph the cursor is in, a structural Pass against the whole
+ * Document. "Run structural set" runs every enabled structural Pass in one
+ * action. The Run shows a spinner and an elapsed timer rather than a half-parsed
+ * object, because there is no streaming in v1. When Containment drops an Anchor
+ * the count is shown here, so the Writer knows the model tried to speak about
+ * text it was not asked about.
  *
  * The Screening frame toggle is global and applies to critic Passes only; the
  * Judge, when it arrives, never receives it.
@@ -17,12 +19,16 @@ import { splitViolations } from "./violationMarks";
 export interface ModelPassesPanelProps {
   passes: Pass[];
   runningPassId: string | null;
+  /** True while the structural set is working; every Run control is held. */
+  structuralRunning: boolean;
   runningSince: number | null;
   lastRunReport: RunReport | null;
   runError: string | null;
   criticName: string | null;
   screeningFrame: boolean;
   onRun: (passId: string) => void;
+  /** Story 37: run every enabled document-scope Pass in one action. */
+  onRunStructural: () => void;
   onToggle: (passId: string, enabled: boolean) => void;
   onToggleScreening: (enabled: boolean) => void;
 }
@@ -30,16 +36,20 @@ export interface ModelPassesPanelProps {
 export function ModelPassesPanel({
   passes,
   runningPassId,
+  structuralRunning,
   runningSince,
   lastRunReport,
   runError,
   criticName,
   screeningFrame,
   onRun,
+  onRunStructural,
   onToggle,
   onToggleScreening,
 }: ModelPassesPanelProps) {
   const modelPasses = passes.filter((pass) => pass.kind === "model");
+  const hasStructuralPasses = structuralPasses(passes).length > 0;
+  const busy = runningPassId !== null || structuralRunning;
 
   return (
     <section className="border-t border-stone-300">
@@ -48,6 +58,22 @@ export function ModelPassesPanel({
         <span className="text-xs text-stone-500">
           {criticName === null ? "No critic assigned" : `Critic: ${criticName}`}
         </span>
+      </div>
+
+      <div className="border-b border-stone-200 px-4 py-2">
+        <button
+          type="button"
+          onClick={onRunStructural}
+          disabled={!hasStructuralPasses || busy}
+          title={
+            hasStructuralPasses
+              ? "Run every enabled document-scope Pass"
+              : "Enable a structural Pass first"
+          }
+          className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {structuralRunning ? "Running structural set…" : "Run structural set"}
+        </button>
       </div>
 
       <label className="flex items-center gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
@@ -109,7 +135,7 @@ export function ModelPassesPanel({
                 ) : (
                   <button
                     type="button"
-                    disabled={!pass.enabled || runningPassId !== null}
+                    disabled={!pass.enabled || busy}
                     onClick={() => onRun(pass.id)}
                     className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >

@@ -1,4 +1,4 @@
-import type { Pass } from "./pass";
+import type { Pass, PassScope } from "./pass";
 
 /**
  * The rule Passes that ship with Obelus. Each carries one `RuleConfig` field,
@@ -172,16 +172,70 @@ const PARAGRAPH_REPORTING_CLAUSE =
   "paragraph. Do not praise the writing and do not suggest replacement prose.";
 
 /**
- * The prompt clauses the constitution depends on. The harness checks them over
- * every model Pass it runs, and the Starter-pack test checks them over every
- * paragraph-scope prompt in the pack, so "constitution-safe" has one definition
- * rather than a copy in each place that checks it.
+ * The prompt shape every document-scope (structural) model Pass shares: the
+ * task and the whole Document. Story 48 is why the Document is here at all — a
+ * Pass asked to reason about Paragraph order must be able to see the order. It
+ * is one function so the structural passes cannot drift apart in the part of
+ * the prompt the constitution depends on, and so the `{{document}}` placeholder
+ * is filled for them by construction.
  */
-export const CONSTITUTION_PROMPT_CLAUSES: { name: string; pattern: RegExp }[] = [
-  { name: "analyze only the target", pattern: /analyze only this paragraph/i },
+export function documentPassPrompt(intro: string, task: string): string {
+  return [
+    intro,
+    "",
+    "Analyze only the document below.",
+    "",
+    "Title: {{title}}",
+    "",
+    "Outline (headings only):",
+    "{{outline}}",
+    "",
+    "DOCUMENT:",
+    "{{document}}",
+    "",
+    task,
+  ].join("\n");
+}
+
+/**
+ * The reporting clause every document-scope model Pass shares. It carries the
+ * two clauses the constitution harness checks for — no praise and no
+ * replacement prose — and names the Anchor a Finding needs: a quote and its
+ * zero-based offset in the whole Document, because the whole Document is the
+ * target.
+ */
+const DOCUMENT_REPORTING_CLAUSE =
+  "For each problem, quote the exact span from the document, give its zero-based offset " +
+  "within the document, a short issue label and a diagnosis. Report only problems in the " +
+  "document. Do not praise the writing and do not suggest replacement prose.";
+
+export interface ConstitutionPromptClause {
+  name: string;
+  pattern: RegExp;
+}
+
+/** Clauses every model prompt keeps, whatever its scope. */
+const SHARED_PROMPT_CLAUSES: ConstitutionPromptClause[] = [
   { name: "no praise", pattern: /do not praise/i },
   { name: "no replacement prose", pattern: /do not suggest replacement prose/i },
 ];
+
+/** The clause that names the one target a Pass's scope is allowed to analyze. */
+const SCOPE_PROMPT_CLAUSE: Record<PassScope, ConstitutionPromptClause> = {
+  paragraph: { name: "analyze only this paragraph", pattern: /analyze only this paragraph/i },
+  section: { name: "analyze only the section", pattern: /analyze only the section/i },
+  document: { name: "analyze only the document", pattern: /analyze only the document/i },
+};
+
+/**
+ * The clauses one model Pass's prompt must keep. A local Pass that names the
+ * whole document fails here, and so does a structural Pass that names a
+ * paragraph, so the scope and the target the prompt names stay in step. The
+ * harness and the Starter-pack test share this one definition.
+ */
+export function constitutionPromptClauses(scope: PassScope): ConstitutionPromptClause[] {
+  return [SCOPE_PROMPT_CLAUSE[scope], ...SHARED_PROMPT_CLAUSES];
+}
 
 /**
  * Story 40: the actor should be the subject and the action should be the verb.
@@ -308,10 +362,64 @@ export const CLAIM_STRENGTH_PASS: Pass = {
 };
 
 /**
+ * Story 41: cohesion across sentences, and the stress position — the slot at
+ * the end of a sentence where the important new thing belongs. Enabled by
+ * default (DESIGN §4, pass 8).
+ */
+export const TOPIC_STRINGS_PASS: Pass = {
+  id: "topic-strings",
+  name: "Topic strings and stress position",
+  description:
+    "Flags where consecutive sentences fail to cohere, and where the important new thing is " +
+    "buried rather than placed at the stress position.",
+  kind: "model",
+  scope: "document",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  prompt: documentPassPrompt(
+    "Check a whole piece of writing for cohesion across sentence and paragraph boundaries.",
+    [
+      "Flag places where consecutive sentences or paragraphs fail to cohere: where the topic",
+      "string does not carry the reader forward, or where a sentence's important new information",
+      "is buried instead of placed at the stress position at the end. Say in the diagnosis what",
+      "the reader is asked to hold on to and where the sentence puts its weight.",
+      DOCUMENT_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/**
+ * Story 42: the satisfying structural wins without hunting for them. Shipped
+ * disabled (DESIGN §4, pass 9): moving Paragraphs is the most disruptive advice
+ * in the pack, so the Writer asks for it deliberately.
+ */
+export const PARAGRAPH_REORDER_PASS: Pass = {
+  id: "paragraph-reorder",
+  name: "Paragraphs that could move",
+  description: "Proposes paragraphs whose order could change for the better without loss.",
+  kind: "model",
+  scope: "document",
+  output: "findings",
+  slot: "critic",
+  enabled: false,
+  prompt: documentPassPrompt(
+    "Check the order of paragraphs in a whole piece of writing.",
+    [
+      "Flag a small number of paragraphs whose order could change — moved earlier or later —",
+      "without losing the thread. Quote the paragraph, and say in the diagnosis where it could",
+      "move and why the piece would read better for it.",
+      DOCUMENT_REPORTING_CLAUSE,
+    ].join("\n"),
+  ),
+};
+
+/**
  * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
- * the paragraph-scope model passes in the same order: characters and actions
- * (off), paragraph unity, cut candidates, cliché and headline-ese (the one #4
- * shipped), claim strength. The document-scope model passes ship with #7.
+ * the model passes in the same order: characters and actions (off), topic
+ * strings and stress position, paragraphs that could move (off), paragraph
+ * unity, cut candidates, cliché and headline-ese (the one #4 shipped), claim
+ * strength. The document-scope model passes ship with #7.
  *
  * `enabled` here is only the default: the Writer's toggle is persisted, and
  * `loadOrCreatePasses` seeds a Starter pass only when its id is missing, so an
@@ -324,6 +432,8 @@ export const STARTER_PASSES: Pass[] = [
   WORDINESS_PASS,
   REPETITION_PASS,
   CHARACTERS_ACTIONS_PASS,
+  TOPIC_STRINGS_PASS,
+  PARAGRAPH_REORDER_PASS,
   PARAGRAPH_UNITY_PASS,
   CUT_CANDIDATES_PASS,
   CLICHE_PASS,

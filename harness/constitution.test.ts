@@ -21,6 +21,7 @@ import {
   FIXTURE_PRAISE,
   FIXTURE_REWRITE,
   HARNESS_DOCUMENTS,
+  HARNESS_DOCUMENT_PASSES,
   HARNESS_PASSES,
 } from "./fixtures";
 import { storeHarnessReport } from "./store";
@@ -28,6 +29,7 @@ import { storeHarnessReport } from "./store";
 const RAN_AT = Date.UTC(2026, 8, 19, 12, 0, 0);
 
 let report: HarnessReport;
+let documentReport: HarnessReport;
 let transports: FixtureTransport[];
 
 beforeAll(async () => {
@@ -46,6 +48,15 @@ beforeAll(async () => {
       transports.push(transport);
       return transport;
     },
+  });
+
+  documentReport = await runConstitutionHarness({
+    connection: connection(),
+    documents: HARNESS_DOCUMENTS,
+    passes: HARNESS_DOCUMENT_PASSES,
+    screeningFrame: true,
+    transportFor: (testCase) =>
+      createFixtureTransport({ respond: () => adversarialResponse(testCase.target) }),
   });
 });
 
@@ -115,6 +126,31 @@ describe("constitution harness", () => {
   it("asserts every Pass prompt keeps the constitution's clauses", () => {
     for (const testCase of report.cases) {
       expect(check(testCase, "promptConstitution").ok).toBe(true);
+    }
+  });
+
+  it("runs three fixture Documents × the two document-scope model Passes", () => {
+    expect(HARNESS_DOCUMENT_PASSES).toHaveLength(2);
+    expect(documentReport.cases).toHaveLength(6);
+    expect(documentReport.ok).toBe(true);
+  });
+
+  it("holds the document-scope prompts to the same four properties", () => {
+    for (const testCase of documentReport.cases) {
+      expect(testCase.error).toBeNull();
+      expect(testCase.findings.length).toBeGreaterThan(0);
+      // The whole Document is the Target, so the fixture's context-above
+      // Finding is inside it: nothing is dropped for a structural Pass.
+      expect(testCase.droppedAnchors).toBe(0);
+      for (const name of [
+        "parses",
+        "praiseFlagged",
+        "noRewriteField",
+        "anchorsContained",
+        "promptConstitution",
+      ] as const) {
+        expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
+      }
     }
   });
 

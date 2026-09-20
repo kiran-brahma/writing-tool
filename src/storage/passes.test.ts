@@ -31,6 +31,8 @@ describe("loadOrCreatePasses", () => {
       "wordiness",
       "repetition",
       "characters-actions",
+      "topic-strings",
+      "paragraph-reorder",
       "paragraph-unity",
       "cut-candidates",
       "cliche",
@@ -45,6 +47,8 @@ describe("loadOrCreatePasses", () => {
     ]);
     expect(passes.filter((pass) => pass.kind === "model").map((pass) => pass.id)).toEqual([
       "characters-actions",
+      "topic-strings",
+      "paragraph-reorder",
       "paragraph-unity",
       "cut-candidates",
       "cliche",

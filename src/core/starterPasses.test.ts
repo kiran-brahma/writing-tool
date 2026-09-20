@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONSTITUTION_PROMPT_CLAUSES, STARTER_PASSES } from "./starterPasses";
+import { constitutionPromptClauses, STARTER_PASSES } from "./starterPasses";
 
 /**
  * The Starter pack is data, but which data ships — its scope, its output shape,
@@ -10,21 +10,28 @@ import { CONSTITUTION_PROMPT_CLAUSES, STARTER_PASSES } from "./starterPasses";
  */
 
 /**
- * The paragraph-scope Starter model passes, in pack order, with the default
- * `enabled` flag DESIGN §4 gives them and a phrase each prompt must carry so a
- * prompt cannot be swapped for another pass's. Characters and actions is the
- * one that ships off; the other four are on.
+ * The Starter model passes, in pack (DESIGN §4 numeric) order, with the scope
+ * and default `enabled` flag DESIGN §4 gives them and a phrase each prompt must
+ * carry so a prompt cannot be swapped for another pass's. Characters and actions
+ * and paragraphs that could move both ship off; the rest are on.
  */
-const EXPECTED_MODEL_PASSES: { id: string; enabled: boolean; looksFor: RegExp }[] = [
-  { id: "characters-actions", enabled: false, looksFor: /actor/i },
-  { id: "paragraph-unity", enabled: true, looksFor: /more than one idea/i },
-  { id: "cut-candidates", enabled: true, looksFor: /cut without loss/i },
-  { id: "cliche", enabled: true, looksFor: /cliché/i },
-  { id: "claim-strength", enabled: true, looksFor: /hedge/i },
+const EXPECTED_MODEL_PASSES: {
+  id: string;
+  scope: "paragraph" | "document";
+  enabled: boolean;
+  looksFor: RegExp;
+}[] = [
+  { id: "characters-actions", scope: "paragraph", enabled: false, looksFor: /actor/i },
+  { id: "topic-strings", scope: "document", enabled: true, looksFor: /cohere|stress position/i },
+  { id: "paragraph-reorder", scope: "document", enabled: false, looksFor: /could change/i },
+  { id: "paragraph-unity", scope: "paragraph", enabled: true, looksFor: /more than one idea/i },
+  { id: "cut-candidates", scope: "paragraph", enabled: true, looksFor: /cut without loss/i },
+  { id: "cliche", scope: "paragraph", enabled: true, looksFor: /cliché/i },
+  { id: "claim-strength", scope: "paragraph", enabled: true, looksFor: /hedge/i },
 ];
 
 describe("Starter model passes", () => {
-  it("registers the five paragraph-scope model passes in the Starter pack", () => {
+  it("registers every rule and model pass in the Starter pack", () => {
     expect(STARTER_PASSES.map((pass) => pass.id)).toEqual([
       "hedges",
       "nominalizations",
@@ -32,6 +39,8 @@ describe("Starter model passes", () => {
       "wordiness",
       "repetition",
       "characters-actions",
+      "topic-strings",
+      "paragraph-reorder",
       "paragraph-unity",
       "cut-candidates",
       "cliche",
@@ -39,17 +48,17 @@ describe("Starter model passes", () => {
     ]);
   });
 
-  it("gives every registered model Pass a unique id and the paragraph scope", () => {
+  it("gives every registered model Pass a unique id, its scope and its output shape", () => {
     const ids = STARTER_PASSES.map((pass) => pass.id);
     expect(new Set(ids).size).toBe(ids.length);
 
     const modelIds = STARTER_PASSES.filter((pass) => pass.kind === "model").map((pass) => pass.id);
     expect(modelIds).toEqual(EXPECTED_MODEL_PASSES.map((entry) => entry.id));
 
-    for (const { id, enabled } of EXPECTED_MODEL_PASSES) {
+    for (const { id, scope, enabled } of EXPECTED_MODEL_PASSES) {
       expect(STARTER_PASSES.find((pass) => pass.id === id)).toMatchObject({
         kind: "model",
-        scope: "paragraph",
+        scope,
         output: "findings",
         slot: "critic",
         enabled,
@@ -57,13 +66,21 @@ describe("Starter model passes", () => {
     }
   });
 
-  it("checks every paragraph-scope model prompt for the constitution clauses", () => {
+  it("ships the structural passes at document scope and the local passes at paragraph scope", () => {
+    const scopeOf = (id: string) => STARTER_PASSES.find((pass) => pass.id === id)?.scope;
+
+    expect(scopeOf("topic-strings")).toBe("document");
+    expect(scopeOf("paragraph-reorder")).toBe("document");
+    expect(scopeOf("cliche")).toBe("paragraph");
+  });
+
+  it("checks every model prompt for the clauses its scope requires", () => {
     const modelPasses = STARTER_PASSES.filter((pass) => pass.kind === "model");
     expect(modelPasses).toHaveLength(EXPECTED_MODEL_PASSES.length);
 
     for (const pass of modelPasses) {
       const prompt = pass.prompt ?? "";
-      for (const clause of CONSTITUTION_PROMPT_CLAUSES) {
+      for (const clause of constitutionPromptClauses(pass.scope)) {
         expect(prompt, `${pass.id} is missing "${clause.name}"`).toMatch(clause.pattern);
       }
     }

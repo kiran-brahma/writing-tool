@@ -58,3 +58,15 @@ function fnv1a(value: string): string {
   }
   return hash.toString(16).padStart(8, "0");
 }
+
+/**
+ * Story 37: the structural set — the enabled model Passes whose scope is the
+ * whole document. The rule lives here rather than in the shell so the
+ * "Run structural set" button and the action it triggers cannot disagree about
+ * what the set contains, and so the rule is testable without a DOM.
+ */
+export function structuralPasses(passes: Pass[]): Pass[] {
+  return passes.filter(
+    (pass) => pass.kind === "model" && pass.scope === "document" && pass.enabled,
+  );
+}

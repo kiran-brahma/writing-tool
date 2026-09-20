@@ -22,6 +22,11 @@ export interface DocumentEditorProps {
    * selection is collapsed.
    */
   onSelectionChange?: (interval: Interval | null) => void;
+  /**
+   * A Section heading the Writer asked to jump to. The `nonce` changes on every
+   * click, so clicking the same heading twice still moves the cursor.
+   */
+  jumpRequest?: { blockIndex: number; nonce: number } | null;
 }
 
 /**
@@ -36,6 +41,7 @@ export function DocumentEditor({
   highlights,
   onTargetChange,
   onSelectionChange,
+  jumpRequest,
 }: DocumentEditorProps) {
   const [, refresh] = useReducer((count: number) => count + 1, 0);
   const lastTargetRef = useRef(-1);
@@ -89,6 +95,21 @@ export function DocumentEditor({
     const ranges = projectIntervals(editor.getJSON() as unknown as DocTree, highlights);
     setHighlightRanges(editor, ranges);
   }, [editor, highlights]);
+
+  useEffect(() => {
+    if (editor === null || jumpRequest == null) return;
+    const { blockIndex } = jumpRequest;
+    if (blockIndex < 0 || blockIndex >= editor.state.doc.childCount) return;
+
+    // The Editor counts positions the way ProseMirror does: a top-level block's
+    // inline content begins one position past its start, and each preceding
+    // sibling costs its own node size.
+    let position = 1;
+    for (let index = 0; index < blockIndex; index += 1) {
+      position += editor.state.doc.child(index).nodeSize;
+    }
+    editor.chain().focus().setTextSelection(position).scrollIntoView().run();
+  }, [editor, jumpRequest]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

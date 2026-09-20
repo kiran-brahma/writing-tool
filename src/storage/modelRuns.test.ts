@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
 import { responseKey } from "../core/finding";
 import { hashPass } from "../core/pass";
-import { passContext } from "../core/passContext";
-import { CLICHE_PASS } from "../core/starterPasses";
+import { passContext, documentContext } from "../core/passContext";
+import { CLICHE_PASS, TOPIC_STRINGS_PASS } from "../core/starterPasses";
 import type { Target } from "../core/critique";
 import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../wire/connection";
 import { createFixtureTransport } from "../wire/fixtureTransport";
@@ -164,5 +164,30 @@ describe("runModelPass", () => {
     const stored = await listRunResponses(database, document.id);
     expect(stored[responseKey(CLICHE_PASS.id, hashPass(CLICHE_PASS))]).toBe(RESPONSE);
     expect(stored[responseKey(edited.id, hashPass(edited))]).toBe(secondResponse);
+  });
+
+  it("persists a document-scope Pass's Finding that a local Pass would have dropped", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const wholeDocument = documentContext(document.tree, document.title);
+    if (wholeDocument === null) throw new Error("fixture has no document text");
+
+    // "Context paragraph." sits above the Paragraph a local Pass on block 1 is
+    // shown, so the paragraph Target would drop this Finding as context. The
+    // document Target is the whole Document, so it is inside the target.
+    const anchoredAbove = JSON.stringify({
+      findings: [{ issue: "Cohesion", diagnosis: "D", quote: "Context", offset: 0 }],
+    });
+    const run = await runModelPass(database, document, {
+      ...runOptions(document, anchoredAbove),
+      pass: TOPIC_STRINGS_PASS,
+      target: wholeDocument,
+    });
+
+    expect(run.findings).toHaveLength(1);
+    expect(run.droppedAnchors).toBe(0);
+    await expect(
+      listFindingsForPass(database, document.id, TOPIC_STRINGS_PASS.id),
+    ).resolves.toHaveLength(1);
   });
 });

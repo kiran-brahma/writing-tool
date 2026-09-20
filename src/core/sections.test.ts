@@ -38,6 +38,23 @@ describe("sections", () => {
     );
   });
 
+  it("carries each heading's level so the outline can nest", () => {
+    const derived = sections(
+      doc(heading(2, "Part"), paragraph("Body."), heading(3, "Detail"), paragraph("More.")),
+    );
+
+    expect(derived.map((section) => section.level)).toEqual([2, 3]);
+  });
+
+  it("defaults a heading with no attrs to level 1", () => {
+    const noLevel: DocTree = {
+      type: "doc",
+      content: [{ type: "heading", content: [{ type: "text", text: "Bare" }] }],
+    };
+
+    expect(sections(noLevel)[0]?.level).toBe(1);
+  });
+
   it("finds the Section a block belongs to", () => {
     expect(sectionAt(TREE, 0)?.heading).toBe("Title");
     expect(sectionAt(TREE, 1)?.heading).toBe("Title");

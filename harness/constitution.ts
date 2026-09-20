@@ -4,8 +4,8 @@ import { critique, type Target } from "../src/core/critique";
 import { describeError } from "../src/errors";
 import type { Finding, Violation } from "../src/core/finding";
 import type { Pass } from "../src/core/pass";
-import { passContext } from "../src/core/passContext";
-import { CONSTITUTION_PROMPT_CLAUSES } from "../src/core/starterPasses";
+import { targetForPass } from "../src/core/passContext";
+import { constitutionPromptClauses } from "../src/core/starterPasses";
 import { extractJson } from "../src/core/parseFindings";
 import type { Connection } from "../src/wire/connection";
 import type { Transport } from "../src/wire/transport";
@@ -90,7 +90,7 @@ export async function runConstitutionHarness(
 
   for (const document of options.documents) {
     for (const pass of options.passes) {
-      const target = passContext(document.tree, document.targetBlockIndex, document.title);
+      const target = targetForPass(pass, document.tree, document.targetBlockIndex, document.title);
       if (target === null) {
         cases.push(
           failureCase(
@@ -133,7 +133,7 @@ async function runCase(
     parseCheck(run.rawResponse),
     praiseCheck(run.violations),
     rewriteCheck(run.findings, run.violations),
-    containmentCheck(run.findings, testCase.target, run.droppedAnchors),
+    containmentCheck(run.findings, testCase.target, run.droppedAnchors, pass.scope),
     promptCheck(pass),
   ];
 
@@ -194,25 +194,35 @@ function rewriteCheck(findings: Finding[], violations: Violation[]): HarnessChec
   };
 }
 
-function containmentCheck(findings: Finding[], target: Target, dropped: number): HarnessCheck {
+function containmentCheck(
+  findings: Finding[],
+  target: Target,
+  dropped: number,
+  scope: Pass["scope"],
+): HarnessCheck {
   const outside = findings.filter(
     (finding) => !isContained(resolveAnchor(finding.anchor, target.canonical), target.interval),
   );
-  const ok = outside.length === 0 && dropped === FIXTURE_DROPPED;
+  // A structural Pass is shown the whole Document, so the fixture's
+  // context-above Finding is inside its Target and must be kept, not dropped.
+  const expectedDropped = scope === "document" ? 0 : FIXTURE_DROPPED;
+  const ok = outside.length === 0 && dropped === expectedDropped;
 
   return {
     name: "anchorsContained",
     ok,
     detail: ok
       ? `Every kept Finding anchored inside the Target; ${dropped} outside Finding(s) dropped.`
-      : `${outside.length} kept Finding(s) fell outside the Target; dropped=${dropped}, expected ${FIXTURE_DROPPED}.`,
+      : `${outside.length} kept Finding(s) fell outside the Target; dropped=${dropped}, expected ${expectedDropped}.`,
   };
 }
 
 /** The prompt clauses the constitution depends on; a Pass that drops one fails. */
 function promptCheck(pass: Pass): HarnessCheck {
   const prompt = pass.prompt ?? "";
-  const missing = CONSTITUTION_PROMPT_CLAUSES.filter((clause) => !clause.pattern.test(prompt));
+  const missing = constitutionPromptClauses(pass.scope).filter(
+    (clause) => !clause.pattern.test(prompt),
+  );
   return {
     name: "promptConstitution",
     ok: missing.length === 0,

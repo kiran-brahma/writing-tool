@@ -4,7 +4,7 @@ import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTr
 import { critique, type RunConfig, type Target } from "./critique";
 import type { BlockNode, DocTree } from "./docTree";
 import { hashPass, type Pass } from "./pass";
-import { passContext } from "./passContext";
+import { passContext, documentContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
 import { SCREENING_FRAME } from "./screeningFrame";
 import { CLICHE_PASS, STARTER_PASSES } from "./starterPasses";
@@ -235,9 +235,12 @@ describe("critique", () => {
 /**
  * Story 36, and #19's acceptance: every paragraph-scope Starter model Pass runs
  * through the one seam and reports Findings anchored in the Target. A shared
- * path is not the same as a working pass, so each is exercised by name.
+ * path is not the same as a working pass, so each is exercised by name. The
+ * document-scope passes are exercised against a document target below.
  */
-const STARTER_MODEL_PASSES = STARTER_PASSES.filter((pass) => pass.kind === "model");
+const STARTER_MODEL_PASSES = STARTER_PASSES.filter(
+  (pass) => pass.kind === "model" && pass.scope === "paragraph",
+);
 
 describe("critique over the Starter model pack", () => {
   it.each(STARTER_MODEL_PASSES)("runs the $name Pass and reports its Findings", async (pass) => {
@@ -253,4 +256,59 @@ describe("critique over the Starter model pack", () => {
       anchor: { quote: "Bravo", state: "attached" },
     });
   });
+});
+
+/**
+ * Story 48, and #7's acceptance: a structural Pass receives the whole Document,
+ * so its advice about Paragraph order comes from something that can see the
+ * order. Running one against a document Target proves both halves — the whole
+ * text is sent, and a Finding anchored anywhere in it is kept rather than
+ * dropped by the local Containment rule.
+ */
+const DOCUMENT_RESPONSE = JSON.stringify({
+  findings: [
+    { issue: "Cohesion drops", diagnosis: "The topic string does not carry forward.", quote: "Alpha", offset: 0 },
+    { issue: "Weight lands early", diagnosis: "The stress position is buried.", quote: "Echo", offset: 0 },
+  ],
+});
+
+describe("critique over a document-scope Pass", () => {
+  const STARTER_DOCUMENT_PASSES = STARTER_PASSES.filter(
+    (pass) => pass.kind === "model" && pass.scope === "document",
+  );
+
+  function wholeDocument(): Target {
+    const built = documentContext(TREE, "My Title");
+    if (built === null) throw new Error("fixture has no document text");
+    return built;
+  }
+
+  it.each(STARTER_DOCUMENT_PASSES)(
+    "sends the whole Document through the $name Pass's {{document}} placeholder",
+    async (pass) => {
+      const { transport, config } = fixture(DOCUMENT_RESPONSE);
+
+      await critique(wholeDocument(), pass, connection(), config);
+
+      const prompt = userMessage(transport.requests[0].body);
+      expect(prompt).toContain("Alpha paragraph one.");
+      expect(prompt).toContain("Delta paragraph four.");
+      expect(prompt).toContain("Echo paragraph five.");
+    },
+  );
+
+  it.each(STARTER_DOCUMENT_PASSES)(
+    "keeps a Finding anchored anywhere in the Document for the $name Pass",
+    async (pass) => {
+      const { config } = fixture(DOCUMENT_RESPONSE);
+
+      const run = await critique(wholeDocument(), pass, connection(), config);
+
+      expect(run.findings.map((finding) => finding.issue)).toEqual([
+        "Cohesion drops",
+        "Weight lands early",
+      ]);
+      expect(run.droppedAnchors).toBe(0);
+    },
+  );
 });

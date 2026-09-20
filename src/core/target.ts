@@ -18,4 +18,10 @@ export interface Target {
   outline: string;
   contextAbove: string;
   contextBelow: string;
+  /**
+   * The value of the `{{document}}` placeholder: the whole Document for a
+   * structural (document-scope) Pass, and empty for a paragraph- or
+   * section-scope Pass, which never receives body text beyond its Target.
+   */
+  documentText: string;
 }

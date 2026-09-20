@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import type { Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
-import { sectionAt } from "./core/sections";
+import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
 import { JudgePanel } from "./editor/JudgePanel";
 import { MetricsPanel } from "./editor/MetricsPanel";
 import { ModelPassesPanel } from "./editor/ModelPassesPanel";
+import { OutlinePanel } from "./editor/OutlinePanel";
 import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
@@ -32,10 +33,12 @@ export default function App() {
     targetBlockIndex,
     setTargetBlockIndex,
     runningPassId,
+    structuralRunning,
     runStartedAt,
     runError,
     lastRunReport,
     runModelPass,
+    runStructuralSet,
     screeningFrame,
     setScreeningFrame,
     rawResponses,
@@ -72,9 +75,27 @@ export default function App() {
   const [editorGeneration, setEditorGeneration] = useState(0);
   /** The Writer's current text selection, as a canonical interval. */
   const [selectionInterval, setSelectionInterval] = useState<Interval | null>(null);
+  /** A heading the Writer asked to jump to; the nonce lets a repeat click move again. */
+  const [jumpRequest, setJumpRequest] = useState<{ blockIndex: number; nonce: number } | null>(
+    null,
+  );
 
   const openQueue = useMemo(() => openFindings(findings, passes), [findings, passes]);
   const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
+
+  /** Story 25: the outline, derived from the Document's headings. */
+  const outlineSections = useMemo(
+    () => (document === null ? [] : sections(document.tree)),
+    [document],
+  );
+  /** The Section the cursor is in, so the outline can mark the Writer's place. */
+  const activeSection = useMemo(
+    () => (document === null ? null : sectionAt(document.tree, targetBlockIndex)),
+    [document, targetBlockIndex],
+  );
+  const jumpToSection = useCallback((blockIndex: number) => {
+    setJumpRequest((current) => ({ blockIndex, nonce: (current?.nonce ?? 0) + 1 }));
+  }, []);
 
   /** The selected span, or null when the selection is collapsed. */
   const selection = useMemo(() => {
@@ -84,10 +105,9 @@ export default function App() {
 
   /** The Section the cursor is in, ready to be projected across Revisions. */
   const section = useMemo(() => {
-    if (document === null) return null;
-    const found = sectionAt(document.tree, targetBlockIndex);
-    return found === null ? null : selectionAnchorFor(document.canonical, found.interval);
-  }, [document, targetBlockIndex]);
+    if (document === null || activeSection === null) return null;
+    return selectionAnchorFor(document.canonical, activeSection.interval);
+  }, [document, activeSection]);
 
   /**
    * Runs a queue write and, when it stored, moves the selection to the Finding
@@ -242,11 +262,18 @@ export default function App() {
               highlights={highlights}
               onTargetChange={setTargetBlockIndex}
               onSelectionChange={setSelectionInterval}
+              jumpRequest={jumpRequest}
             />
           )}
         </main>
 
         <aside className="flex w-96 flex-col overflow-y-auto border-l border-stone-200 bg-stone-100/60">
+          <OutlinePanel
+            sections={outlineSections}
+            activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
+            onJump={jumpToSection}
+          />
+
           <MetricsPanel canonical={document?.canonical ?? ""} />
 
           <section className="border-b border-stone-300 bg-stone-100/60">
@@ -286,12 +313,14 @@ export default function App() {
           <ModelPassesPanel
             passes={passes}
             runningPassId={runningPassId}
+            structuralRunning={structuralRunning}
             runningSince={runStartedAt}
             lastRunReport={lastRunReport}
             runError={runError}
             criticName={criticConnection?.name ?? null}
             screeningFrame={screeningFrame}
             onRun={(passId) => void runModelPass(passId)}
+            onRunStructural={() => void runStructuralSet()}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
             onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
           />

@@ -4,6 +4,8 @@ import {
   CLAIM_STRENGTH_PASS,
   CLICHE_PASS,
   CUT_CANDIDATES_PASS,
+  PARAGRAPH_REORDER_PASS,
+  TOPIC_STRINGS_PASS,
 } from "../src/core/starterPasses";
 import type { Target } from "../src/core/critique";
 
@@ -127,6 +129,15 @@ export const HARNESS_DOCUMENTS: HarnessDocument[] = [
 
 /** Exactly three real Starter model Passes: the matrix's other axis. */
 export const HARNESS_PASSES: Pass[] = [CLICHE_PASS, CLAIM_STRENGTH_PASS, CUT_CANDIDATES_PASS];
+
+/**
+ * The two document-scope Starter Passes, run over the same fixtures as a second
+ * matrix. They exercise the structural prompt shape and the whole-Document
+ * Target, which the paragraph matrix above cannot: the `{{document}}`
+ * placeholder must carry the whole Document, and a Finding anchored in what a
+ * local Pass would call context must be kept.
+ */
+export const HARNESS_DOCUMENT_PASSES: Pass[] = [TOPIC_STRINGS_PASS, PARAGRAPH_REORDER_PASS];
 
 /**
  * The misbehaving model response every case receives. It carries:

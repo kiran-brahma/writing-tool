@@ -8,8 +8,8 @@ import {
   sameModelWarning as sameModelWarningFor,
   type JudgeResult,
 } from "./core/judge";
-import type { Pass, RuleConfig } from "./core/pass";
-import { passContext } from "./core/passContext";
+import { structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
+import { targetForPass } from "./core/passContext";
 import { STARTER_PASSES } from "./core/starterPasses";
 import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
@@ -69,6 +69,8 @@ export interface DocumentHandle {
   setTargetBlockIndex: (index: number) => void;
   /** The Pass currently running, or null. */
   runningPassId: string | null;
+  /** True while the structural set is working through its document-scope Passes. */
+  structuralRunning: boolean;
   /** When the running Pass started, for the elapsed timer. */
   runStartedAt: number | null;
   /** A model Run's failure, surfaced verbatim rather than swallowed. */
@@ -77,6 +79,8 @@ export interface DocumentHandle {
   lastRunReport: RunReport | null;
   /** Story 36: run one model Pass on demand against the current Target. */
   runModelPass: (passId: string) => Promise<RunResult | null>;
+  /** Story 37: run every enabled document-scope Pass in one action. */
+  runStructuralSet: () => Promise<void>;
   /** Stories 76, 77: the Critic's Screening frame, a settable global toggle. */
   screeningFrame: boolean;
   setScreeningFrame: (enabled: boolean) => Promise<void>;
@@ -150,6 +154,7 @@ export function useDocument(): DocumentHandle {
   const [slots, setSlots] = useState<SlotAssignment>({ critic: null, judge: null });
   const [targetBlockIndex, setTargetBlockIndex] = useState(0);
   const [runningPassId, setRunningPassId] = useState<string | null>(null);
+  const [structuralRunning, setStructuralRunning] = useState(false);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [lastRunReport, setLastRunReport] = useState<DocumentHandle["lastRunReport"]>(null);
@@ -488,12 +493,15 @@ export function useDocument(): DocumentHandle {
   );
 
   const runInFlightRef = useRef(false);
+  /** Guards the structural set against a second click before its state renders. */
+  const structuralInFlightRef = useRef(false);
 
   /**
-   * Story 36: one model Pass on demand against the current Target. The Target is
-   * the Paragraph the cursor is in; the Run goes out through the one seam and
-   * its Findings are persisted alongside the rule Findings. A failure is
-   * surfaced as `runError`, never swallowed.
+   * Story 36: one model Pass on demand against the Target its scope permits —
+   * the cursor's Paragraph for a local Pass, the cursor's Section for a section
+   * Pass, the whole Document for a structural Pass. The Run goes out through the
+   * one seam and its Findings are persisted alongside the rule Findings. A
+   * failure is surfaced as `runError`, never swallowed.
    */
   const runModelPass = useCallback(
     async (passId: string): Promise<RunResult | null> => {
@@ -514,9 +522,9 @@ export function useDocument(): DocumentHandle {
         return null;
       }
 
-      const target = passContext(current.tree, targetBlockIndex, current.title);
+      const target = targetForPass(pass, current.tree, targetBlockIndex, current.title);
       if (target === null) {
-        setRunError("Add a paragraph before running a local Pass.");
+        setRunError(noTargetMessage(pass.scope));
         return null;
       }
 
@@ -552,6 +560,34 @@ export function useDocument(): DocumentHandle {
     },
     [criticConnection, refreshFindings, screeningFrame, targetBlockIndex],
   );
+
+  /**
+   * Story 37: the structural set in one action. It runs every enabled
+   * document-scope model Pass, one after another, so the Writer does not have
+   * to trigger them by hand. A failure stops the set — `runModelPass` has
+   * already surfaced it — rather than spending more requests on a Connection
+   * that just refused one.
+   */
+  const runStructuralSet = useCallback(async (): Promise<void> => {
+    if (structuralInFlightRef.current) return;
+    const structural = structuralPasses(passesRef.current);
+    if (structural.length === 0) {
+      setRunError("Enable a structural Pass before running the structural set.");
+      return;
+    }
+
+    structuralInFlightRef.current = true;
+    setStructuralRunning(true);
+    try {
+      for (const pass of structural) {
+        const result = await runModelPass(pass.id);
+        if (result === null) return;
+      }
+    } finally {
+      structuralInFlightRef.current = false;
+      setStructuralRunning(false);
+    }
+  }, [runModelPass]);
 
   /**
    * Story 78: the Judge end to end. The Writer has already seen both extracted
@@ -662,10 +698,12 @@ export function useDocument(): DocumentHandle {
     targetBlockIndex,
     setTargetBlockIndex,
     runningPassId,
+    structuralRunning,
     runStartedAt,
     runError,
     lastRunReport,
     runModelPass,
+    runStructuralSet,
     screeningFrame,
     setScreeningFrame,
     rawResponses,
@@ -692,6 +730,18 @@ export function useDocument(): DocumentHandle {
     importFromMarkdown,
     exportToMarkdown,
   };
+}
+
+/** Why no Target could be built for a Pass of this scope. */
+function noTargetMessage(scope: PassScope): string {
+  switch (scope) {
+    case "paragraph":
+      return "Add a paragraph before running a local Pass.";
+    case "section":
+      return "Put the cursor inside a Section before running a Section Pass.";
+    case "document":
+      return "Add some text before running a structural Pass.";
+  }
 }
 
 /** Replace one Connection in the list, or append it if it is new. */
