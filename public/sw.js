@@ -23,6 +23,7 @@
 const CACHE_NAME = "obelus-shell-v1";
 const ASSET_PREFIX = "/assets/";
 const SHELL_STATIC_URLS = ["/manifest.webmanifest", "/icon.svg"];
+const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font", "manifest"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(installShell());
@@ -55,10 +56,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Only the shell's static assets are cached. Everything else same-origin —
-  // including a Custom Connection pointed at this origin — passes through, so
-  // an authenticated or `Vary`-ing response can never be stored or replayed.
-  if (!isShellAsset(url.pathname)) return;
+  // Only the shell's own static subresources are cached. A provider call is a
+  // `fetch()` with an empty destination, so even a Custom Connection pointed at
+  // this origin is passed through and can never be stored or replayed.
+  if (!isCacheableShellAsset(request, url.pathname)) return;
   event.respondWith(cacheFirst(request));
 });
 
@@ -127,11 +128,13 @@ async function syncShellAssets(cache, html) {
   );
 }
 
-function isShellAsset(pathname) {
-  return (
-    pathname.startsWith(ASSET_PREFIX) ||
-    SHELL_STATIC_URLS.includes(pathname)
-  );
+function isCacheableShellAsset(request, pathname) {
+  // The browser sets a destination for subresources it loads (the built script
+  // and stylesheet, the manifest, the icon) and leaves it empty for every
+  // `fetch()` the app makes. That is what keeps a same-origin Custom Connection
+  // out of the cache however its base URL is shaped.
+  if (!CACHEABLE_DESTINATIONS.has(request.destination)) return false;
+  return pathname.startsWith(ASSET_PREFIX) || SHELL_STATIC_URLS.includes(pathname);
 }
 
 /**
