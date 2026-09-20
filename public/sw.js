@@ -11,12 +11,15 @@
  *  - A new worker takes over immediately (`skipWaiting` + `clients.claim`), and
  *    superseded assets are pruned, so a `wrangler rollback` actually restores
  *    the old shell instead of stranding the new one, and the cache cannot grow
- *    without bound across releases. Bump `CACHE_NAME` when the cache's
- *    semantics change, not on every deploy.
+ *    without bound across releases.
  *  - Only same-origin shell assets are handled. Provider calls and any other
  *    same-origin request are never intercepted, cached or replayed.
  */
 
+// Keyed to the release: bump this on every deploy. A new name is what lets
+// `activate` delete the previous release's cache wholesale, and changing the
+// worker's bytes is what makes the browser install the update. The navigation-
+// time prune below is the safety net for a release that forgets the bump.
 const CACHE_NAME = "obelus-shell-v1";
 const ASSET_PREFIX = "/assets/";
 const SHELL_STATIC_URLS = ["/manifest.webmanifest", "/icon.svg"];

@@ -41,18 +41,32 @@ locked out until forward code returns. The rule is therefore:
 > backup reminder, and ship the behaviour that uses it in the next deploy.
 
 Rolling back a deploy that shipped **no** migration is safe once the service worker is forced to
-advance. `public/sw.js` calls `skipWaiting()` and `clients.claim()` so the rolled-back shell reaches
-the Writer immediately, and it prunes superseded hashed assets on activation and on every successful
-navigation so the cache tracks the current deploy rather than growing without bound. If a migration
-did ship, a rollback is a Library outage until forward code returns.
+advance. `public/sw.js` names its cache for the release (bumped on every deploy), so `activate`
+deletes the previous release's cache wholesale; it also calls `skipWaiting()` and `clients.claim()` so
+the rolled-back shell reaches the Writer immediately, and prunes any asset the current shell no longer
+references on every successful navigation. If a migration did ship, a rollback is a Library outage
+until forward code returns.
 
 ## What enforces it
 
 - `src/storage/obelusDatabase.ts` — the versions and `openObelusDatabase`'s refusal.
 - `src/storage/obelusDatabase.test.ts` — an upgrade path from every prior version with existing data
   intact, and the newer-database refusal leaving the database untouched.
-- `public/sw.js` — `skipWaiting`/`clients.claim`, precached hashed assets, and pruning of superseded
-  assets, so offline opening and rollback both work.
+- `public/sw.js` — a release-keyed cache name, `skipWaiting`/`clients.claim`, precached hashed
+  assets, and navigation-time pruning, so offline opening and rollback both work.
 - The service worker, the CSP header and offline opening are **deploy-time properties**: the
-  in-memory IndexedDB tests prove the logic, not quota, eviction or a partial migration. Verify those
-  in a real browser.
+  in-memory IndexedDB tests prove the logic, not quota, eviction or a partial migration.
+
+## Verifying offline opening
+
+No unit test covers the service worker, the CSP header or offline opening; verify them in a browser
+against a production build (`npm run build && npm run preview`):
+
+1. Load the app and wait for `Application → Service Workers` to show the worker **activated**.
+2. In `Application → Cache Storage → obelus-shell-v1`, confirm the built `index.html`, its hashed
+   `/assets/…` script and stylesheet, the manifest and the icon are cached.
+3. Write in a Document so the Library has content.
+4. Set DevTools → Network to **Offline**, then reload. The shell opens and the Document is there.
+
+The newer-database refusal is covered by `src/storage/obelusDatabase.test.ts`, which seeds a native
+version above `OBELUS_DATABASE_VERSION` and asserts the message and the untouched Library.

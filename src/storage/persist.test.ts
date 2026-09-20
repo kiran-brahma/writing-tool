@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The module holds a page-load guard, so each case imports a fresh copy. The
@@ -14,9 +14,11 @@ function installStorage(storage: StorageStub | undefined): void {
   });
 }
 
-beforeEach(() => {
+async function loadPersist(storage: StorageStub | undefined) {
+  installStorage(storage);
   vi.resetModules();
-});
+  return import("./persist");
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -25,38 +27,31 @@ afterEach(() => {
 describe("requestPersistentStorage", () => {
   it("asks the browser to persist exactly once per page load", async () => {
     const persist = vi.fn(async () => true);
-    installStorage({ persist });
-    const { requestPersistentStorage } = await import("./persist");
+    const { requestPersistentStorage } = await loadPersist({ persist });
 
-    requestPersistentStorage();
-    requestPersistentStorage();
-    await Promise.resolve();
+    await requestPersistentStorage();
+    await requestPersistentStorage();
 
     expect(persist).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when the browser exposes no persist", async () => {
-    installStorage({});
-    const { requestPersistentStorage } = await import("./persist");
+    const { requestPersistentStorage } = await loadPersist({});
 
-    expect(() => requestPersistentStorage()).not.toThrow();
+    await expect(requestPersistentStorage()).resolves.toBeUndefined();
   });
 
   it("does nothing when navigator.storage is absent", async () => {
-    installStorage(undefined);
-    const { requestPersistentStorage } = await import("./persist");
+    const { requestPersistentStorage } = await loadPersist(undefined);
 
-    expect(() => requestPersistentStorage()).not.toThrow();
+    await expect(requestPersistentStorage()).resolves.toBeUndefined();
   });
 
-  it("does not surface a refusal as an unhandled rejection", async () => {
+  it("resolves rather than rejecting when the browser refuses", async () => {
     const persist = vi.fn(() => Promise.reject(new Error("not allowed")));
-    installStorage({ persist });
-    const { requestPersistentStorage } = await import("./persist");
+    const { requestPersistentStorage } = await loadPersist({ persist });
 
-    requestPersistentStorage();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
+    await expect(requestPersistentStorage()).resolves.toBeUndefined();
     expect(persist).toHaveBeenCalledTimes(1);
   });
 });

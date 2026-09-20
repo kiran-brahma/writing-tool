@@ -414,7 +414,7 @@ export function useDocument(): DocumentHandle {
             // Story 115: the browser may evict IndexedDB under storage pressure.
             // Ask it to persist the Library on the first save; the request is
             // idempotent, non-blocking and never fails the save that triggers it.
-            requestPersistentStorage();
+            void requestPersistentStorage();
             setSaveError(null);
             await runRulePasses(database, current, { passes: passesRef.current });
             await refreshFindings(current);
