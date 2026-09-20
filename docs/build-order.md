@@ -41,8 +41,11 @@ Orphaned; re-resolution runs on every Document change, persists `anchor.state`, 
 shares the one coordinate system. #9 (Judge) has landed: the Writer compares any two Revisions,
 sees the word-level diff and both extracted passages before anything is sent, and receives a Verdict
 from the swapped double call — or an Unstable result when the labels flip — with a different
-Provider and model from the Critic by default. The frontier is **row 14**: #7 (Structure), blocked by
-#4 and #6, both closed.
+Provider and model from the Critic by default. #7 (Structure) has landed: the Section model carries
+its heading level, the Outline is derived from the headings and jumpable, document-scope model
+Passes receive the whole Document, the topic-strings and paragraph-reorder passes ship in the
+Starter pack, and the Writer runs the structural set in one action. The frontier is **row 15**:
+#20 (Chunking and limits), blocked by #7.
 
 ## How to work a ticket
 
@@ -73,7 +76,7 @@ Provider and model from the Critic by default. The frontier is **row 14**: #7 (S
 
 | 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` | - Completed
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning | - Completed
-| 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes |
+| 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes | - Completed
 | 15 | **#20** | Chunking and limits | The character limit, the warning, section-by-section chunking with overlap, the too-long path |
 | 16 | **#11** | Reader pass | The reader account schema and the Reader tab |
 | 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count |
