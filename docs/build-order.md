@@ -26,10 +26,14 @@ Working the queue** are closed. The Document of record lives in IndexedDB, the r
 live, `canonicalText` is the one coordinate system, and auto- and flagged Revisions are taken.
 Rule-pass Findings are marked and highlighted, the Writer works the queue with `j`/`k`/`a`/`x`,
 a declined Finding stays declined on the next Run, and the Document imports from and exports to
-Markdown. The frontier is **row 6**: #17 (Anthropic and Gemini Protocols) is first in the sequence,
-with #8 (Library) still unblocked alongside it. #3 (Connection and the seam) landed the wire: the
-five prefills and Custom, both key modes, `send`, the `openai-shaped` adapter, the fixture player,
-test connection, model listing, retry, the concurrency cap and the base-URL privacy assertion.
+Markdown. The wire is open: #3 landed Connections with all prefills and Custom, both key modes,
+`send`, the Protocol table, the `openai-shaped` adapter, the fixture player, test connection, model
+listing, retry, the concurrency cap and the base-URL privacy assertion, and #17 added the
+`anthropic-shaped` and `gemini-native` adapters. #4 (Constitution core) landed the first model Pass
+end to end: the findings schema with no field for rewritten prose, the tolerant parser, Containment
+with its dropped-anchor count, the raw-response toggle, `promptHash` and the Screening frame toggle.
+The frontier is **row 8**: #24 (When the model misbehaves) is first, with #18 (Constitution
+harness), #19 (Starter passes) and #16 (Run control) now unblocked behind it.
 
 ## How to work a ticket
 
@@ -51,7 +55,7 @@ test connection, model listing, retry, the concurrency cap and the base-URL priv
 | 4 | **#6** | Rule engine | Every rule pass, editable Rule config, auto-run on save, the metrics panel — the free tier, complete | - Completed
 | 5 | **#3** | Connection and the seam | Connections with all prefills and Custom, both key modes, `send`, the Protocol table, the `openai-shaped` adapter, the fixture player, test connection, model listing, retry, concurrency cap, the base-URL privacy assertion | - Completed
 | 6 | **#17** | Anthropic and Gemini Protocols | The `anthropic-shaped` and `gemini-native` adapters — one Pass, three Protocols | - Completed
-| 7 | **#4** | Constitution core | Findings schema, tolerant parser, Containment, one paragraph-scope model Pass end to end, raw-response toggle, `promptHash`, Screening frame toggle |
+| 7 | **#4** | Constitution core | Findings schema, tolerant parser, Containment, one paragraph-scope model Pass end to end, raw-response toggle, `promptHash`, Screening frame toggle | - Completed
 | 8 | **#24** | When the model misbehaves | The praise linter over every returned string, Praise struck through rather than removed, `declineReason: "violation"`, the quarantined rewrite pane, the static affordance source check |
 | 9 | **#18** | Constitution harness | Three fixture Documents × three model Passes, runnable before any prompt change, timestamped |
 | 10 | **#16** | Run control | The Run cache with `promptHash`, the cost estimate and session total, cancelling, and the error paths including the unreadable auth failure |
