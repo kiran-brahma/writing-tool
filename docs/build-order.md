@@ -32,8 +32,11 @@ listing, retry, the concurrency cap and the base-URL privacy assertion, and #17 
 `anthropic-shaped` and `gemini-native` adapters. #4 (Constitution core) landed the first model Pass
 end to end: the findings schema with no field for rewritten prose, the tolerant parser, Containment
 with its dropped-anchor count, the raw-response toggle, `promptHash` and the Screening frame toggle.
-The frontier is **row 8**: #24 (When the model misbehaves) is first, with #18 (Constitution
-harness), #19 (Starter passes) and #16 (Run control) now unblocked behind it.
+#24 (When the model misbehaves), #18 (Constitution harness), #16 (Run control) and #19 (Starter
+passes) have since landed: model drift is linted and struck through, the harness guards the prompts,
+Runs are cached, estimated, cancellable and honest about an unreadable auth failure, and the
+paragraph-scope Starter model pack is complete. The frontier is **row 12**: #5 (Anchor survival) is
+first, blocked only by #4 and #14, both closed.
 
 ## How to work a ticket
 
@@ -57,10 +60,10 @@ harness), #19 (Starter passes) and #16 (Run control) now unblocked behind it.
 | 6 | **#17** | Anthropic and Gemini Protocols | The `anthropic-shaped` and `gemini-native` adapters — one Pass, three Protocols | - Completed
 | 7 | **#4** | Constitution core | Findings schema, tolerant parser, Containment, one paragraph-scope model Pass end to end, raw-response toggle, `promptHash`, Screening frame toggle | - Completed
 | 8 | **#24** | When the model misbehaves | The praise linter over every returned string, Praise struck through rather than removed, `declineReason: "violation"`, the quarantined rewrite pane, the static affordance source check | - Completed
-| 9 | **#18** | Constitution harness | Three fixture Documents × three model Passes, runnable before any prompt change, timestamped |
-| 10 | **#16** | Run control | The Run cache with `promptHash`, the cost estimate and session total, cancelling, and the error paths including the unreadable auth failure | - completed
+| 9 | **#18** | Constitution harness | Three fixture Documents × three model Passes, runnable before any prompt change, timestamped | - Completed
+| 10 | **#16** | Run control | The Run cache with `promptHash`, the cost estimate and session total, cancelling, and the error paths including the unreadable auth failure | - Completed
 
-| 11 | **#19** | Starter passes | The five remaining paragraph-scope Starter model passes |
+| 11 | **#19** | Starter passes | The five remaining paragraph-scope Starter model passes | - Completed
 | 12 | **#5** | Anchor survival | Diff-projection from `provenance.revisionId`, quote fallback, tie-break, Orphaned, `projectInterval` |
 | 13 | **#9** | Judge | Any two Revisions, word-level diff, extraction preview, the swapped double call, `Unstable`, the same-model warning |
 | 14 | **#7** | Structure | The Section model from headings, the outline, document-scope model Passes |
