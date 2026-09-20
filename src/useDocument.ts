@@ -60,7 +60,7 @@ import {
 } from "./storage/library";
 import { runRulePasses } from "./storage/ruleRuns";
 import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
-import { createPersistRequest } from "./storage/persist";
+import { requestPersistentStorage } from "./storage/persist";
 import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
 import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
@@ -399,10 +399,6 @@ export function useDocument(): DocumentHandle {
         }
 
         databaseRef.current = database;
-        // Story 115: the browser may evict IndexedDB under storage pressure.
-        // Ask it to persist the Library on the first save; the request is
-        // idempotent, non-blocking and never fails the save that triggers it.
-        const persistRequest = createPersistRequest(navigator.storage);
 
         await loadGlobalState(database);
         // The one seam. The app builds it once; every model Run leaves through it.
@@ -415,7 +411,10 @@ export function useDocument(): DocumentHandle {
             const current = documentRef.current;
             if (current === null) return;
             await persistDocument(database, current);
-            void persistRequest.request();
+            // Story 115: the browser may evict IndexedDB under storage pressure.
+            // Ask it to persist the Library on the first save; the request is
+            // idempotent, non-blocking and never fails the save that triggers it.
+            requestPersistentStorage();
             setSaveError(null);
             await runRulePasses(database, current, { passes: passesRef.current });
             await refreshFindings(current);

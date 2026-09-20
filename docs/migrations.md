@@ -41,17 +41,18 @@ locked out until forward code returns. The rule is therefore:
 > backup reminder, and ship the behaviour that uses it in the next deploy.
 
 Rolling back a deploy that shipped **no** migration is safe once the service worker is forced to
-advance. `public/sw.js` calls `skipWaiting()` and `clients.claim()` and names its cache for the
-release, so the rolled-back shell actually reaches the Writer instead of the old worker caching the
-new one indefinitely. If a migration did ship, a rollback is a Library outage until forward code
-returns.
+advance. `public/sw.js` calls `skipWaiting()` and `clients.claim()` so the rolled-back shell reaches
+the Writer immediately, and it prunes superseded hashed assets on activation and on every successful
+navigation so the cache tracks the current deploy rather than growing without bound. If a migration
+did ship, a rollback is a Library outage until forward code returns.
 
 ## What enforces it
 
 - `src/storage/obelusDatabase.ts` — the versions and `openObelusDatabase`'s refusal.
 - `src/storage/obelusDatabase.test.ts` — an upgrade path from every prior version with existing data
   intact, and the newer-database refusal leaving the database untouched.
-- `public/sw.js` — `skipWaiting`/`clients.claim` and a release-keyed cache name, so rollback works.
+- `public/sw.js` — `skipWaiting`/`clients.claim`, precached hashed assets, and pruning of superseded
+  assets, so offline opening and rollback both work.
 - The service worker, the CSP header and offline opening are **deploy-time properties**: the
   in-memory IndexedDB tests prove the logic, not quota, eviction or a partial migration. Verify those
   in a real browser.

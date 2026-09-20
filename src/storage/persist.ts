@@ -1,48 +1,28 @@
 /**
  * Durability, the storage half of the offline shell: on the first save, ask the
- * browser to keep the Library rather than evict it under pressure.
+ * browser to keep the Library rather than evict it under storage pressure.
  *
  * `navigator.storage.persist()` is a request, not a guarantee — the
- * last-backed-up reminder remains the real defence — so its answer is
- * informational and a refusal never fails the save that triggered it. The
- * request is made once per app open, no matter how many saves follow.
+ * last-backed-up reminder remains the real defence — so its answer is discarded
+ * and a refusal never fails the save that triggered it. This module remembers
+ * that it asked, so exactly one request is made per page load no matter how many
+ * saves follow.
  */
 
-/** The one capability this needs, so a test can pass a fake without a DOM. */
-export interface PersistentStorage {
-  persist?: () => Promise<boolean>;
-}
+let requested = false;
 
-/** A one-shot, non-failing request to persist the browser's storage. */
-export interface PersistRequest {
-  /**
-   * Ask the browser to persist storage. Idempotent: the first call performs the
-   * request and every later call returns the same answer, including while the
-   * first is still in flight. Resolves `null` when the browser exposes no
-   * `persist`, or refused to answer.
-   */
-  request: () => Promise<boolean | null>;
-}
+/** Ask the browser to persist the Library. Non-blocking and never throws. */
+export function requestPersistentStorage(): void {
+  if (requested) return;
+  requested = true;
 
-export function createPersistRequest(storage: PersistentStorage | undefined): PersistRequest {
-  let inFlight: Promise<boolean | null> | null = null;
-  return {
-    request() {
-      inFlight ??= askToPersist(storage);
-      return inFlight;
-    },
-  };
-}
+  const storage = globalThis.navigator?.storage;
+  if (storage === undefined || typeof storage.persist !== "function") return;
 
-async function askToPersist(storage: PersistentStorage | undefined): Promise<boolean | null> {
-  if (storage === undefined || typeof storage.persist !== "function") return null;
-  try {
-    return await storage.persist();
-  } catch {
+  void storage.persist().catch(() => {
     // The browser declined to answer, or the request failed. This is a request,
     // not a guarantee, and the save it accompanies has already succeeded, so it
     // must not surface as a save failure. The backup reminder is the durable
     // defence against eviction, not this call.
-    return null;
-  }
+  });
 }

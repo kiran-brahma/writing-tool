@@ -1,29 +1,28 @@
 /**
  * Obelus's offline shell.
  *
- * It caches the app shell and the hashed build assets so the app opens with the
- * Writer's existing Documents while offline; the Documents themselves live in
- * IndexedDB and are available whether or not there is a network.
+ * The app opens with the Writer's existing Documents while offline: the shell
+ * (HTML) and the build's hashed JS/CSS are precached at install, and every
+ * successful online navigation re-syncs the cache to the current deploy. The
+ * Documents themselves live in IndexedDB and need no cache.
  *
  * Two properties matter:
  *
- *  - The cache name is keyed to the release, and a new worker takes over
- *    immediately (`skipWaiting` + `clients.claim`), so a `wrangler rollback`
- *    actually restores the old shell instead of stranding the new one.
- *  - Only same-origin GET requests are handled. Provider calls are never
- *    intercepted, cached or replayed.
+ *  - A new worker takes over immediately (`skipWaiting` + `clients.claim`), and
+ *    superseded assets are pruned, so a `wrangler rollback` actually restores
+ *    the old shell instead of stranding the new one, and the cache cannot grow
+ *    without bound across releases. Bump `CACHE_NAME` when the cache's
+ *    semantics change, not on every deploy.
+ *  - Only same-origin shell assets are handled. Provider calls and any other
+ *    same-origin request are never intercepted, cached or replayed.
  */
 
 const CACHE_NAME = "obelus-shell-v1";
-const SHELL_URLS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
+const ASSET_PREFIX = "/assets/";
+const SHELL_STATIC_URLS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(SHELL_URLS))
-      .then(() => self.skipWaiting()),
-  );
+  event.waitUntil(installShell());
 });
 
 self.addEventListener("activate", (event) => {
@@ -53,10 +52,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Hashed build assets never change under the same name, so cache-first is
-  // safe and makes the second load instant and fully offline.
+  // Only the shell's static assets are cached. Everything else same-origin —
+  // including a Custom Connection pointed at this origin — passes through, so
+  // an authenticated or `Vary`-ing response can never be stored or replayed.
+  if (!isShellAsset(url.pathname)) return;
   event.respondWith(cacheFirst(request));
 });
+
+/**
+ * Precache the current shell and everything it points at. Parsing the built
+ * `index.html` is what lets a static worker know the content-hashed asset
+ * names: without it, the very first offline open after install would find the
+ * HTML in the cache but none of its JS or CSS.
+ */
+async function installShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const response = await fetch("/index.html", { cache: "reload" });
+  if (!response.ok) {
+    throw new Error(`Could not precache the shell (HTTP ${response.status}).`);
+  }
+  const html = await response.clone().text();
+  await cache.put("/index.html", response.clone());
+  await cache.put("/", response.clone());
+  await cache.addAll([...SHELL_STATIC_URLS, ...assetUrlsFrom(html)]);
+  await self.skipWaiting();
+}
 
 async function networkFirstShell(request) {
   const cache = await caches.open(CACHE_NAME);
@@ -64,6 +84,7 @@ async function networkFirstShell(request) {
     const response = await fetch(request);
     if (response.ok) {
       await cache.put("/index.html", response.clone());
+      await syncShellAssets(cache, await response.clone().text());
     }
     return response;
   } catch (error) {
@@ -87,4 +108,41 @@ async function cacheFirst(request) {
     await cache.put(request, response.clone());
   }
   return response;
+}
+
+/** Hashed assets that today's shell does not reference are from an old deploy. */
+async function syncShellAssets(cache, html) {
+  const wanted = new Set(assetUrlsFrom(html));
+  const requests = await cache.keys();
+  await Promise.all(
+    requests
+      .filter((request) => {
+        const pathname = new URL(request.url).pathname;
+        return pathname.startsWith(ASSET_PREFIX) && !wanted.has(pathname);
+      })
+      .map((request) => cache.delete(request)),
+  );
+}
+
+function isShellAsset(pathname) {
+  return (
+    pathname.startsWith(ASSET_PREFIX) ||
+    SHELL_STATIC_URLS.includes(pathname)
+  );
+}
+
+/**
+ * The `/assets/…` URLs Vite emits into the built `index.html` (the module
+ * script and the stylesheet), deduplicated. `DOMParser` is not available in a
+ * service worker, so this is a deliberate, narrow parse of markup this repo's
+ * own build produces.
+ */
+function assetUrlsFrom(html) {
+  const urls = [];
+  const pattern = /(?:src|href)="(\/assets\/[^"]+)"/g;
+  let match;
+  while ((match = pattern.exec(html)) !== null) {
+    if (!urls.includes(match[1])) urls.push(match[1]);
+  }
+  return urls;
 }
