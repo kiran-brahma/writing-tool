@@ -8,6 +8,7 @@ import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./edito
 import { FindingsSidebar } from "./editor/FindingsSidebar";
 import { JudgePanel } from "./editor/JudgePanel";
 import { LibraryView } from "./library/LibraryView";
+import { PrivacyView } from "./privacy/PrivacyView";
 import { MetricsPanel } from "./editor/MetricsPanel";
 import { ModelPassesPanel } from "./editor/ModelPassesPanel";
 import { OutlinePanel } from "./editor/OutlinePanel";
@@ -93,7 +94,9 @@ export default function App() {
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20: the Library is a view of its own; the Editor is the default. */
-  const [view, setView] = useState<"editor" | "library">("editor");
+  const [view, setView] = useState<"editor" | "library" | "privacy">("editor");
+  /** Which view the Privacy page returns to when the Writer leaves it. */
+  const [privacyReturn, setPrivacyReturn] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
   /** Stories 91–93: the sidebar's two tabs keep Reader output apart from the queue. */
@@ -140,6 +143,12 @@ export default function App() {
     setView("library");
     void refreshLibrary();
   }, [refreshLibrary]);
+
+  /** Story 106: the Privacy page is reachable from the Editor and the Library. */
+  const openPrivacy = useCallback(() => {
+    setPrivacyReturn(view === "library" ? "library" : "editor");
+    setView("privacy");
+  }, [view]);
 
   /** Clears the Editor's view state that belongs to the Document being left. */
   const leaveEditor = useCallback(() => {
@@ -352,39 +361,58 @@ export default function App() {
           <p className="text-xs text-stone-500">It marks; it never holds the pen.</p>
         </div>
         <div className="flex items-center gap-3">
-          {view === "library" ? (
+          {view === "privacy" ? (
             <button
               type="button"
-              onClick={() => setView("editor")}
+              onClick={() => setView(privacyReturn)}
               className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
             >
-              Back to the Editor
+              Back to {privacyReturn === "library" ? "the Library" : "the Editor"}
             </button>
           ) : (
             <>
-              <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
-              <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
-                Import Markdown
-                <input
-                  type="file"
-                  accept=".md,.markdown,text/markdown"
-                  className="sr-only"
-                  onChange={(event) => void onImport(event)}
-                />
-              </label>
+              {view === "library" ? (
+                <button
+                  type="button"
+                  onClick={() => setView("editor")}
+                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                >
+                  Back to the Editor
+                </button>
+              ) : (
+                <>
+                  <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
+                  <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
+                    Import Markdown
+                    <input
+                      type="file"
+                      accept=".md,.markdown,text/markdown"
+                      className="sr-only"
+                      onChange={(event) => void onImport(event)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onExport}
+                    className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                  >
+                    Export Markdown
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToLibrary}
+                    className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                  >
+                    Library
+                  </button>
+                </>
+              )}
               <button
                 type="button"
-                onClick={onExport}
+                onClick={openPrivacy}
                 className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
               >
-                Export Markdown
-              </button>
-              <button
-                type="button"
-                onClick={goToLibrary}
-                className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-              >
-                Library
+                Privacy
               </button>
             </>
           )}
@@ -420,6 +448,8 @@ export default function App() {
           onDismissBackupError={clearBackupError}
         />
       )}
+
+      {view === "privacy" && <PrivacyView />}
 
       {view === "editor" && (
         <div className="flex min-h-0 flex-1">
