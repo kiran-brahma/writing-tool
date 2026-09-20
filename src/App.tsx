@@ -24,6 +24,9 @@ import { ConnectionsPanel } from "./wire/ConnectionsPanel";
  * sidebar; nothing is sent anywhere until the Writer tests a Connection or runs
  * a pass through one.
  */
+const HEADER_BUTTON_CLASS =
+  "rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100";
+
 export default function App() {
   const {
     status,
@@ -365,7 +368,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setView(privacyReturn)}
-              className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+              className={HEADER_BUTTON_CLASS}
             >
               Back to {privacyReturn === "library" ? "the Library" : "the Editor"}
             </button>
@@ -375,14 +378,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setView("editor")}
-                  className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                  className={HEADER_BUTTON_CLASS}
                 >
                   Back to the Editor
                 </button>
               ) : (
                 <>
                   <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
-                  <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
+                  <label className={`cursor-pointer ${HEADER_BUTTON_CLASS}`}>
                     Import Markdown
                     <input
                       type="file"
@@ -391,27 +394,15 @@ export default function App() {
                       onChange={(event) => void onImport(event)}
                     />
                   </label>
-                  <button
-                    type="button"
-                    onClick={onExport}
-                    className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-                  >
+                  <button type="button" onClick={onExport} className={HEADER_BUTTON_CLASS}>
                     Export Markdown
                   </button>
-                  <button
-                    type="button"
-                    onClick={goToLibrary}
-                    className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-                  >
+                  <button type="button" onClick={goToLibrary} className={HEADER_BUTTON_CLASS}>
                     Library
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                onClick={openPrivacy}
-                className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-              >
+              <button type="button" onClick={openPrivacy} className={HEADER_BUTTON_CLASS}>
                 Privacy
               </button>
             </>

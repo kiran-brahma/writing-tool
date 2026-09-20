@@ -59,7 +59,10 @@ bundle carrying its Revisions, Findings, Run results and Reader accounts. #23 (O
 migration policy) has landed: a production service worker and manifest cache the shell so the app
 opens with the Library offline, `navigator.storage.persist()` is requested on the first save, and
 `docs/migrations.md` states the forward-only, newer-database-refusal, no-migration-with-a-behaviour-
-change policy. The frontier is **row 20**: #22 (Privacy page).
+change policy. #22 (Privacy page) has landed: a plain-language page explains what happens to the
+Writer's words, where Documents and keys live, which claim the CSP header enforces (`script-src
+'self'`) rather than the code path (requests go only to the configured Connection), and the
+verify-it-yourself steps in DevTools. The frontier is **row 21**: #10 (Workbench).
 
 ## How to work a ticket
 
@@ -96,7 +99,7 @@ change policy. The frontier is **row 20**: #22 (Privacy page).
 | 17 | **#8** | Library | Many Documents, the Scratchpad, tags, search, Document status, the open-Finding count | - Completed
 | 18 | **#12** | Durability | Library backup with keys excluded and explicit opt-in, import, the last-backed-up indicator, the single-Document bundle | - Completed
 | 19 | **#23** | Offline shell and migration policy | Service worker and offline shell, `storage.persist()`, the forward-only migration policy, the no-migration-with-a-behaviour-change rule | - Completed
-| 20 | **#22** | Privacy page | The plain-language page and the verify-this-yourself steps |
+| 20 | **#22** | Privacy page | The plain-language page and the verify-this-yourself steps | - Completed
 | 21 | **#10** | Workbench | Pass editor with placeholder validation and output shapes, Rule config editor, pass-set JSON round trip, Starter-pack restore |
 | 22 | **#21** | Prompt authoring assistant | The assistant that helps author passes and never touches prose |
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_DATABASE_NAME } from "../storage/obelusDatabase";
 import {
   PRIVACY_DATABASE_NAME,
   PRIVACY_SECTIONS,
@@ -31,19 +32,14 @@ describe("privacy page content", () => {
   });
 
   it("says where Documents and keys live, and how a session key differs", () => {
-    expect(PRIVACY_DATABASE_NAME).toBe("obelus");
+    // The database name is the storage module's, not a retyped literal; the
+    // store list is checked against the real schema in `obelusDatabase.test.ts`.
+    expect(PRIVACY_DATABASE_NAME).toBe(DEFAULT_DATABASE_NAME);
     expect(prose).toContain("indexeddb");
     expect(prose).toContain("this browser profile");
-    expect(PRIVACY_STORES).toEqual([
-      "documents",
-      "revisions",
-      "findings",
-      "readerAccounts",
-      "runResponses",
-      "passes",
-      "connections",
-      "settings",
-    ]);
+    for (const store of PRIVACY_STORES) {
+      expect(prose).toContain(store.toLowerCase());
+    }
     expect(prose).toContain("persisted key is written to the connections store");
     expect(prose).toContain("session key is held only in memory");
   });

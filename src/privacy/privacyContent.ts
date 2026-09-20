@@ -42,7 +42,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
   {
     heading: "What Obelus does with your words",
     paragraphs: [
-      "Obelus runs entirely in this browser. Your Documents never leave this machine except when you ask a model to read a piece of your writing.",
+      "Obelus runs entirely in this browser. Your Documents never leave this machine except when you ask a model to read one of them.",
       "When you run a model pass or ask the Judge to compare two Revisions, Obelus sends the text that pass needs — and nothing more — from this browser tab straight to the Connection you configured. The reply comes back to this tab and is stored here.",
       "There is no Obelus account. There is no telemetry, no analytics, no crash or error reporting, and no usage counter anywhere in Obelus. The only requests that leave this browser are the ones you trigger against a Connection.",
       "The one server involved serves the app itself: static files, plus the security headers described below. It has no API route and never touches a Provider, so no machine of ours ever sees your key or your prose.",
@@ -88,7 +88,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
       {
         title: "Watch the network",
         body: [
-          "Open DevTools, then Network, and tick Preserve log. Reload, then run a model pass or use Test connection. Every request you see goes to the base URL of the Connection you configured. Before you configure a Connection, Obelus makes no outbound request at all.",
+          "Open DevTools, then Network, and tick Preserve log. Reload, then run a model pass or use Test connection. Every request you see goes to the base URL of the Connection you configured. If you have not configured a Connection yet, reload with this tab open: Obelus makes no outbound request at all.",
         ],
       },
       {
@@ -107,7 +107,8 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
   },
 ];
 
-/** Every string on the page, flattened, so a test can assert what it claims. */
+/** Every string in `PRIVACY_SECTIONS`, flattened, so a test can assert what the
+ * sections claim. The view's own chrome (the page title) is not included. */
 export function privacyProse(): string {
   return PRIVACY_SECTIONS.flatMap((section) => [
     section.heading,

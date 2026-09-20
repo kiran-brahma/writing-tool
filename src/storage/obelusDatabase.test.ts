@@ -9,6 +9,7 @@ import {
   type DocumentRecord,
 } from "./obelusDatabase";
 import { latestRevision, listRevisions, takeRevision } from "./revisions";
+import { PRIVACY_STORES } from "../privacy/privacyContent";
 
 const openedDatabases: ObelusDatabase[] = [];
 
@@ -102,6 +103,13 @@ describe("openObelusDatabase", () => {
       "runResponses",
       "settings",
     ]);
+  });
+
+  it("lists exactly the stores the privacy page tells the Writer to open", async () => {
+    // The privacy page's store list is documentation of this schema; a new
+    // migration must not leave the page pointing at a store that is not there.
+    const database = await openTestDatabase();
+    expect(database.tables.map((table) => table.name).sort()).toEqual([...PRIVACY_STORES].sort());
   });
 
   it("upgrades an old database through every migration without touching existing data", async () => {
