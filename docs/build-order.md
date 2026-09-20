@@ -40,8 +40,8 @@ coordinate system, and auto- and flagged Revisions are taken. The frontier is **
 
 | Step | # | Ticket | What it makes work |
 |---|---|---|---|
-| 1 | **#13** | Document and its text | TipTap authoring; the Document persisted on a short debounce plus `pagehide`; Dexie migration 1 with the newer-database refusal; `canonicalText`; auto- and flagged Revisions |
-| 2 | **#14** | Marking the prose | One rule pass (hedges) auto-run on save; the Finding shape; the attached Anchor; a Highlight; the sidebar grouped by Pass |
+| 1 | **#13** | Document and its text | TipTap authoring; the Document persisted on a short debounce plus `pagehide`; Dexie migration 1 with the newer-database refusal; `canonicalText`; auto- and flagged Revisions | - Completed
+| 2 | **#14** | Marking the prose | One rule pass (hedges) auto-run on save; the Finding shape; the attached Anchor; a Highlight; the sidebar grouped by Pass | - Completed
 | 3 | **#15** | Working the queue | Statuses with `declineReason`; `j`/`k`/`a`/`x`; a declined Finding staying declined; Markdown in and out |
 | 4 | **#6** | Rule engine | Every rule pass, editable Rule config, auto-run on save, the metrics panel — the free tier, complete |
 | 5 | **#3** | Connection and the seam | Connections with all prefills and Custom, both key modes, `send`, the Protocol table, the `openai-shaped` adapter, the fixture player, test connection, model listing, retry, concurrency cap, the base-URL privacy assertion |
