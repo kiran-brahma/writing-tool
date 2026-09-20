@@ -1,5 +1,6 @@
 import { canonicalText, wordCount } from "../core/canonicalText";
 import { emptyDocTree, type DocTree } from "../core/docTree";
+import { parseCanonical } from "../core/parseCanonical";
 import type { DocumentRecord } from "./obelusDatabase";
 import type { ObelusDatabase } from "./obelusDatabase";
 
@@ -64,4 +65,50 @@ export async function persistDocument(
   document: DocumentRecord,
 ): Promise<void> {
   await database.documents.put(document);
+}
+
+/**
+ * Story 19: the Document as Markdown. It returns `canonical`, which is the
+ * canonical render of the tree: exporting the stored string rather than
+ * rendering again guarantees the file matches exactly what model Passes and
+ * Anchors saw.
+ */
+export function exportDocument(document: DocumentRecord): string {
+  return document.canonical;
+}
+
+/**
+ * Story 18: a new record for a Document imported from Markdown. Import parses
+ * the canonical grammar with `parseCanonical`, the exact inverse of the one
+ * renderer; the canonical string and word count are derived from the imported
+ * tree and `updatedAt` moves to now. The id and title remain the Document's,
+ * because Markdown carries neither.
+ */
+export function documentFromMarkdown(
+  document: DocumentRecord,
+  markdown: string,
+  now: number = Date.now(),
+): DocumentRecord {
+  return withTree(document, parseCanonical(markdown), now);
+}
+
+/**
+ * Replaces the Document's prose from Markdown and persists it. The replacement
+ * and the clearing of the old Findings happen in one transaction: a Document
+ * swapped wholesale must not leave Findings from the previous prose looking for
+ * text that is gone, and a failed import must not clear the queue while leaving
+ * the prose unchanged.
+ */
+export async function importDocument(
+  database: ObelusDatabase,
+  document: DocumentRecord,
+  markdown: string,
+  now: number = Date.now(),
+): Promise<DocumentRecord> {
+  const updated = documentFromMarkdown(document, markdown, now);
+  await database.transaction("rw", database.documents, database.findings, async () => {
+    await database.documents.put(updated);
+    await database.findings.where("documentId").equals(document.id).delete();
+  });
+  return updated;
 }

@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { STARTER_PASSES } from "./core/starterPasses";
 import { DocumentEditor } from "./editor/DocumentEditor";
+import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
+import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 
 /**
@@ -10,10 +12,71 @@ import { useDocument } from "./useDocument";
  * adds no Connection and makes no outbound request.
  */
 export default function App() {
-  const { status, openError, saveError, document, revisions, findings, highlights, handleChange, flagMilestone } =
-    useDocument();
+  const {
+    status,
+    openError,
+    saveError,
+    document,
+    revisions,
+    findings,
+    highlights,
+    handleChange,
+    flagMilestone,
+    markAddressed,
+    decline,
+    importFromMarkdown,
+    exportToMarkdown,
+  } = useDocument();
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
+  const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  // The Editor is uncontrolled, so an import remounts it rather than trying to
+  // push a new document into an editor that already has one.
+  const [editorGeneration, setEditorGeneration] = useState(0);
+
+  const openQueue = useMemo(() => openFindings(findings, STARTER_PASSES), [findings]);
+  const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
+
+  // The queue's keys are only live when the Writer is not typing. `j`, `k`, `a`
+  // and `x` are ordinary letters: while the Editor or a field has focus they
+  // must reach the prose, so the Writer clicks a Finding (or tabs to one) to
+  // put focus in the queue.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+
+      if (event.key === "j" || event.key === "k") {
+        event.preventDefault();
+        setCurrentFindingId(stepSelection(openQueue, currentFindingId, event.key === "j" ? 1 : -1));
+        return;
+      }
+
+      if (currentFinding === null) return;
+
+      if (event.key === "a") {
+        event.preventDefault();
+        const before = openQueue;
+        void markAddressed(currentFinding.id).then((written) => {
+          if (written) setCurrentFindingId(selectionAfterLeavingQueue(before, currentFinding.id));
+        });
+        return;
+      }
+
+      if (event.key === "x") {
+        event.preventDefault();
+        const before = openQueue;
+        void decline(currentFinding.id).then((written) => {
+          if (written) setCurrentFindingId(selectionAfterLeavingQueue(before, currentFinding.id));
+        });
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openQueue, currentFindingId, currentFinding, markAddressed, decline]);
 
   if (status === "loading") {
     return (
@@ -41,14 +104,53 @@ export default function App() {
     setMilestoneNote("");
   };
 
+  const onExport = () => {
+    downloadText(`${slug(document?.title ?? "document")}.md`, exportToMarkdown());
+  };
+
+  const onImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    // Reset so importing the same file twice still fires a change event.
+    input.value = "";
+    if (file === undefined) return;
+
+    try {
+      await importFromMarkdown(await file.text());
+      setCurrentFindingId(null);
+      setEditorGeneration((generation) => generation + 1);
+      setImportError(null);
+    } catch (error) {
+      setImportError(describeError(error));
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
-      <header className="flex items-center justify-between border-b border-stone-200 px-6 py-3">
+      <header className="flex items-center justify-between gap-4 border-b border-stone-200 px-6 py-3">
         <div>
           <h1 className="text-base font-semibold tracking-tight">Obelus</h1>
           <p className="text-xs text-stone-500">It marks; it never holds the pen.</p>
         </div>
-        <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
+          <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
+            Import Markdown
+            <input
+              type="file"
+              accept=".md,.markdown,text/markdown"
+              className="sr-only"
+              onChange={(event) => void onImport(event)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={onExport}
+            className="rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+          >
+            Export Markdown
+          </button>
+        </div>
       </header>
 
       {saveError !== null && (
@@ -57,11 +159,17 @@ export default function App() {
         </div>
       )}
 
+      {importError !== null && (
+        <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+          Could not import that Markdown: {importError}
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1">
         <main className="flex min-h-0 flex-1 flex-col bg-white">
           {document !== null && (
             <DocumentEditor
-              key={document.id}
+              key={`${document.id}:${editorGeneration}`}
               initialContent={document.tree}
               onChange={handleChange}
               highlights={highlights}
@@ -73,12 +181,15 @@ export default function App() {
           <section className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
               <h2 className="text-sm font-semibold">Findings</h2>
-              <span className="text-xs text-stone-500">
-                {findings.filter((finding) => finding.status === "open").length} open
-              </span>
+              <span className="text-xs text-stone-500">{openQueue.length} open</span>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <FindingsSidebar findings={findings} passes={STARTER_PASSES} />
+              <FindingsSidebar
+                findings={findings}
+                passes={STARTER_PASSES}
+                currentFindingId={currentFindingId}
+                onSelect={setCurrentFindingId}
+              />
             </div>
           </section>
 
@@ -145,6 +256,29 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+/** A key event the queue owns must not steal from a field or the Editor. */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+}
+
+/** Saves a string as a download. Local only: no request leaves the browser. */
+function downloadText(filename: string, text: string): void {
+  const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function slug(title: string): string {
+  const cleaned = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return cleaned === "" ? "document" : cleaned;
 }
 
 function CenteredMessage({ children }: { children: ReactNode }) {

@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveAnchor } from "./core/anchor";
 import type { DocTree } from "./core/docTree";
-import type { Finding, Interval } from "./core/finding";
+import { isOpenFinding, type Finding, type Interval } from "./core/finding";
 import { STARTER_PASSES } from "./core/starterPasses";
+import { describeError } from "./errors";
 import { createPersistence, type PersistenceController } from "./editor/persistence";
-import { loadOrCreateDocument, persistDocument, withTree } from "./storage/documents";
+import {
+  exportDocument,
+  importDocument,
+  loadOrCreateDocument,
+  persistDocument,
+  withTree,
+} from "./storage/documents";
+import { declineFinding, markFindingAddressed } from "./storage/findings";
 import {
   openObelusDatabase,
   type DocumentRecord,
@@ -21,23 +29,31 @@ export interface DocumentHandle {
   document: DocumentRecord | null;
   revisions: RevisionRecord[];
   findings: Finding[];
-  /** Canonical intervals of attached Findings, for the Editor to draw. */
+  /** Canonical intervals of open Findings, for the Editor to draw. */
   highlights: Interval[];
   handleChange: (tree: DocTree) => void;
   flagMilestone: (note: string) => Promise<void>;
+  /** Writes a status, returning whether it was stored. Failures surface in `saveError`. */
+  markAddressed: (findingId: string) => Promise<boolean>;
+  decline: (findingId: string) => Promise<boolean>;
+  importFromMarkdown: (markdown: string) => Promise<void>;
+  exportToMarkdown: () => string;
 }
 
 /**
  * Owns the Document of record: opening the database, the persistence
- * controller, the Revision list and the milestone action. It is deliberately
- * separate from layout so the Document has one explicit state boundary and the
- * ref is reserved for callbacks that must read the latest value synchronously
- * (a `pagehide` save must not wait for a re-render).
+ * controller, the Revision list, the milestone action, the Finding queue's
+ * status writes and Markdown import/export. It is deliberately separate from
+ * layout so the Document has one explicit state boundary and the ref is
+ * reserved for callbacks that must read the latest value synchronously (a
+ * `pagehide` save must not wait for a re-render).
  */
 export function useDocument(): DocumentHandle {
   const databaseRef = useRef<ObelusDatabase | null>(null);
   const documentRef = useRef<DocumentRecord | null>(null);
   const persistenceRef = useRef<PersistenceController | null>(null);
+  const findingsRef = useRef<Finding[]>([]);
+  const canonicalRef = useRef("");
 
   const [status, setStatus] = useState<DocumentHandle["status"]>("loading");
   const [openError, setOpenError] = useState("");
@@ -50,15 +66,15 @@ export function useDocument(): DocumentHandle {
   /**
    * The Findings and the intervals the Editor should draw. The interval is
    * resolved here, in Core-adjacent code, against the canonical string the Run
-   * saw; the Editor only projects and draws it.
+   * saw; the Editor only projects and draws it. A Finding that has left the
+   * queue — addressed or declined — draws no Highlight, so the prose shows what
+   * still needs work rather than a growing residue.
    */
   const applyFindings = useCallback((run: Finding[], canonical: string) => {
+    findingsRef.current = run;
+    canonicalRef.current = canonical;
     setFindings(run);
-    setHighlights(
-      run
-        .map((finding) => resolveAnchor(finding.anchor, canonical))
-        .filter((interval): interval is Interval => interval !== null),
-    );
+    setHighlights(intervalsForOpen(run, canonical));
   }, []);
 
   const refreshRevisions = useCallback(async () => {
@@ -172,6 +188,76 @@ export function useDocument(): DocumentHandle {
     [refreshRevisions],
   );
 
+  /**
+   * Writes a status through storage, then reflects it in the queue and
+   * Highlights. A failure is surfaced like any other save failure rather than
+   * swallowed, and `false` tells the caller not to advance the selection.
+   */
+  const applyStatus = useCallback(
+    async (
+      write: (database: ObelusDatabase, findingId: string) => Promise<Finding | null>,
+      findingId: string,
+    ): Promise<boolean> => {
+      const database = databaseRef.current;
+      if (database === null) return false;
+
+      try {
+        const updated = await write(database, findingId);
+        if (updated === null) return false;
+        applyFindings(
+          findingsRef.current.map((finding) => (finding.id === findingId ? updated : finding)),
+          canonicalRef.current,
+        );
+        return true;
+      } catch (error) {
+        setSaveError(describeError(error));
+        return false;
+      }
+    },
+    [applyFindings],
+  );
+
+  const markAddressed = useCallback(
+    (findingId: string) => applyStatus(markFindingAddressed, findingId),
+    [applyStatus],
+  );
+
+  const decline = useCallback(
+    (findingId: string) =>
+      applyStatus((database, id) => declineFinding(database, id, "advice"), findingId),
+    [applyStatus],
+  );
+
+  const importFromMarkdown = useCallback(
+    async (markdown: string) => {
+      const database = databaseRef.current;
+      if (database === null) return;
+
+      // Save what is on screen, then snapshot it as a Revision: replacing the
+      // prose wholesale must not destroy the Writer's previous text.
+      await persistenceRef.current?.flush();
+      const current = documentRef.current;
+      if (current === null) return;
+      await takeRevision(database, current);
+
+      // `importDocument` replaces the prose and clears the old Findings in one
+      // transaction, so the queue never outlives the text it pointed at.
+      const updated = await importDocument(database, current, markdown);
+      documentRef.current = updated;
+      setDocumentRecord(updated);
+
+      const run = await runRulePasses(database, updated, { passes: STARTER_PASSES });
+      applyFindings(run, updated.canonical);
+      await refreshRevisions();
+    },
+    [applyFindings, refreshRevisions],
+  );
+
+  const exportToMarkdown = useCallback(() => {
+    const current = documentRef.current;
+    return current === null ? "" : exportDocument(current);
+  }, []);
+
   return {
     status,
     openError,
@@ -182,10 +268,17 @@ export function useDocument(): DocumentHandle {
     highlights,
     handleChange,
     flagMilestone,
+    markAddressed,
+    decline,
+    importFromMarkdown,
+    exportToMarkdown,
   };
 }
 
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
+/** The canonical intervals of the Findings still open, for the Editor to draw. */
+function intervalsForOpen(findings: Finding[], canonical: string): Interval[] {
+  return findings
+    .filter(isOpenFinding)
+    .map((finding) => resolveAnchor(finding.anchor, canonical))
+    .filter((interval): interval is Interval => interval !== null);
 }

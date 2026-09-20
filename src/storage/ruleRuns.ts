@@ -3,6 +3,7 @@ import type { Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
 import { ruleMatches, runRulePass, type RuleMatch } from "../core/rulePass";
 import { listFindingsForPass, replaceFindingsForPass } from "./findings";
+import { enqueueMutation } from "./mutationQueue";
 import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
 import { ensureRevision } from "./revisions";
 
@@ -19,30 +20,18 @@ export interface RuleRunOptions {
 }
 
 /**
- * Rule runs are serialised per database. A save, a `pagehide` flush and a
- * milestone flag can overlap, and each does a read-modify-write of a Pass's
- * Findings; without ordering the last writer can persist findings for text the
- * Document has already left.
+ * Rule runs are serialised with status writes through `enqueueMutation`. A
+ * save, a `pagehide` flush and a milestone flag can overlap, and each does a
+ * read-modify-write of a Pass's Findings; without ordering the last writer can
+ * persist findings for text the Document has already left, or reset a status
+ * the Writer set.
  */
-const ruleRunQueues = new WeakMap<ObelusDatabase, Promise<void>>();
-
-export async function runRulePasses(
+export function runRulePasses(
   database: ObelusDatabase,
   document: DocumentRecord,
   options: RuleRunOptions,
 ): Promise<Finding[]> {
-  const previous = ruleRunQueues.get(database) ?? Promise.resolve();
-  const queued = previous.then(() => runRulePassesNow(database, document, options));
-  // Keep later runs ordered even if this one fails; the failure still reaches
-  // this call's caller.
-  ruleRunQueues.set(
-    database,
-    queued.then(
-      () => undefined,
-      () => undefined,
-    ),
-  );
-  return queued;
+  return enqueueMutation(database, () => runRulePassesNow(database, document, options));
 }
 
 async function runRulePassesNow(

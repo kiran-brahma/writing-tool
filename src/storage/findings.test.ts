@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
 import { HEDGES_PASS } from "../core/starterPasses";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
-import { listFindings, listFindingsForPass, replaceFindingsForPass } from "./findings";
+import { listFindings, listFindingsForPass, replaceFindingsForPass, declineFinding, markFindingAddressed } from "./findings";
 import { openObelusDatabase, type DocumentRecord, type ObelusDatabase } from "./obelusDatabase";
 import { listRevisions } from "./revisions";
 import { runRulePasses } from "./ruleRuns";
@@ -155,5 +155,100 @@ describe("runRulePasses", () => {
     const remaining = await listFindings(database, document.id);
     expect(remaining).toHaveLength(1);
     expect(remaining[0].passId).toBe("other");
+  });
+});
+
+describe("finding status", () => {
+  async function storeOneFinding(): Promise<{
+    database: ObelusDatabase;
+    documentId: string;
+    findingId: string;
+  }> {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+    const findings = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    return { database, documentId: document.id, findingId: findings[0].id };
+  }
+
+  it("marks a Finding addressed and persists it without a declineReason", async () => {
+    const { database, documentId, findingId } = await storeOneFinding();
+
+    const updated = await markFindingAddressed(database, findingId);
+
+    expect(updated).toMatchObject({ id: findingId, status: "addressed" });
+    expect(updated?.declineReason).toBeUndefined();
+    const stored = await listFindings(database, documentId);
+    expect(stored[0].status).toBe("addressed");
+  });
+
+  it("declines a Finding with the `advice` reason the caller passes", async () => {
+    const { database, documentId, findingId } = await storeOneFinding();
+
+    const updated = await declineFinding(database, findingId, "advice");
+
+    expect(updated).toMatchObject({ id: findingId, status: "declined", declineReason: "advice" });
+    const stored = await listFindings(database, documentId);
+    expect(stored[0].declineReason).toBe("advice");
+  });
+
+  it("records `violation` when the constitution was breached", async () => {
+    const { database, findingId } = await storeOneFinding();
+
+    const updated = await declineFinding(database, findingId, "violation");
+
+    expect(updated?.declineReason).toBe("violation");
+  });
+
+  it("does not raise a declined Finding again on a later Run of unchanged text", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+    const first = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    await declineFinding(database, first[0].id, "advice");
+
+    const second = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 });
+
+    expect(second).toHaveLength(1);
+    expect(second[0].id).toBe(first[0].id);
+    expect(second[0].status).toBe("declined");
+    expect(second[0].declineReason).toBe("advice");
+    expect(await listFindings(database, document.id)).toHaveLength(1);
+  });
+
+  it("does not raise an addressed Finding again either", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+    const first = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    await markFindingAddressed(database, first[0].id);
+
+    const second = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 });
+
+    expect(second[0].id).toBe(first[0].id);
+    expect(second[0].status).toBe("addressed");
+  });
+
+  it("does not let a concurrent rule Run reset a status the Writer just set", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+    const first = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+
+    // A save's Run and the Writer's keypress overlap. Without one queue the Run
+    // can commit an `open` copy after the status write and re-raise the Finding.
+    await Promise.all([
+      runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 }),
+      markFindingAddressed(database, first[0].id),
+    ]);
+
+    expect((await listFindings(database, document.id))[0].status).toBe("addressed");
+  });
+
+  it("returns null for a Finding id that is not stored", async () => {
+    const { database } = await storeOneFinding();
+
+    expect(await markFindingAddressed(database, "missing")).toBeNull();
+    expect(await declineFinding(database, "missing", "advice")).toBeNull();
   });
 });

@@ -63,6 +63,15 @@ export interface Interval {
   end: number;
 }
 
+/**
+ * Whether a Finding is still in the Writer's queue. Status is exactly `open`,
+ * `addressed` or `declined`; only `open` is work remaining, and an addressed or
+ * declined Finding has left the queue without being erased.
+ */
+export function isOpenFinding(finding: Finding): boolean {
+  return finding.status === "open";
+}
+
 /** A half-open range in the Editor's document, what `projectInterval` returns. */
 export interface EditorRange {
   from: number;

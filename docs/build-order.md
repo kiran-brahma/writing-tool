@@ -21,10 +21,13 @@ The sequence below is a topological sort of that graph, so it is safe to walk to
 
 ## Where we are
 
-**#2 Toolchain and shell** and **#13 Document and its text** are closed. The Document of record
-lives in IndexedDB under migration 1, the rich-text editor is live, `canonicalText` is the one
-coordinate system, and auto- and flagged Revisions are taken. The frontier is **row 2**: #14
-(Marking the prose) is first in the sequence, with #3 and #8 unblocked alongside it.
+**#2 Toolchain and shell**, **#13 Document and its text**, **#14 Marking the prose** and **#15
+Working the queue** are closed. The Document of record lives in IndexedDB, the rich-text editor is
+live, `canonicalText` is the one coordinate system, and auto- and flagged Revisions are taken.
+Rule-pass Findings are marked and highlighted, the Writer works the queue with `j`/`k`/`a`/`x`,
+a declined Finding stays declined on the next Run, and the Document imports from and exports to
+Markdown. The frontier is **row 4**: #6 (Rule engine) is first in the sequence, with #3 and #8
+unblocked alongside it.
 
 ## How to work a ticket
 
@@ -42,7 +45,7 @@ coordinate system, and auto- and flagged Revisions are taken. The frontier is **
 |---|---|---|---|
 | 1 | **#13** | Document and its text | TipTap authoring; the Document persisted on a short debounce plus `pagehide`; Dexie migration 1 with the newer-database refusal; `canonicalText`; auto- and flagged Revisions | - Completed
 | 2 | **#14** | Marking the prose | One rule pass (hedges) auto-run on save; the Finding shape; the attached Anchor; a Highlight; the sidebar grouped by Pass | - Completed
-| 3 | **#15** | Working the queue | Statuses with `declineReason`; `j`/`k`/`a`/`x`; a declined Finding staying declined; Markdown in and out |
+| 3 | **#15** | Working the queue | Statuses with `declineReason`; `j`/`k`/`a`/`x`; a declined Finding staying declined; Markdown in and out | - Completed
 | 4 | **#6** | Rule engine | Every rule pass, editable Rule config, auto-run on save, the metrics panel — the free tier, complete |
 | 5 | **#3** | Connection and the seam | Connections with all prefills and Custom, both key modes, `send`, the Protocol table, the `openai-shaped` adapter, the fixture player, test connection, model listing, retry, concurrency cap, the base-URL privacy assertion |
 | 6 | **#17** | Anthropic and Gemini Protocols | The `anthropic-shaped` and `gemini-native` adapters — one Pass, three Protocols |
