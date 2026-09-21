@@ -40,7 +40,7 @@ export const HEDGES_PASS: Pass = {
   },
 };
 
-export const NOMINALIZATIONS_PASS: Pass = {
+const NOMINALIZATIONS_PASS: Pass = {
   id: "nominalizations",
   name: "Nominalizations",
   description: "Flags actions buried inside nouns.",
@@ -64,7 +64,7 @@ export const NOMINALIZATIONS_PASS: Pass = {
   },
 };
 
-export const OPENERS_PASS: Pass = {
+const OPENERS_PASS: Pass = {
   id: "openers",
   name: "Expletive and throat-clearing openers",
   description: "Flags sentences that clear their throat before they start.",
@@ -175,7 +175,7 @@ export const WORDINESS_PASS: Pass = {
   },
 };
 
-export const REPETITION_PASS: Pass = {
+const REPETITION_PASS: Pass = {
   id: "repetition",
   name: "Repeated words and openers",
   description: "Flags words and sentence openings that keep coming back.",
@@ -488,7 +488,7 @@ export const ORWELL_RULES_PASS: Pass = {
  * one function so the Starter passes cannot drift apart in the part of the
  * prompt the constitution depends on.
  */
-export function paragraphPassPrompt(intro: string, task: string): string {
+function paragraphPassPrompt(intro: string, task: string): string {
   return [
     intro,
     "",
@@ -564,7 +564,7 @@ export function blankModelPass(id: string): Pass {
  * outline. The Section is the unit a Reader account is derived from, so the
  * prompt names it as the only target and never hands over a neighbouring one.
  */
-export function sectionPassPrompt(intro: string, task: string): string {
+function sectionPassPrompt(intro: string, task: string): string {
   return [
     intro,
     "",
@@ -590,7 +590,7 @@ export function sectionPassPrompt(intro: string, task: string): string {
  * the prompt the constitution depends on, and so the `{{document}}` placeholder
  * is filled for them by construction.
  */
-export function documentPassPrompt(intro: string, task: string): string {
+function documentPassPrompt(intro: string, task: string): string {
   return [
     intro,
     "",
@@ -665,7 +665,7 @@ export function constitutionPromptClauses(scope: PassScope): ConstitutionPromptC
  * Shipped disabled (DESIGN §4): it is the most opinionated pass in the pack, so
  * the Writer turns it on deliberately rather than meeting it on first Run.
  */
-export const CHARACTERS_ACTIONS_PASS: Pass = {
+const CHARACTERS_ACTIONS_PASS: Pass = {
   id: "characters-actions",
   name: "Characters and actions",
   description: "Flags sentences where the actor is missing from the subject position.",

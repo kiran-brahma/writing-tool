@@ -7,7 +7,7 @@ import type { ObelusDatabase } from "./obelusDatabase";
  * live. An unknown or malformed stored value normalizes to an empty table, so a
  * corrupt row cannot make the estimate throw.
  */
-export const PRICE_TABLE_SETTING_KEY = "priceTable";
+const PRICE_TABLE_SETTING_KEY = "priceTable";
 
 export async function loadPriceTable(database: ObelusDatabase): Promise<PriceTable> {
   const record = await database.settings.get(PRICE_TABLE_SETTING_KEY);

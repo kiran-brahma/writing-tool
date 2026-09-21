@@ -30,7 +30,7 @@ export async function saveRunCache(
 }
 
 /** The stored form of one Run's result, keyed for the fields that shape it. */
-export function toRunCacheRecord(
+function toRunCacheRecord(
   input: RunCacheInput,
   result: RunResult,
   at: number,

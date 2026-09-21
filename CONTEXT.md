@@ -74,10 +74,19 @@ _Avoid_: Tier 2, AI pass, LLM pass
 The editable data behind a rule pass: its word lists, patterns and windows.
 _Avoid_: settings, options, config
 
+**Voice list**:
+The words and phrases the Writer has declared as theirs, which no Pass may flag as a problem.
+_Avoid_: allowlist, exemption list, ignore list, protected words
+
 **Pass scope**:
 How much of a Document a Pass is shown: `document`, `section` or `paragraph`. A *structural pass* is
 `document`-scope; a *local pass* is `paragraph`-scope.
 _Avoid_: range, coverage
+
+**Working order**:
+The recommended sequence in which the Writer works the Passes — structure, then paragraph, then
+word — derived from Pass scope. A recommendation, never a gate.
+_Avoid_: revision order, pass order, pass stage
 
 **Target**:
 The text a Run is asked about.
@@ -161,6 +170,18 @@ The Critic's standing instruction to read the piece as an editor screening a sub
 to the Critic only.
 _Avoid_: persona, system prompt
 
+**Skimmer**:
+A screening frame: a reader with no time and no patience.
+_Avoid_: busy reader, skimming
+
+**Skeptic**:
+A screening frame: a hostile domain expert who doubts the claim.
+_Avoid_: adversary, critic
+
+**Practitioner**:
+A screening frame: someone who has to act on this advice this week.
+_Avoid_: operator, user
+
 **reader**:
 The human who reads the finished prose. Always the human.
 _Avoid_: audience, consumer
@@ -173,6 +194,15 @@ _Avoid_: Reader, reconstruction, takeaway
 A Reader pass's output: what a Section says, what a distracted reader would miss, and the gap
 between the two.
 _Avoid_: summary, reader report
+
+**Audit pass**:
+The model pass that examines whether a piece's reasoning holds up.
+_Avoid_: review, critique, argument pass
+
+**Audit account**:
+An Audit pass's output: the piece's argument map, any fallacies or definition gaps, and the findings
+that matter most.
+_Avoid_: report, notes, argument account
 
 ## The judge's answers
 

@@ -46,7 +46,7 @@ function orderPasses(stored: Pass[], byId: Map<string, Pass>): Pass[] {
  * Pass has that id. The whole record is rewritten as one unit, so a partial
  * update cannot leave a Pass half-edited.
  */
-export function updatePass(
+function updatePass(
   database: ObelusDatabase,
   passId: string,
   update: (pass: Pass) => Pass,

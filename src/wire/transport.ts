@@ -21,8 +21,8 @@ export interface TransportOptions {
   baseDelayMs?: number;
 }
 
-export const DEFAULT_MAX_ATTEMPTS = 4;
-export const DEFAULT_BASE_DELAY_MS = 500;
+const DEFAULT_MAX_ATTEMPTS = 4;
+const DEFAULT_BASE_DELAY_MS = 500;
 const MAX_DELAY_MS = 30_000;
 
 /**

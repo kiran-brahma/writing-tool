@@ -107,7 +107,7 @@ export async function assistPassPrompt(
  * else. It is an exported pure function so a test can assert the assistant is
  * handed no prose without standing up a transport.
  */
-export function assistantUserMessage(input: PromptAssistantRequest): string {
+function assistantUserMessage(input: PromptAssistantRequest): string {
   const request = input.request.trim();
   const prompt = input.prompt.trim();
   return [

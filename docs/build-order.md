@@ -159,3 +159,25 @@ affordance source check moved to #24, and #4 did not overflow again.
 
 Every one of the 117 user stories in the spec is cited by at least one ticket. Where two tickets cite
 the same story, the split is deliberate and stated in both.
+
+## v1.1 — the Audit and the recommendation mechanics
+
+The increment is `docs/specs/obelus-v1.1.md`; its stories are numbered 118–159. Each slice is a
+vertical tracer, and **migration 8 ships alone** ahead of the behaviour that uses it, as
+`docs/migrations.md` requires. GitHub issue numbers are assigned when the round starts.
+
+| Step | Ticket | What it makes work | Blocked by |
+|---|---|---|---|
+| 1 | #26 Audit shape and store | The `audit` output shape; the `auditAccounts` table via migration 8; `note` removed from the union, the picker, the Workbench and `passSet` | — |
+| 2 | #27 The Audit pass | Prompt carrying the condensed taxonomy; closed schema; tolerant parser; chunk and synthesis; the Audit surface; harness fixtures | #26 |
+| 3 | #28 Rule passes | `passive` and `ai-tells`; A3 as a metric; A4 folded into `cut-candidates` or `cliche`; the default flips | — |
+| 4 | #29 Metrics | Be-verb, preposition and abstract-noun densities; the Lard Factor; display-only | — |
+| 5 | #30 Working order | The derived grouping and the recommended sequence | — |
+| 6 | #31 Voice list | The `voiceList` setting; rule silence; model prompt injection; the annotating post-filter | #28 |
+| 7 | #32 Frames | The `Pass.frame` field; Skimmer, Skeptic, Practitioner; the Audit and Reader exempt | — |
+| 8 | #33 Judge calibration | The session-only prediction shown beside the Verdict | — |
+
+Steps 1 and 2 are the critical path: slice 2 cannot start until the `audit` shape and its store
+are settled, or a fresh context window invents a second coordinate system for the account. Steps 3–8
+are independent of each other once the shape lands, and 6 needs the rule passes from 3 to have
+something to silence.

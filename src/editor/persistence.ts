@@ -32,8 +32,8 @@ export interface PersistenceController {
   dispose(): void;
 }
 
-export const SAVE_DEBOUNCE_MS = 800;
-export const REVISION_IDLE_MS = 60_000;
+const SAVE_DEBOUNCE_MS = 800;
+const REVISION_IDLE_MS = 60_000;
 export const REVISION_CHANGE_LIMIT = 200;
 
 export function createPersistence(options: PersistenceOptions): PersistenceController {

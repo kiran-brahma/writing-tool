@@ -131,7 +131,7 @@ export interface SettingsRecord {
   value: unknown;
 }
 
-export const OBELUS_DATABASE_VERSION = 7;
+const OBELUS_DATABASE_VERSION = 7;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */

@@ -30,7 +30,7 @@ import {
  */
 
 /** Stores the raw response of a Pass's Run for a Document, keyed by promptHash. */
-export async function saveRunResponse(
+async function saveRunResponse(
   database: ObelusDatabase,
   documentId: string,
   passId: string,

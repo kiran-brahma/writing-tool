@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "public/sw.js",
+    "scripts/agent-gates.mjs"
+  ],
+  "ignoreExports": [
+    {
+      "file": "src/core/pass.ts",
+      "exports": ["Slot"]
+    },
+    {
+      "file": "src/storage/connections.ts",
+      "exports": ["Slot"]
+    }
+  ]
+}

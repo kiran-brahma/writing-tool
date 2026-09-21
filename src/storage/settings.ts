@@ -7,7 +7,7 @@ import type { ObelusDatabase } from "./obelusDatabase";
  * applies to critic Passes only, and the Writer can switch it off to compare
  * how a model behaves with and without it.
  */
-export const SCREENING_FRAME_SETTING_KEY = "screeningFrame";
+const SCREENING_FRAME_SETTING_KEY = "screeningFrame";
 
 /** The Screening frame is on by default; only an explicit `false` turns it off. */
 export async function loadScreeningFrame(database: ObelusDatabase): Promise<boolean> {
@@ -47,7 +47,7 @@ export async function saveCharacterLimit(
 }
 
 /** A whole number at or above the floor, or the Core default otherwise. */
-export function normalizeCharacterLimit(value: unknown): number {
+function normalizeCharacterLimit(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_CHARACTER_LIMIT;
   return Math.max(MIN_CHARACTER_LIMIT, Math.round(value));
 }

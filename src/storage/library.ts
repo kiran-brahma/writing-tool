@@ -15,7 +15,7 @@ import {
 import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
 
 /** Project one Document into its Library row. */
-export function toLibraryEntry(document: DocumentRecord, openFindings: number): LibraryEntry {
+function toLibraryEntry(document: DocumentRecord, openFindings: number): LibraryEntry {
   const normalized = normalizeDocument(document);
   return {
     id: normalized.id,

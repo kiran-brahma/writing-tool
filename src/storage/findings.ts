@@ -9,11 +9,11 @@ import type { DocumentRecord, FindingRecord, ObelusDatabase } from "./obelusData
  * Finding and nothing more.
  */
 
-export function toFindingRecord(finding: Finding, documentId: string): FindingRecord {
+function toFindingRecord(finding: Finding, documentId: string): FindingRecord {
   return { ...finding, documentId };
 }
 
-export function fromFindingRecord(record: FindingRecord): Finding {
+function fromFindingRecord(record: FindingRecord): Finding {
   const { documentId: _documentId, ...finding } = record;
   return finding;
 }
@@ -102,7 +102,7 @@ export function resolveDocumentFindings(
 }
 
 /** The canonical string of each named Revision, keyed by id. */
-export async function loadProvenanceCanonicals(
+async function loadProvenanceCanonicals(
   database: ObelusDatabase,
   revisionIds: string[],
 ): Promise<Map<string, string>> {

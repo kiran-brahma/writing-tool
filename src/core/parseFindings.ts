@@ -251,7 +251,7 @@ function violationsOf(candidate: Record<string, unknown>): Violation[] {
 }
 
 /** Every string at or below `value`: linted for praise and quarantined whole. */
-export function outOfSchemaViolations(value: unknown): Violation[] {
+function outOfSchemaViolations(value: unknown): Violation[] {
   const strings: string[] = [];
   collectStrings(value, strings);
 

@@ -36,7 +36,7 @@ export function createDocument(now: number = Date.now()): DocumentRecord {
 }
 
 /** Story 24: the auto-created Scratchpad, a Document under a stable id. */
-export function createScratchpad(now: number = Date.now()): DocumentRecord {
+function createScratchpad(now: number = Date.now()): DocumentRecord {
   return { ...createDocument(now), id: SCRATCHPAD_DOCUMENT_ID, title: "Scratchpad" };
 }
 
@@ -130,7 +130,7 @@ export function exportDocument(document: DocumentRecord): string {
  * tree and `updatedAt` moves to now. The id and title remain the Document's,
  * because Markdown carries neither.
  */
-export function documentFromMarkdown(
+function documentFromMarkdown(
   document: DocumentRecord,
   markdown: string,
   now: number = Date.now(),

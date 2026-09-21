@@ -281,3 +281,51 @@ Generation of any prose. Collaboration. Sync. Accounts. Folders. PDF export. Str
 injection theatre. Clipboard policing. Length gates. Prompt-editable JSON Schema. Any proxy
 that sees an API key. A pass library curated by anyone other than its user — *"whatever anybody
 comes up with on their own is better, for themselves, than someone else's."*
+
+---
+
+## 13. v1.1 — the Audit, and recommendation over enforcement
+
+v1 was a copyeditor. v1.1 adds the one thing a copyeditor cannot do — tell the Writer whether the
+thinking holds up — and the mechanics that let the tool recommend without gatekeeping. The increment
+is specified in `docs/specs/obelus-v1.1.md`; three decisions carry ADRs 0007–0009. What follows is
+the reasoning.
+
+### The boundary
+
+Prose is *how something is said*; the Audit is *whether it holds up*. The line is the one
+`Prose Linter.md` already draws when it refuses to "comment on the ideas," and it is what sorts every
+unimplemented check in that document onto one surface or the other. Lexical AI tells are prose;
+their argumentative cousins and the H1–H5 honesty checks are the Audit.
+
+### The Audit
+
+A document-scope model pass built from `docs/reference/musings-reviewer/`: classification, argument
+structure, validity versus soundness, enthymemes, definitions, and fallacies. It returns an **Audit
+account** on its own surface, never a Finding, for the reason ADR 0007 records — a whole-piece
+judgment has no quote to anchor to, and forcing one into the queue would break the `j`/`k`/`a`/`x`
+loop the queue exists for.
+
+The method it comes from is a *musings* reviewer, written for a one-sitting piece, and it carries an
+atomicity gate and a 300-word cap. Both are left behind — not as a trim, but as the whole point of
+ADR 0008: a tool whose spec forbids a length gate cannot import one because its source happened to
+have it.
+
+### Recommendation, not enforcement
+
+Working order, per-pass frames, and Judge calibration all shape what the Writer attends to; none
+gates. ADR 0009 draws the line and explains why a default is not a gate — the Starter pack has always
+shipped passes on and off. The two passes the source method treats as its most satisfying wins,
+`characters-actions` and `paragraph-reorder`, come back on.
+
+### The Voice list
+
+Rule 1 says the tool may never suggest a word. The Voice list is its complement: a set of words and
+phrases the Writer has declared theirs, which no Pass may flag. A rule pass silences them; a model
+pass is told about them, and any match that survives is annotated rather than hidden, so a model that
+ignores the list is visible rather than invisible.
+
+### What "thinking better" means here
+
+The reader pass answers the reader's comprehension. The Audit answers the Writer's reasoning. Between
+them, v1.1 is the first version of Obelus that marks more than the prose.

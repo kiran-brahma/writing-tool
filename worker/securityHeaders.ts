@@ -7,7 +7,7 @@
  * cannot be enumerated in a static header, so the "only your Connection" property
  * is enforced by the Transport code path and asserted at the seam instead.
  */
-export const CONTENT_SECURITY_POLICY = [
+const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",

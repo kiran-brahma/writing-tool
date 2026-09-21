@@ -10,6 +10,7 @@ import {
   createFetchTransport,
   isCancelledError,
   parseRetryAfter,
+  testConnection,
 } from "./transport";
 
 function connection(id: string, overrides: Partial<Connection> = {}): Connection {
@@ -317,3 +318,35 @@ describe("the concurrency cap (story 57)", () => {
 function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+describe("testConnection (story 10)", () => {
+  it("reports the model list when the Connection answers", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: [{ id: "gpt-a" }, { id: "gpt-b" }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(testConnection(createFetchTransport(), connection("openai"))).resolves.toEqual({
+      ok: true,
+      models: ["gpt-a", "gpt-b"],
+      error: null,
+    });
+  });
+
+  it("reports a failure as a non-ok result rather than throwing", async () => {
+    // The opaque network failure a bad key produces without CORS: the Writer
+    // gets a result they can act on, pointing at "Test connection".
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    const result = await testConnection(createFetchTransport(), connection("openai"));
+
+    expect(result.ok).toBe(false);
+    expect(result.models).toEqual([]);
+    expect(result.error).toContain("Test connection");
+  });
+});

@@ -25,7 +25,7 @@ import { findUnknownPlaceholders } from "./prompt";
 export const PASS_SET_FORMAT = "obelus.pass-set";
 export const PASS_SET_FORMAT_VERSION = 1;
 
-export interface PassSetFile {
+interface PassSetFile {
   format: typeof PASS_SET_FORMAT;
   version: number;
   passes: Pass[];

@@ -90,7 +90,7 @@ export interface ReaderRunResult {
 }
 
 /** Raised when a response contains no Reader account Obelus can read. */
-export class ReaderAccountParseError extends Error {
+class ReaderAccountParseError extends Error {
   constructor(message = "The model response did not contain a Reader account Obelus could read.") {
     super(message);
     this.name = "ReaderAccountParseError";

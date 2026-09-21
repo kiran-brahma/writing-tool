@@ -41,7 +41,7 @@ export function isOutputShape(value: unknown): value is OutputShape {
  * runner, the Core entry point and the harness cannot disagree about which
  * shape is a Reader account.
  */
-export const READER_OUTPUT: OutputShape = "section-summary";
+const READER_OUTPUT: OutputShape = "section-summary";
 
 export interface RuleConfig {
   hedges?: string[];

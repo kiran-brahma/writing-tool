@@ -52,7 +52,7 @@ export function clearReaderAccounts(
  * Run decides the whole set, so a partial write would leave the Reader tab
  * showing Sections the Document no longer has.
  */
-export async function replaceReaderAccountsForPass(
+async function replaceReaderAccountsForPass(
   database: ObelusDatabase,
   documentId: string,
   passId: string,

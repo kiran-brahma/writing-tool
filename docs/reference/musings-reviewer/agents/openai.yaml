@@ -1,0 +1,12 @@
+interface:
+  display_name: Musings Reviewer
+  short_description: Audit one short musing for logic, atomicity, and prose.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

@@ -11,7 +11,7 @@ import type { EditorRange } from "../core/finding";
  * replaces them.
  */
 
-export const HIGHLIGHT_PLUGIN_KEY = new PluginKey<DecorationSet>("obelusHighlight");
+const HIGHLIGHT_PLUGIN_KEY = new PluginKey<DecorationSet>("obelusHighlight");
 
 export const HighlightExtension = Extension.create({
   name: "obelusHighlight",

@@ -23,17 +23,17 @@ import type {
 } from "./obelusDatabase";
 
 /** The tag written into a whole-Library backup, so import can tell what it holds. */
-export const LIBRARY_BACKUP_FORMAT = "obelus.library-backup";
+const LIBRARY_BACKUP_FORMAT = "obelus.library-backup";
 
 /** The tag written into a single-Document bundle. */
-export const DOCUMENT_BUNDLE_FORMAT = "obelus.document-bundle";
+const DOCUMENT_BUNDLE_FORMAT = "obelus.document-bundle";
 
 /**
  * The backup schema version this build writes and the newest it can read. A
  * file from a newer build is refused rather than half-read, the same stance the
  * database takes toward a newer schema.
  */
-export const BACKUP_FORMAT_VERSION = 1;
+const BACKUP_FORMAT_VERSION = 1;
 
 /** The settings key that carries the last-backed-up timestamp. */
 export const LAST_BACKED_UP_SETTING_KEY = "lastBackedUp";
