@@ -266,7 +266,7 @@ describe("ruleMatches", () => {
     expect(matches[0].issue).not.toMatch(/Orwell/);
   });
 
-  it("reports the same passive span through Orwell's pass at its own severity", () => {
+  it("reports the same passive span through Orwell's pass with its own diagnosis", () => {
     const orwell = ruleMatches("The report was completed.\n", ORWELL_RULES_PASS);
     const passive = ruleMatches("The report was completed.\n", PASSIVE_PASS);
 
@@ -320,6 +320,16 @@ describe("ruleMatches", () => {
 
     expect(matches.map((match) => match.quote)).toEqual(["Many of us", "Most operators", "And", "But"]);
     expect(matches[2].issue).toBe('AI tell opener: "And"');
+  });
+
+  it("flags a category label standing where a specific belongs (A11)", () => {
+    const matches = ruleMatches(
+      "Founders all face the same problem. Everyone knows it.\n",
+      AI_TELLS_PASS,
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["Founders", "Everyone"]);
+    expect(matches[0].issue).toBe('AI tell: "Founders"');
   });
 
   it("does not flag a conjunction or a category word inside a sentence", () => {
@@ -383,6 +393,7 @@ describe("runRulePass", () => {
 describe("the Starter pack is deterministic", () => {
   const canonical =
     "There is a very good implementation. In order to decide, we decide again and again. " +
+    "The report was completed. It is pivotal. Time will tell. And it continues. " +
     "Writing is hard. Writing is slow.\n";
   const context = { at: 1_700_000_000_000, revisionId: "revision-1" };
 

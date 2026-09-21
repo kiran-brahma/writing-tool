@@ -83,9 +83,9 @@ export interface RuleConfig {
   /**
    * The first-class `passive` pass: the auxiliaries a passive construction is
    * built on. Separate from Orwell's `passiveAuxiliaries` because the two passes
-   * report the same span at different severities and diagnoses — Orwell names a
-   * rule failure, the `passive` pass states the Williams exception and leaves
-   * the call to the Writer.
+   * report the same span with different diagnoses — Orwell names a rule failure,
+   * the `passive` pass states the Williams exception and leaves the call to the
+   * Writer. A config may carry one or the other, never both.
    */
   passiveVoiceAuxiliaries?: string[];
   /**

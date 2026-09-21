@@ -135,6 +135,9 @@ describe("Starter model passes", () => {
     }
     for (const term of AI_TELLS_PASS.ruleConfig?.aiTellOpeners ?? []) {
       for (const candidate of anchored) expectNoOverlap(term, candidate);
+      // An opener can also collide with a longer literal phrase that begins with
+      // it, because a sentence starting that phrase starts with the opener too.
+      for (const candidate of anywhere) expectNoPrefixOverlap(term, candidate);
     }
   });
 
@@ -249,4 +252,9 @@ function escapeRegExp(value: string): string {
 function expectNoOverlap(term: string, candidate: string): void {
   const pattern = new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
   expect(pattern.test(candidate), `"${term}" is also owned by "${candidate}"`).toBe(false);
+}
+
+function expectNoPrefixOverlap(term: string, candidate: string): void {
+  const pattern = new RegExp(`^\\b${escapeRegExp(term)}\\b`, "i");
+  expect(pattern.test(candidate), `"${term}" opens the owned phrase "${candidate}"`).toBe(false);
 }

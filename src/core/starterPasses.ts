@@ -25,8 +25,9 @@ export {
 /**
  * The model Passes and the pack assembly. The rule Passes and their word
  * lists live in `starterRulePasses.ts`, so this file stays about prompts
- * and the pack order. The rule Passes are re-exported here because the pack
- * is the one place callers import Passes from.
+ * and the pack order. The exported rule Passes are re-exported here because
+ * the pack is the one place callers import Passes from; the unexported rule
+ * Passes (`nominalizations`, `openers`, `repetition`) are internal to the pack.
  */
 
 /**

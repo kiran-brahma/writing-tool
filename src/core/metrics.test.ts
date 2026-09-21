@@ -74,12 +74,6 @@ describe("paragraphShapeMetrics (A3)", () => {
     expect(shape.paragraphSentenceCounts).toEqual([1, 1, 1]);
     expect(shape.longestUniformParagraphRun).toBe(2);
   });
-
-  it("is deterministic", () => {
-    const tree = parseCanonical("One. Two.\n\nThree. Four.\n");
-
-    expect(paragraphShapeMetrics(tree)).toEqual(paragraphShapeMetrics(tree));
-  });
 });
 
 describe("countWords", () => {
