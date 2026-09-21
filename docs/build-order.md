@@ -164,8 +164,8 @@ the same story, the split is deliberate and stated in both.
 
 The increment is `docs/specs/obelus-v1.1.md`; its stories are numbered 118–159. Each slice is a
 vertical tracer, and **migration 8 ships alone** ahead of the behaviour that uses it, as
-`docs/migrations.md` requires. GitHub issue numbers are assigned when the round starts. Slices 1–7
-have landed; 8 is open.
+`docs/migrations.md` requires. GitHub issue numbers are assigned when the round starts. Slices 1–8
+have landed.
 
 | Step | Ticket | What it makes work | Blocked by | Status |
 |---|---|---|---|---|
@@ -176,7 +176,7 @@ have landed; 8 is open.
 | 5 | #30 Working order | The derived grouping and the recommended sequence | — | Completed |
 | 6 | #31 Voice list | The `voiceList` setting; rule silence; model prompt injection; the annotating post-filter | #28 | Completed |
 | 7 | #32 Frames | The `Pass.frame` field; Skimmer, Skeptic, Practitioner; the Audit and Reader exempt | — | Completed |
-| 8 | #33 Judge calibration | The session-only prediction shown beside the Verdict | — | Open |
+| 8 | #33 Judge calibration | The session-only prediction shown beside the Verdict | — | Completed |
 
 Steps 1 and 2 are the critical path: slice 2 cannot start until the `audit` shape and its store
 are settled, or a fresh context window invents a second coordinate system for the account. Steps 3–8
