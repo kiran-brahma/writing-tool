@@ -1,4 +1,5 @@
 import { fnv1a } from "./hash";
+import type { ScreeningFrame } from "./screeningFrame";
 
 /**
  * Passes are data, not code: records the Writer can edit, export and import,
@@ -110,6 +111,12 @@ export interface Pass {
   output: OutputShape;
   /** Model Passes only. */
   prompt?: string;
+  /**
+   * Story 153: the reader a critic Finding Pass is written for. Optional and
+   * unindexed, so adding it needs no migration. Unset means the default editor
+   * frame; the Reader and the Audit may not set one (story 154).
+   */
+  frame?: ScreeningFrame;
   slot: Slot;
   enabled: boolean;
   ruleConfig?: RuleConfig;
@@ -124,9 +131,11 @@ export interface Pass {
 
 /**
  * `promptHash` replaces a hand-bumped version integer. It is derived from what
- * actually shapes a Run's output — the prompt, the scope, the output shape and
- * the Rule config — and recorded on every Finding, so a cache hit can never
- * return findings the current Pass would not have produced.
+ * actually shapes a Run's output — the prompt, the scope, the output shape, the
+ * Rule config and the Screening frame — and recorded on every Finding, so a
+ * cache hit can never return findings the current Pass would not have produced.
+ * An explicit `default` frame and an unset one send the same request, so they
+ * hash the same rather than missing the cache for no change.
  */
 export function hashPass(pass: Pass): string {
   return fnv1a(
@@ -135,6 +144,7 @@ export function hashPass(pass: Pass): string {
       output: pass.output,
       prompt: pass.prompt ?? null,
       ruleConfig: pass.ruleConfig ?? null,
+      frame: pass.frame === "default" ? null : pass.frame ?? null,
     }),
   );
 }
@@ -247,14 +257,25 @@ export function isAuditPass(pass: Pass): boolean {
 }
 
 /**
- * Story 154: the Screening frame does not apply to the Audit — its method
- * defines its stance, so no frame may be attached to it. The exemption lives
- * here, beside the output-shape names, so the request builder and any future
- * `frame` handling cannot disagree about which Passes accept a frame. The
- * Reader's own exemption, and the per-pass frames #32 adds, land with #32.
+ * Whether a Pass of this kind and output shape takes a Screening frame. Story
+ * 154: a frame applies to critic Finding Passes only. A rule Pass is never sent
+ * to a model, and the Reader's and the Audit's methods define their own stance,
+ * so none of them accepts one. The predicate takes the two fields rather than a
+ * `Pass` so the pass-set validator can ask about a candidate record it has not
+ * built into a `Pass` yet.
+ */
+export function frameAppliesTo(kind: unknown, output: unknown): boolean {
+  return kind === "model" && output === "findings";
+}
+
+/**
+ * Story 154: the frame exemption, in one place. The request builder, the
+ * pass-set validator and the Workbench picker all ask this, so they cannot
+ * disagree about which Passes accept a frame. The Judge carries no Pass at all
+ * and so no frame (story 155).
  */
 export function passAcceptsFrame(pass: Pass): boolean {
-  return !isAuditPass(pass);
+  return frameAppliesTo(pass.kind, pass.output);
 }
 
 /** True for a Pass whose output is Findings, the queue's own shape. */

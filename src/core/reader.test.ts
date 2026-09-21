@@ -7,7 +7,6 @@ import type { Pass } from "./pass";
 import { sectionContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
 import { parseReaderAccount, READER_SCHEMA, readSection } from "./reader";
-import { SCREENING_FRAME } from "./screeningFrame";
 
 function doc(...content: BlockNode[]): DocTree {
   return { type: "doc", content };
@@ -157,14 +156,17 @@ describe("readSection", () => {
     await expect(readSection(target(), rulePass, connection(), config)).rejects.toThrow(/rule Pass/);
   });
 
-  it("applies the Screening frame to a critic Pass, and omits it when the toggle is off", async () => {
+  it("never applies a Screening frame, even when the toggle is on (story 154)", async () => {
     const on = fixture(RESPONSE, true);
     await readSection(target(), READER_PASS, connection(), on.config);
-    expect(systemMessage(on.transport.requests[0].body)).toBe(SCREENING_FRAME);
+    expect(systemMessage(on.transport.requests[0].body)).toBeUndefined();
 
-    const off = fixture(RESPONSE, false);
-    await readSection(target(), READER_PASS, connection(), off.config);
-    expect(systemMessage(off.transport.requests[0].body)).toBeUndefined();
+    // Even a smuggled frame on a Reader Pass never reaches the request: the
+    // Reader's own method defines its stance (story 154).
+    const framed: Pass = { ...READER_PASS, frame: "skimmer" };
+    const smuggled = fixture(RESPONSE, true);
+    await readSection(target(), framed, connection(), smuggled.config);
+    expect(systemMessage(smuggled.transport.requests[0].body)).toBeUndefined();
   });
 });
 

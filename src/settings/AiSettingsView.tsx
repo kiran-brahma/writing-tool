@@ -324,7 +324,7 @@ function RunSettingsPanel({
           checked={screeningFrame}
           onChange={(event) => onToggleScreening(event.target.checked)}
         />
-        Screening frame (critic passes only)
+        Screening frame (critic finding passes only)
       </label>
 
       <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">

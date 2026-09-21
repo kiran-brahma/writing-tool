@@ -6,7 +6,7 @@ import type { BlockNode, DocTree } from "./docTree";
 import { hashPass, isFindingsPass, type Pass } from "./pass";
 import { passContext, documentContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
-import { SCREENING_FRAME } from "./screeningFrame";
+import { frameText } from "./screeningFrame";
 import { CLICHE_PASS, STARTER_PASSES, TOPIC_STRINGS_PASS } from "./starterPasses";
 
 function doc(...content: BlockNode[]): DocTree {
@@ -98,6 +98,9 @@ describe("critique", () => {
     expect(hashPass({ ...CLICHE_PASS, prompt: "a different prompt" })).not.toBe(base);
     expect(hashPass({ ...CLICHE_PASS, scope: "document" })).not.toBe(base);
     expect(hashPass({ ...CLICHE_PASS, output: "audit" })).not.toBe(base);
+    // Story 153: the frame shapes the request, so a changed frame must miss the
+    // Run cache rather than reuse the previous frame's Findings.
+    expect(hashPass({ ...CLICHE_PASS, frame: "skimmer" })).not.toBe(base);
   });
 
   it("drops and reports Anchors outside the Target (Containment)", async () => {
@@ -162,7 +165,21 @@ describe("critique", () => {
 
     const messages = (transport.requests[0].body as { messages: { role: string; content: string }[] })
       .messages;
-    expect(messages[0]).toEqual({ role: "system", content: SCREENING_FRAME });
+    expect(messages[0].role).toBe("system");
+    expect(messages[0].content).toContain("editor screening a submission");
+  });
+
+  it("sends the Pass's chosen frame instead of the default (story 153)", async () => {
+    const { transport, config } = fixture(RESPONSE, true);
+    const framed: Pass = { ...CLICHE_PASS, frame: "skeptic" };
+    await critique(target(), framed, connection(), config);
+
+    const messages = (transport.requests[0].body as { messages: { role: string; content: string }[] })
+      .messages;
+    expect(messages[0].role).toBe("system");
+    expect(messages[0].content).toContain("hostile domain expert");
+    expect(messages[0].content).not.toContain("editor screening a submission");
+    expect(messages[0].content).toBe(frameText("skeptic"));
   });
 
   it("omits the Screening frame when the toggle is off", async () => {

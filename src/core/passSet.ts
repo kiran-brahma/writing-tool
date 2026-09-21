@@ -1,5 +1,6 @@
 import { isRecord } from "./parseJson";
 import {
+  frameAppliesTo,
   isOutputShape,
   isPassScope,
   type OutputShape,
@@ -8,6 +9,7 @@ import {
   type RuleConfig,
 } from "./pass";
 import { findUnknownPlaceholders } from "./prompt";
+import { isScreeningFrame, type ScreeningFrame } from "./screeningFrame";
 
 /**
  * The Pass set as a portable file (story 102). Passes are data, so the set
@@ -24,12 +26,15 @@ import { findUnknownPlaceholders } from "./prompt";
 
 export const PASS_SET_FORMAT = "obelus.pass-set";
 /**
- * Version 2 adds the v1.1 Rule config fields (`passiveVoiceAuxiliaries`,
- * `aiTells`, `aiTellOpeners`). A v1 build would recognise the pass ids but drop
- * the new lists and run the passes as no-ops, so the version is bumped to make
- * that build refuse the file rather than half-read it.
+ * Version 2 adds the v1.1 Rule config lists (`passiveVoiceAuxiliaries`,
+ * `aiTells`, `aiTellOpeners`). Version 3 adds a Pass's optional Screening
+ * `frame`. A build that reads only up to version 2 would accept the file and
+ * silently drop the frame — running the default frame the Writer did not choose
+ * — so the version is bumped to make that build refuse the file rather than
+ * half-read it, exactly as version 2 exists to stop a v1 build dropping the
+ * Rule config lists.
  */
-export const PASS_SET_FORMAT_VERSION = 2;
+export const PASS_SET_FORMAT_VERSION = 3;
 
 interface PassSetFile {
   format: typeof PASS_SET_FORMAT;
@@ -120,11 +125,16 @@ export function passProblem(candidate: unknown): string | null {
   if (candidate.slot !== "critic") {
     return `Pass "${id}" has an unknown slot`;
   }
-  // Story 154: the Audit's method defines its stance, so no frame may be set on
-  // it. The `frame` field arrives with the frames work (#32); this refuses one
-  // on an Audit Pass even before that field is a known part of the shape.
-  if (candidate.frame !== undefined && candidate.output === "audit") {
-    return `Audit Pass "${id}" may not set a frame; its method defines its stance`;
+  if (candidate.frame !== undefined) {
+    if (!isScreeningFrame(candidate.frame)) {
+      return `Pass "${id}" has an unknown Screening frame`;
+    }
+    // Story 154: a frame applies to critic Finding Passes only. A rule Pass is
+    // never sent to a model, and the Reader's and the Audit's methods define
+    // their own stance, so none of them may carry one.
+    if (!frameAppliesTo(candidate.kind, candidate.output)) {
+      return `Pass "${id}" may not set a frame; only a critic Finding pass takes one`;
+    }
   }
   if (typeof candidate.enabled !== "boolean") {
     return `Pass "${id}" needs an enabled flag`;
@@ -177,6 +187,7 @@ function readPass(candidate: unknown, index: number): Pass {
     enabled: record.enabled as boolean,
   };
   if (pass.kind === "model") pass.prompt = record.prompt as string;
+  if (record.frame !== undefined) pass.frame = record.frame as ScreeningFrame;
   if (record.ruleConfig !== undefined) {
     pass.ruleConfig = readRuleConfig(record.ruleConfig) as RuleConfig;
   }

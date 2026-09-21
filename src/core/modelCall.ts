@@ -2,7 +2,7 @@ import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Provenance } from "./finding";
 import { isFindingsPass, passAcceptsFrame, type Pass } from "./pass";
-import { SCREENING_FRAME } from "./screeningFrame";
+import { frameText } from "./screeningFrame";
 import { voiceListClause } from "./voiceList";
 
 /**
@@ -43,7 +43,10 @@ export function buildPassRequest(options: PassRequestOptions): ModelRequest {
   const { pass, connection, prompt, schema, screeningFrame, voiceList, maxOutputTokens } = options;
   const system: string[] = [];
   if (screeningFrame && pass.slot === "critic" && passAcceptsFrame(pass)) {
-    system.push(SCREENING_FRAME);
+    // Story 153: the Pass chooses which reader the Critic writes for; unset
+    // means the existing default. The global toggle is the master switch, so
+    // turning it off sends no frame at all (story 77).
+    system.push(frameText(pass.frame));
   }
   if (isFindingsPass(pass) && voiceList !== undefined && voiceList.length > 0) {
     system.push(voiceListClause(voiceList));

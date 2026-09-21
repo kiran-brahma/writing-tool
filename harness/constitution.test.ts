@@ -34,12 +34,14 @@ const RAN_AT = Date.UTC(2026, 8, 19, 12, 0, 0);
 
 let report: HarnessReport;
 let voiceListReport: HarnessReport;
+let framedReport: HarnessReport;
 let documentReport: HarnessReport;
 let readerReport: HarnessReport;
 let auditReport: HarnessReport;
 let chunkedAuditReport: HarnessReport;
 let transports: FixtureTransport[];
 let voiceListTransports: FixtureTransport[];
+let framedTransports: FixtureTransport[];
 let readerTransports: FixtureTransport[];
 let auditTransports: FixtureTransport[];
 
@@ -86,6 +88,24 @@ beforeAll(async () => {
         respond: () => adversarialResponse(testCase.target),
       });
       voiceListTransports.push(transport);
+      return transport;
+    },
+  });
+
+  // Story 153: a non-default Screening frame is a new standing instruction, so
+  // it runs through the real `critique` entry point and is held to the same
+  // constitution properties as every other findings case.
+  framedTransports = [];
+  framedReport = await runConstitutionHarness({
+    connection: connection(),
+    documents: HARNESS_DOCUMENTS,
+    passes: HARNESS_PASSES.map((pass): Pass => ({ ...pass, frame: "skeptic" })),
+    screeningFrame: true,
+    transportFor: (testCase) => {
+      const transport = createFixtureTransport({
+        respond: () => adversarialResponse(testCase.target),
+      });
+      framedTransports.push(transport);
       return transport;
     },
   });
@@ -219,6 +239,29 @@ describe("constitution harness", () => {
 
     // The clause reached the request as a system instruction, not as prose.
     expect(JSON.stringify(voiceListTransports[0].requests[0].body)).toContain("their own voice");
+  });
+
+  it("holds the Findings run to the constitution with a non-default frame", () => {
+    expect(framedReport.cases).toHaveLength(9);
+    expect(framedReport.ok).toBe(true);
+    for (const testCase of framedReport.cases) {
+      expect(testCase.error).toBeNull();
+      for (const name of [
+        "parses",
+        "praiseFlagged",
+        "noRewriteField",
+        "anchorsContained",
+        "promptConstitution",
+      ] as const) {
+        expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
+      }
+    }
+
+    // The chosen frame reached the request as the system instruction, not as
+    // prose, and it kept the constitution's clauses.
+    const system = JSON.stringify(framedTransports[0].requests[0].body);
+    expect(system).toContain("hostile domain expert");
+    expect(system).toContain("do not praise the writing");
   });
 
   it("runs three fixture Documents × the two document-scope model Passes", () => {

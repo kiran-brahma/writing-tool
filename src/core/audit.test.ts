@@ -138,9 +138,10 @@ describe("auditDocument", () => {
     expect(prompt).toContain("Bravo body, which supports it.");
   });
 
-  it("does not apply the Screening frame even when the toggle is on", async () => {
+  it("does not apply a Screening frame, even a smuggled one (story 154)", async () => {
     const on = fixture(RESPONSE, true);
-    await auditDocument(target(), AUDIT_FIXTURE_PASS, connection(), on.config);
+    const framed: Pass = { ...AUDIT_FIXTURE_PASS, frame: "skimmer" };
+    await auditDocument(target(), framed, connection(), on.config);
     expect(systemMessage(on.transport.requests[0].body)).toBeUndefined();
   });
 

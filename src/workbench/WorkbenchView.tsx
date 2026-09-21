@@ -2,11 +2,13 @@ import { useState } from "react";
 import {
   OUTPUT_SHAPES,
   PASS_SCOPES,
+  passAcceptsFrame,
   type OutputShape,
   type Pass,
   type PassScope,
   type RuleConfig,
 } from "../core/pass";
+import { SCREENING_FRAMES, type ScreeningFrame } from "../core/screeningFrame";
 import { passProblem } from "../core/passSet";
 import { placeholderTokens } from "../core/prompt";
 import type {
@@ -323,9 +325,18 @@ function ModelPassEditor({
           <span className="text-xs font-medium text-stone-700">Output shape</span>
           <select
             value={draft.output}
-            onChange={(event) =>
-              setDraft({ ...draft, output: event.target.value as OutputShape })
-            }
+            onChange={(event) => {
+              const output = event.target.value as OutputShape;
+              setDraft((current) => {
+                const next: Pass = { ...current, output };
+                // Story 154: a frame belongs to a critic Finding Pass only, so
+                // switching to the Reader or Audit shape drops it rather than
+                // saving a field `passProblem` would refuse.
+                if (passAcceptsFrame(next)) return next;
+                delete next.frame;
+                return next;
+              });
+            }}
             className="mt-1 block rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
           >
             {OUTPUT_SHAPES.map((output) => (
@@ -336,6 +347,28 @@ function ModelPassEditor({
           </select>
         </label>
       </div>
+
+      {passAcceptsFrame(draft) && (
+        <label className="block">
+          <span className="text-xs font-medium text-stone-700">Screening frame</span>
+          <select
+            value={draft.frame ?? "default"}
+            onChange={(event) =>
+              setDraft({ ...draft, frame: event.target.value as ScreeningFrame })
+            }
+            className="mt-1 block rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+          >
+            {SCREENING_FRAMES.map((frame) => (
+              <option key={frame} value={frame}>
+                {frameLabel(frame)}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-stone-500">
+            Who this Pass is written for. The Reader and the Audit keep their own stance.
+          </span>
+        </label>
+      )}
 
       <label className="block">
         <span className="text-xs font-medium text-stone-700">Prompt</span>
@@ -461,6 +494,20 @@ function PromptAssistant({
       )}
     </div>
   );
+}
+
+/** The Writer-facing name for a Screening frame. */
+function frameLabel(frame: ScreeningFrame): string {
+  switch (frame) {
+    case "default":
+      return "Default (editor screening a submission)";
+    case "skimmer":
+      return "Skimmer (no time, no patience)";
+    case "skeptic":
+      return "Skeptic (hostile domain expert)";
+    case "practitioner":
+      return "Practitioner (must act this week)";
+  }
 }
 
 /** The Writer-facing name for a Pass scope. */

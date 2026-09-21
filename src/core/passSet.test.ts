@@ -27,6 +27,24 @@ describe("Pass set round trip", () => {
     expect(value.format).toBe(PASS_SET_FORMAT);
     expect(value.version).toBe(PASS_SET_FORMAT_VERSION);
   });
+
+  it("round-trips a Pass's Screening frame (story 153)", () => {
+    const claimStrength = STARTER_PASSES.find((pass) => pass.id === "claim-strength");
+    if (claimStrength === undefined) throw new Error("the Starter pack has no claim-strength pass");
+    const framed = [
+      { ...CLICHE_PASS, frame: "skimmer" as const },
+      { ...claimStrength, frame: "skeptic" as const },
+      { ...claimStrength, id: "practitioner-frame", frame: "practitioner" as const },
+    ];
+
+    expect(parsePassSet(serializePassSet(framed))).toEqual(framed);
+  });
+
+  it("still reads a v2 pass set that carries no frame", () => {
+    const v2 = JSON.stringify({ format: PASS_SET_FORMAT, version: 2, passes: [CLICHE_PASS] });
+
+    expect(parsePassSet(v2)).toEqual([CLICHE_PASS]);
+  });
 });
 
 describe("parsePassSet refusal", () => {
@@ -99,14 +117,22 @@ describe("passProblem", () => {
     expect(passProblem({ ...CLICHE_PASS, output: "note" })).toMatch(/unknown output shape/i);
   });
 
-  it("refuses a frame on an Audit pass (story 154)", () => {
+  it("refuses a frame on a Pass that is not a critic Finding pass (story 154)", () => {
     const audit = STARTER_PASSES.find((pass) => pass.id === "audit");
     if (audit === undefined) throw new Error("the Starter pack has no audit pass");
+    const reader = STARTER_PASSES.find((pass) => pass.id === "reader");
+    if (reader === undefined) throw new Error("the Starter pack has no reader pass");
 
-    // The `frame` field arrives with the frames work (#32); an Audit pass may
-    // never carry one, because its method defines its stance.
+    // A frame applies to critic Finding Passes only: the Reader and the Audit
+    // keep their own prescribed stance.
     expect(passProblem({ ...audit, frame: "skimmer" })).toMatch(/may not set a frame/i);
+    expect(passProblem({ ...reader, frame: "skimmer" })).toMatch(/may not set a frame/i);
+    expect(passProblem({ ...HEDGES_PASS, frame: "skimmer" })).toMatch(/may not set a frame/i);
     expect(passProblem({ ...CLICHE_PASS, frame: "skimmer" })).toBeNull();
+  });
+
+  it("names an unknown Screening frame", () => {
+    expect(passProblem({ ...CLICHE_PASS, frame: "busybody" })).toMatch(/unknown Screening frame/i);
   });
 
   it("refuses a Pass set carrying the removed note shape (story 158)", () => {
