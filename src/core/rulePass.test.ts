@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Finding } from "./finding";
 import type { Pass, RuleConfig } from "./pass";
 import { ruleMatches, runRulePass } from "./rulePass";
-import { HEDGES_PASS, STARTER_PASSES, WORDINESS_PASS, BANNED_WORDS_PASS, WORN_PHRASES_PASS } from "./starterPasses";
+import { HEDGES_PASS, STARTER_PASSES, WORDINESS_PASS, BANNED_WORDS_PASS, WORN_PHRASES_PASS, ORWELL_RULES_PASS } from "./starterPasses";
 
 /** A rule Pass carrying only the config under test. */
 function passWith(ruleConfig: RuleConfig): Pass {
@@ -195,6 +195,60 @@ describe("ruleMatches", () => {
     expect(
       ruleMatches("It is a perfect storm.\n", WORN_PHRASES_PASS).map((match) => match.pattern),
     ).toEqual(["perfect storm"]);
+  });
+
+  it("flags every one of Orwell's rules and names the rule that failed", () => {
+    const pass = passWith({
+      printedFigures: ["perfect storm"],
+      longWords: ["utilize"],
+      cuttableWords: ["very"],
+      jargonWords: ["leverage"],
+    });
+
+    const matches = ruleMatches("It was a perfect storm. We utilize very good leverage.\n", pass);
+
+    expect(matches.map((match) => match.issue)).toEqual([
+      'Orwell 1: figure of speech seen in print: "perfect storm"',
+      'Orwell 2: long word: "utilize"',
+      'Orwell 3: word that can be cut: "very"',
+      'Orwell 5: jargon or foreign word: "leverage"',
+    ]);
+  });
+
+  it("reads Orwell's passive as an auxiliary and an -ed or irregular participle", () => {
+    const pass = passWith({ passiveAuxiliaries: ["is", "was", "were", "be"] });
+
+    const matches = ruleMatches("The report was completed. The keys were taken.\n", pass);
+
+    expect(matches.map((match) => match.quote)).toEqual(["was completed", "were taken"]);
+    expect(matches[0].issue).toBe('Orwell 4: passive construction: "was completed"');
+    expect(matches[1].pattern).toBe("were taken");
+  });
+
+  it("reports what fails without saying what to write", () => {
+    const pass = passWith({
+      printedFigures: ["perfect storm"],
+      longWords: ["utilize"],
+      cuttableWords: ["very"],
+      passiveAuxiliaries: ["was"],
+      jargonWords: ["leverage"],
+    });
+
+    const matches = ruleMatches(
+      "It was a perfect storm. The report was completed. We utilize very good leverage.\n",
+      pass,
+    );
+
+    expect(matches).toHaveLength(5);
+    for (const match of matches) {
+      expect(match.diagnosis).not.toMatch(/instead|replace|rewrite/i);
+    }
+  });
+
+  it("ships Orwell's pass in the Starter pack, off by default and exclusive", () => {
+    expect(ORWELL_RULES_PASS.enabled).toBe(false);
+    expect(ORWELL_RULES_PASS.exclusive).toBe(true);
+    expect(ruleMatches("It was a perfect storm.\n", ORWELL_RULES_PASS).length).toBeGreaterThan(0);
   });
 });
 

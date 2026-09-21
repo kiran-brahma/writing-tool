@@ -57,6 +57,16 @@ export interface RuleConfig {
   bannedWords?: string[];
   /** Clichés, jargon metaphors and worn figures of speech. Reported, not rewritten. */
   wornPhrases?: string[];
+  /** Orwell rule 1: figures of speech you are used to seeing in print. */
+  printedFigures?: string[];
+  /** Orwell rule 2: long words to flag where a short one will do. */
+  longWords?: string[];
+  /** Orwell rule 3: words or phrases that can be cut without loss. */
+  cuttableWords?: string[];
+  /** Orwell rule 4: the auxiliaries a passive construction is built on. */
+  passiveAuxiliaries?: string[];
+  /** Orwell rule 5: foreign, scientific or jargon words with an everyday equivalent. */
+  jargonWords?: string[];
 }
 
 export interface Pass {
@@ -71,6 +81,13 @@ export interface Pass {
   slot: Slot;
   enabled: boolean;
   ruleConfig?: RuleConfig;
+  /**
+   * Rule Passes only. An exclusive Pass runs on its own: while it is enabled,
+   * the enabled rule Passes beside it are held rather than run, so its report is
+   * not buried among the findings of the Passes it overlaps. The held Passes
+   * keep their own enabled flags and return the moment it is turned off.
+   */
+  exclusive?: boolean;
 }
 
 /**
@@ -100,6 +117,19 @@ export function structuralPasses(passes: Pass[]): Pass[] {
   return passes.filter(
     (pass) => pass.kind === "model" && pass.scope === "document" && pass.enabled,
   );
+}
+
+/**
+ * The rule Passes a Run should execute. Ordinarily every enabled rule Pass runs.
+ * An enabled exclusive Pass runs alone, so a whole-lens Pass — George Orwell's
+ * rules — reports its own five rules instead of being buried under the Passes it
+ * overlaps. The Passes left out keep their enabled flags and run again as soon
+ * as the exclusive Pass is turned off.
+ */
+export function rulePassesToRun(passes: Pass[]): Pass[] {
+  const enabled = passes.filter((pass) => pass.kind === "rule" && pass.enabled);
+  const exclusive = enabled.filter((pass) => pass.exclusive === true);
+  return exclusive.length > 0 ? exclusive : enabled;
 }
 
 /** True for a Pass whose output is a Reader account rather than Findings. */

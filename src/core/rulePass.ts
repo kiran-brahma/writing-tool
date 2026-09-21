@@ -69,6 +69,21 @@ export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
   if (config.wornPhrases !== undefined) {
     matches.push(...matchWornPhrases(canonical, config.wornPhrases));
   }
+  if (config.printedFigures !== undefined) {
+    matches.push(...matchPrintedFigures(canonical, config.printedFigures));
+  }
+  if (config.longWords !== undefined) {
+    matches.push(...matchLongWords(canonical, config.longWords));
+  }
+  if (config.cuttableWords !== undefined) {
+    matches.push(...matchCuttableWords(canonical, config.cuttableWords));
+  }
+  if (config.passiveAuxiliaries !== undefined) {
+    matches.push(...matchPassive(canonical, config.passiveAuxiliaries));
+  }
+  if (config.jargonWords !== undefined) {
+    matches.push(...matchJargonWords(canonical, config.jargonWords));
+  }
 
   return matches.sort((a, b) => a.offset - b.offset);
 }
@@ -233,6 +248,103 @@ function matchWornPhrases(canonical: string, wornPhrases: string[]): RuleMatch[]
       "A stock figure of speech, worn smooth by overuse. Say what is actually happening.",
     pattern: term.toLowerCase(),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// George Orwell's five rules
+// ---------------------------------------------------------------------------
+
+/**
+ * Orwell rule 1: a figure of speech the reader has seen in print. The list is
+ * data. The diagnosis names the failure and stops there; the Writer decides what
+ * the image becomes.
+ */
+function matchPrintedFigures(canonical: string, figures: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, figures, (quote, term) => ({
+    issue: `Orwell 1: figure of speech seen in print: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis: "A stock metaphor or simile, not a fresh image.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/** Orwell rule 2: a long word where a short one may do. Reported, not replaced. */
+function matchLongWords(canonical: string, longWords: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, longWords, (quote, term) => ({
+    issue: `Orwell 2: long word: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis: "A long word where a short one may do.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/** Orwell rule 3: a word that can be cut. The rule does not cut it for the Writer. */
+function matchCuttableWords(canonical: string, cuttableWords: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, cuttableWords, (quote, term) => ({
+    issue: `Orwell 3: word that can be cut: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis: "It adds length but no meaning.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/** Orwell rule 5: jargon, a foreign phrase or a scientific word with a plain equivalent. */
+function matchJargonWords(canonical: string, jargonWords: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, jargonWords, (quote, term) => ({
+    issue: `Orwell 5: jargon or foreign word: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis: "Jargon where an everyday English word may do.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/**
+ * The irregular past participles the -ed/-en test would miss. Engine behaviour,
+ * not Rule config: it is what lets the passive rule read "was taken" as well as
+ * "was completed".
+ */
+const IRREGULAR_PARTICIPLES = new Set([
+  "born", "broken", "built", "bought", "caught", "chosen", "done", "drawn",
+  "driven", "eaten", "fallen", "fed", "felt", "found", "given", "gone", "grown",
+  "held", "hidden", "hit", "hurt", "kept", "known", "laid", "led", "left",
+  "lost", "made", "meant", "met", "paid", "put", "read", "run", "said", "seen",
+  "sent", "set", "shown", "sold", "spent", "split", "spoken", "spread", "stolen",
+  "taken", "taught", "thought", "told", "torn", "understood", "used", "written",
+]);
+
+/** A word read as a past participle: a common irregular, or an -ed/-en form. */
+function isPastParticiple(word: string): boolean {
+  if (IRREGULAR_PARTICIPLES.has(word)) return true;
+  return word.length >= 5 && (word.endsWith("ed") || word.endsWith("en"));
+}
+
+/**
+ * Orwell rule 4: a passive construction, read as a configured auxiliary followed
+ * by a past participle. The participle is approximated by an -ed/-en ending or a
+ * known irregular, so an adjective after "is" ("is tired") can be flagged with
+ * "was taken" and the Writer declines it. The rule reports the passive and never
+ * supplies the active rewrite; whether the active is available is the Writer's
+ * judgment.
+ */
+function matchPassive(canonical: string, auxiliaries: string[]): RuleMatch[] {
+  const cleaned = new Set(uniqueTerms(auxiliaries.map((auxiliary) => auxiliary.toLowerCase())));
+  if (cleaned.size === 0) return [];
+
+  const words = tokenizeWords(canonical);
+  const matches: RuleMatch[] = [];
+  for (let index = 0; index < words.length - 1; index += 1) {
+    const auxiliary = words[index];
+    if (!cleaned.has(auxiliary.value.toLowerCase())) continue;
+    const participle = words[index + 1];
+    if (!isPastParticiple(participle.value.toLowerCase())) continue;
+    const quote = canonical.slice(auxiliary.offset, participle.offset + participle.value.length);
+    matches.push({
+      quote,
+      offset: auxiliary.offset,
+      issue: `Orwell 4: passive construction: "${quote.replace(/\s+/g, " ")}"`,
+      diagnosis: "A passive construction; the actor may not be in the sentence.",
+      pattern: `${auxiliary.value.toLowerCase()} ${participle.value.toLowerCase()}`,
+    });
+    index += 1;
+  }
+
+  return matches;
 }
 
 // ---------------------------------------------------------------------------

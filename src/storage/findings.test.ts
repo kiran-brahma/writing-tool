@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
-import { HEDGES_PASS } from "../core/starterPasses";
+import { HEDGES_PASS, ORWELL_RULES_PASS } from "../core/starterPasses";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
 import {
   listFindings,
@@ -195,6 +195,27 @@ describe("runRulePasses", () => {
 
     expect(findings).toEqual([]);
     expect(await listFindings(database, document.id)).toEqual([]);
+  });
+
+  it("runs an enabled exclusive Pass alone, holding the other rule Passes", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    // The prose trips both a hedge and Orwell's jargon; only Orwell may report.
+    const saved = await save(
+      database,
+      document,
+      paragraphDoc("This is very good and we leverage synergy."),
+      1_100,
+    );
+    const orwell = { ...ORWELL_RULES_PASS, enabled: true };
+
+    const findings = await runRulePasses(database, saved, {
+      passes: [HEDGES_PASS, orwell],
+      now: 1_200,
+    });
+
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings.every((finding) => finding.passId === "orwell")).toBe(true);
   });
 });
 

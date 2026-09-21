@@ -138,6 +138,9 @@ export function passProblem(candidate: unknown): string | null {
   if (candidate.ruleConfig !== undefined && readRuleConfig(candidate.ruleConfig) === null) {
     return `Pass "${id}" has an unreadable Rule config`;
   }
+  if (candidate.exclusive !== undefined && typeof candidate.exclusive !== "boolean") {
+    return `Pass "${id}" has an unreadable exclusive flag`;
+  }
   return null;
 }
 
@@ -165,6 +168,7 @@ function readPass(candidate: unknown, index: number): Pass {
   if (record.ruleConfig !== undefined) {
     pass.ruleConfig = readRuleConfig(record.ruleConfig) as RuleConfig;
   }
+  if (typeof record.exclusive === "boolean") pass.exclusive = record.exclusive;
   return pass;
 }
 
@@ -222,6 +226,18 @@ function readRuleConfig(value: unknown): RuleConfig | null {
     const wornPhrases = stringArray(value.wornPhrases);
     if (wornPhrases === null) return null;
     config.wornPhrases = wornPhrases;
+  }
+  for (const field of [
+    "printedFigures",
+    "longWords",
+    "cuttableWords",
+    "passiveAuxiliaries",
+    "jargonWords",
+  ] as const) {
+    if (value[field] === undefined) continue;
+    const terms = stringArray(value[field]);
+    if (terms === null) return null;
+    config[field] = terms;
   }
   return config;
 }

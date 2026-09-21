@@ -374,6 +374,115 @@ export const WORN_PHRASES_PASS: Pass = {
 };
 
 /**
+ * Orwell rule 2: long words to flag where a short one may do. The list is the
+ * Writer's; the diagnosis never supplies the short one.
+ */
+const ORWELL_LONG_WORDS: string[] = [
+  "utilize",
+  "utilise",
+  "commence",
+  "commencement",
+  "terminate",
+  "endeavour",
+  "endeavor",
+  "facilitate",
+  "approximately",
+  "sufficient",
+  "demonstrate",
+  "manufacture",
+  "expenditure",
+  "relinquish",
+  "compensation",
+  "redundancies",
+  "assistance",
+  "necessitate",
+  "subsequently",
+  "previously",
+  "additionally",
+  "consequently",
+  "nevertheless",
+  "notwithstanding",
+  "aforementioned",
+  "ascertain",
+  "magnitude",
+  "proximity",
+  "utilization",
+  "individuals",
+];
+
+/** Orwell rule 3: words and phrases that add length but no meaning. */
+const ORWELL_CUTTABLE_WORDS: string[] = [
+  "very",
+  "really",
+  "quite",
+  "rather",
+  "actually",
+  "basically",
+  "literally",
+  "simply",
+  "just",
+  "somewhat",
+  "sort of",
+  "kind of",
+  "in fact",
+  "of course",
+  "to be honest",
+  "I think",
+  "in my opinion",
+  "needless to say",
+  "as a matter of fact",
+  "at the end of the day",
+  "it is worth noting",
+  "it should be noted",
+];
+
+/** Orwell rule 4: the auxiliaries a passive construction is built on. */
+const ORWELL_PASSIVE_AUXILIARIES: string[] = [
+  "am",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+];
+
+/**
+ * George Orwell's five rules, from "Politics and the English Language". A rule
+ * cannot judge a metaphor, but it can mark the printed figures, long words,
+ * cuttable words, passive constructions and jargon the rules name — and it
+ * reports each failure without supplying the replacement, which is the rules'
+ * own demand.
+ *
+ * Shipped disabled and exclusive: turning it on runs it alone, holding the other
+ * rule Passes so its report is not buried under the Passes it overlaps. Turn it
+ * off and they return exactly as the Writer left them.
+ *
+ * The lists for rules 1 and 5 are the same lists the worn-phrase and banned-word
+ * passes carry, shared by reference so the two can never drift apart.
+ */
+export const ORWELL_RULES_PASS: Pass = {
+  id: "orwell",
+  name: "George Orwell's rules",
+  description:
+    "Flags the five rules in \"Politics and the English Language\", and names what fails without saying what to write. Runs on its own.",
+  kind: "rule",
+  scope: "document",
+  output: "findings",
+  slot: "critic",
+  enabled: false,
+  exclusive: true,
+  ruleConfig: {
+    printedFigures: WORN_PHRASES_PASS.ruleConfig?.wornPhrases ?? [],
+    longWords: ORWELL_LONG_WORDS,
+    cuttableWords: ORWELL_CUTTABLE_WORDS,
+    passiveAuxiliaries: ORWELL_PASSIVE_AUXILIARIES,
+    jargonWords: BANNED_WORDS_PASS.ruleConfig?.bannedWords ?? [],
+  },
+};
+
+/**
  * The prompt shape every paragraph-scope model Pass shares: the task, the
  * Document's placeholders, and the Target with its one-Paragraph context. It is
  * one function so the Starter passes cannot drift apart in the part of the
@@ -758,7 +867,8 @@ export const READER_PASS: Pass = {
 /**
  * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
  * the two house-style passes the Prose Linter and the Economist guide supply
- * (banned words, worn phrases), then the model passes in the same order: characters and actions (off), topic
+ * (banned words, worn phrases) and Orwell's five rules, then the model passes in
+ * the same order: characters and actions (off), topic
  * strings and stress position, paragraphs that could move (off), paragraph
  * unity, cut candidates, cliché and headline-ese (the one #4 shipped), claim
  * strength, and the Reader pass (#11). The document-scope model passes ship
@@ -776,6 +886,7 @@ export const STARTER_PASSES: Pass[] = [
   REPETITION_PASS,
   BANNED_WORDS_PASS,
   WORN_PHRASES_PASS,
+  ORWELL_RULES_PASS,
   CHARACTERS_ACTIONS_PASS,
   TOPIC_STRINGS_PASS,
   PARAGRAPH_REORDER_PASS,

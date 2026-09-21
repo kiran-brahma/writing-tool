@@ -1,5 +1,5 @@
 import type { Finding } from "../core/finding";
-import type { Pass } from "../core/pass";
+import { rulePassesToRun, type Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
 import { ruleMatches, runRulePass, type RuleMatch } from "../core/rulePass";
 import { listFindingsForPass, provenanceLookup, replaceFindingsForPass } from "./findings";
@@ -41,8 +41,8 @@ async function runRulePassesNow(
 ): Promise<Finding[]> {
   const now = options.now ?? Date.now();
   const runs: { pass: Pass; matches: RuleMatch[]; existing: Finding[] }[] = [];
-  for (const pass of options.passes) {
-    if (pass.kind !== "rule" || !pass.enabled) continue;
+  // An enabled exclusive Pass runs alone; `rulePassesToRun` decides the set.
+  for (const pass of rulePassesToRun(options.passes)) {
     runs.push({
       pass,
       matches: ruleMatches(document.canonical, pass),

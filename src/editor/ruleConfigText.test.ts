@@ -30,10 +30,23 @@ describe("fieldText and applyFieldText", () => {
     const config: RuleConfig = {
       bannedWords: ["leverage", "deep dive"],
       wornPhrases: ["perfect storm", "wake-up call"],
+      printedFigures: ["silver bullet"],
+      longWords: ["utilize"],
+      cuttableWords: ["very"],
+      passiveAuxiliaries: ["was"],
+      jargonWords: ["synergy"],
     };
 
-    for (const key of ["bannedWords", "wornPhrases"] as const) {
-      expect(applyFieldText(config, key, fieldText(config, key))).toEqual(config);
+    for (const key of [
+      "bannedWords",
+      "wornPhrases",
+      "printedFigures",
+      "longWords",
+      "cuttableWords",
+      "passiveAuxiliaries",
+      "jargonWords",
+    ] as const) {
+      expect(applyFieldText(config, key, fieldText(config, key)), key).toEqual(config);
     }
   });
 

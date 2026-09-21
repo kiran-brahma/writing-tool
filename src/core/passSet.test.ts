@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BANNED_WORDS_PASS, CLICHE_PASS, HEDGES_PASS, STARTER_PASSES, WORN_PHRASES_PASS } from "./starterPasses";
+import { BANNED_WORDS_PASS, CLICHE_PASS, HEDGES_PASS, ORWELL_RULES_PASS, STARTER_PASSES, WORN_PHRASES_PASS } from "./starterPasses";
 import {
   parsePassSet,
   passProblem,
@@ -79,6 +79,11 @@ describe("passProblem", () => {
   it("accepts a Starter Pass", () => {
     expect(passProblem(CLICHE_PASS)).toBeNull();
     expect(passProblem(HEDGES_PASS)).toBeNull();
+    expect(passProblem(ORWELL_RULES_PASS)).toBeNull();
+  });
+
+  it("names an unreadable exclusive flag", () => {
+    expect(passProblem({ ...HEDGES_PASS, exclusive: "yes" })).toMatch(/exclusive flag/i);
   });
 
   it("names a model Pass with no prompt", () => {
@@ -103,5 +108,20 @@ describe("passProblem", () => {
     expect(
       passProblem({ ...WORN_PHRASES_PASS, ruleConfig: { wornPhrases: ["a", 2] } }),
     ).toMatch(/unreadable Rule config/i);
+  });
+
+  it("names an unreadable Orwell list", () => {
+    for (const field of [
+      "printedFigures",
+      "longWords",
+      "cuttableWords",
+      "passiveAuxiliaries",
+      "jargonWords",
+    ] as const) {
+      expect(
+        passProblem({ ...ORWELL_RULES_PASS, ruleConfig: { [field]: ["a", 2] } }),
+        field,
+      ).toMatch(/unreadable Rule config/i);
+    }
   });
 });

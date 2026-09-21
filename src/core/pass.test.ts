@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { structuralPasses, type Pass } from "./pass";
+import { rulePassesToRun, structuralPasses, type Pass } from "./pass";
 import {
   HEDGES_PASS,
   PARAGRAPH_REORDER_PASS,
@@ -53,5 +53,46 @@ describe("structuralPasses", () => {
 
   it("returns an empty set for an empty Pass list", () => {
     expect(structuralPasses([])).toEqual([]);
+  });
+});
+
+/** A rule Pass with just enough shape for the selection rule. */
+function rulePass(id: string, enabled: boolean, exclusive = false): Pass {
+  return {
+    id,
+    name: id,
+    description: id,
+    kind: "rule",
+    scope: "document",
+    output: "findings",
+    slot: "critic",
+    enabled,
+    exclusive,
+  };
+}
+
+describe("rulePassesToRun", () => {
+  it("runs every enabled rule Pass when none is exclusive", () => {
+    const passes = [rulePass("a", true), rulePass("b", true), rulePass("c", false)];
+
+    expect(rulePassesToRun(passes).map((pass) => pass.id)).toEqual(["a", "b"]);
+  });
+
+  it("runs an enabled exclusive Pass alone, holding the others", () => {
+    const passes = [rulePass("a", true), rulePass("orwell", true, true), rulePass("c", true)];
+
+    expect(rulePassesToRun(passes).map((pass) => pass.id)).toEqual(["orwell"]);
+  });
+
+  it("runs the others again once the exclusive Pass is turned off", () => {
+    const passes = [rulePass("a", true), rulePass("orwell", false, true)];
+
+    expect(rulePassesToRun(passes).map((pass) => pass.id)).toEqual(["a"]);
+  });
+
+  it("ignores model Passes", () => {
+    const model: Pass = { ...rulePass("m", true), kind: "model" };
+
+    expect(rulePassesToRun([model])).toEqual([]);
   });
 });

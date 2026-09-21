@@ -1,10 +1,10 @@
-import { PRIVACY_SECTIONS } from "./privacyContent";
+import { PRIVACY_SECTIONS, type PrivacyLink } from "./privacyContent";
 
 /**
  * The privacy page. It is prose, not a control: it explains what happens to the
- * Writer's words and how to check those claims in DevTools. Nothing here sends
- * anything or inserts anything; it is the surface that makes the tool's
- * central promise auditable.
+ * Writer's words, how to check those claims in DevTools, and where to read more.
+ * Nothing here sends anything or inserts anything; it is the surface that makes
+ * the tool's central promise auditable.
  */
 export function PrivacyView() {
   return (
@@ -23,6 +23,7 @@ export function PrivacyView() {
                 {paragraph}
               </p>
             ))}
+            {section.links !== undefined && <LinkList links={section.links} />}
             {section.steps !== undefined && (
               <ol className="mt-4 space-y-4">
                 {section.steps.map((step) => (
@@ -33,6 +34,7 @@ export function PrivacyView() {
                         {paragraph}
                       </p>
                     ))}
+                    {step.links !== undefined && <LinkList links={step.links} />}
                   </li>
                 ))}
               </ol>
@@ -41,5 +43,31 @@ export function PrivacyView() {
         ))}
       </article>
     </div>
+  );
+}
+
+/**
+ * The outward links on a section or a step: the sources a reader can open to
+ * check a claim. Each one opens in a new tab with `noopener noreferrer`, so the
+ * page it points at gets no handle on this tab, and it is marked as leaving the
+ * app. The link list is data, so the claims test can assert the sources exist.
+ */
+function LinkList({ links }: { links: readonly PrivacyLink[] }) {
+  return (
+    <ul className="mt-3 space-y-1">
+      {links.map((link) => (
+        <li key={link.href}>
+          <a
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-700 underline underline-offset-2 hover:text-blue-900"
+          >
+            {link.label}
+            <span aria-hidden="true"> ↗</span>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }

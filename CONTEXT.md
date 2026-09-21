@@ -61,6 +61,11 @@ _Avoid_: check, task, lint
 A Pass implemented as deterministic rules over text, so it can neither praise nor rewrite.
 _Avoid_: Tier 1, mechanical pass, lint
 
+**Exclusive rule pass**:
+A Rule pass that runs alone: while it is on, the other rule passes are held, so its report is not
+buried among theirs. George Orwell's rules is one.
+_Avoid_: solo mode, profile, override
+
 **Model pass**:
 A Pass implemented as a call to a model.
 _Avoid_: Tier 2, AI pass, LLM pass

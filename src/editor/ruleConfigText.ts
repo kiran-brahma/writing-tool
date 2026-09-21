@@ -60,6 +60,36 @@ const FIELDS: RuleField[] = [
     kind: "list",
     help: "One cliché or jargon metaphor per line. Reported, never replaced.",
   },
+  {
+    key: "printedFigures",
+    label: "Orwell 1: figures of speech seen in print",
+    kind: "list",
+    help: "One figure of speech per line. Reported, never replaced.",
+  },
+  {
+    key: "longWords",
+    label: "Orwell 2: long words",
+    kind: "list",
+    help: "One long word per line. Reported, never replaced.",
+  },
+  {
+    key: "cuttableWords",
+    label: "Orwell 3: words that can be cut",
+    kind: "list",
+    help: "One word or phrase per line. Reported, never cut.",
+  },
+  {
+    key: "passiveAuxiliaries",
+    label: "Orwell 4: passive auxiliaries",
+    kind: "list",
+    help: "One auxiliary per line. A passive is read as one of these before a past participle.",
+  },
+  {
+    key: "jargonWords",
+    label: "Orwell 5: jargon and foreign words",
+    kind: "list",
+    help: "One word or phrase per line. Reported, never replaced.",
+  },
 ];
 
 /** The fields a Pass's Rule config carries, in editor order. */
@@ -82,7 +112,12 @@ export function fieldText(config: RuleConfig, key: RuleFieldKey): string {
     case "nominalizationSuffixes":
     case "openers":
     case "bannedWords":
-    case "wornPhrases": {
+    case "wornPhrases":
+    case "printedFigures":
+    case "longWords":
+    case "cuttableWords":
+    case "passiveAuxiliaries":
+    case "jargonWords": {
       const value = config[key];
       return value === undefined ? "" : value.join("\n");
     }
