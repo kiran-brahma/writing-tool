@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "./connection";
-import type { ModelRequest } from "./modelRequest";
+import type { ModelRequest, ModelUsage } from "./modelRequest";
 import {
+  CancelledError,
   ConcurrencyGate,
   ProviderError,
   UnreachableError,
   assertWithinConnection,
   createFetchTransport,
+  isCancelledError,
   parseRetryAfter,
 } from "./transport";
 
@@ -87,6 +89,91 @@ describe("send", () => {
     expect(() =>
       assertWithinConnection(connection("openai"), "https://api.openai.com/v1/models"),
     ).not.toThrow();
+  });
+
+  it("reports Provider usage to the request's onUsage callback", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "the text" } }],
+            usage: { prompt_tokens: 11, completion_tokens: 7 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    const seen: ModelUsage[] = [];
+
+    await createFetchTransport().send({
+      ...request(connection("openai")),
+      onUsage: (usage) => seen.push(usage),
+    });
+
+    expect(seen).toEqual([{ inputTokens: 11, outputTokens: 7 }]);
+  });
+});
+
+describe("cancellation (story 54)", () => {
+  it("aborts an in-flight request and reports it as cancelled, not unreachable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            if (signal?.aborted) {
+              reject(new DOMException("aborted", "AbortError"));
+              return;
+            }
+            signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("aborted", "AbortError")),
+              { once: true },
+            );
+          }),
+      ),
+    );
+    const controller = new AbortController();
+
+    const pending = createFetchTransport().send({
+      ...request(connection("openai")),
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(pending).rejects.toBeInstanceOf(CancelledError);
+    await expect(pending).rejects.toThrow(/cancelled/i);
+  });
+
+  it("stops retrying once the Run is aborted", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(errorResponse(500, "boom"));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createFetchTransport({ baseDelayMs: 1000, maxAttempts: 4 });
+    const controller = new AbortController();
+
+    const pending = transport.send({
+      ...request(connection("openai")),
+      signal: controller.signal,
+    });
+    // Let the first attempt fail and the Run enter its backoff.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    controller.abort();
+    await expect(pending).rejects.toBeInstanceOf(CancelledError);
+
+    // The backoff would have fired by now; an aborted Run must not retry.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("recognises a browser AbortError", () => {
+    expect(isCancelledError(new DOMException("aborted", "AbortError"))).toBe(true);
+    expect(isCancelledError(new CancelledError())).toBe(true);
+    expect(isCancelledError(new Error("nope"))).toBe(false);
   });
 });
 

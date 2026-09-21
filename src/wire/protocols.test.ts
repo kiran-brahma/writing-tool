@@ -326,6 +326,36 @@ describe("the gemini-native adapter", () => {
   });
 });
 
+describe("usage extraction per Protocol", () => {
+  it("reads OpenAI-shaped prompt_tokens and completion_tokens", () => {
+    expect(
+      protocolFor("openai-shaped").parseUsage({
+        usage: { prompt_tokens: 11, completion_tokens: 7 },
+      }),
+    ).toEqual({ inputTokens: 11, outputTokens: 7 });
+  });
+
+  it("reads Anthropic-shaped input_tokens and output_tokens", () => {
+    expect(
+      protocolFor("anthropic-shaped").parseUsage({ usage: { input_tokens: 13, output_tokens: 5 } }),
+    ).toEqual({ inputTokens: 13, outputTokens: 5 });
+  });
+
+  it("reads Gemini-native usageMetadata counts", () => {
+    expect(
+      protocolFor("gemini-native").parseUsage({
+        usageMetadata: { promptTokenCount: 17, candidatesTokenCount: 3 },
+      }),
+    ).toEqual({ inputTokens: 17, outputTokens: 3 });
+  });
+
+  it("returns no usage when the Provider reported none", () => {
+    expect(protocolFor("openai-shaped").parseUsage({ choices: [] })).toBeUndefined();
+    expect(protocolFor("anthropic-shaped").parseUsage({ usage: {} })).toBeUndefined();
+    expect(protocolFor("gemini-native").parseUsage({})).toBeUndefined();
+  });
+});
+
 describe("one model Pass on all three Protocols", () => {
   const jsonSchema = { type: "object" };
   const text = '{"findings":[]}';

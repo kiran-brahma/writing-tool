@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { MIN_CHARACTER_LIMIT } from "../core/chunking";
+import {
+  parsePriceTable,
+  serializePriceTable,
+  type CostEstimate,
+  type PriceTable,
+} from "../core/cost";
 import type { RunReport } from "../core/critique";
 import { isFindingsPass, structuralPasses, type Pass } from "../core/pass";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
@@ -38,13 +44,23 @@ export interface ModelPassesPanelProps {
   characterLimit: number;
   /** Story 50: how many chunks a document-scope Run would make; 1 when it fits. */
   chunkCount: number;
+  /** Story 51: the pre-run estimate for each Findings pass, keyed by Pass id. */
+  estimates: Record<string, CostEstimate>;
+  /** Story 51: the Writer's editable per-model price table. */
+  priceTable: PriceTable;
+  /** Story 52: this session's accumulated model-Run cost. */
+  sessionCost: number;
   onRun: (passId: string) => void;
   /** Story 37: run every enabled document-scope Pass in one action. */
   onRunStructural: () => void;
+  /** Story 54: abort the running Pass. */
+  onCancel: () => void;
   onToggle: (passId: string, enabled: boolean) => void;
   onToggleScreening: (enabled: boolean) => void;
   /** Story 50: the Writer changes the limit at which chunking starts. */
   onSetCharacterLimit: (limit: number) => void;
+  /** Story 51: store the Writer's edited price table. */
+  onSavePriceTable: (table: PriceTable) => void;
 }
 
 export function ModelPassesPanel({
@@ -59,11 +75,16 @@ export function ModelPassesPanel({
   documentLength,
   characterLimit,
   chunkCount,
+  estimates,
+  priceTable,
+  sessionCost,
   onRun,
   onRunStructural,
+  onCancel,
   onToggle,
   onToggleScreening,
   onSetCharacterLimit,
+  onSavePriceTable,
 }: ModelPassesPanelProps) {
   const modelPasses = passes.filter((pass) => pass.kind === "model" && isFindingsPass(pass));
   const hasStructuralPasses = structuralPasses(passes).length > 0;
@@ -76,6 +97,11 @@ export function ModelPassesPanel({
         <span className="text-xs text-stone-500">
           {criticName === null ? "No critic assigned" : `Critic: ${criticName}`}
         </span>
+      </div>
+
+      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-1.5 text-xs text-stone-600">
+        <span>This session</span>
+        <span className="tabular-nums">{formatUsd(sessionCost)}</span>
       </div>
 
       <div className="border-b border-stone-200 px-4 py-2">
@@ -94,6 +120,18 @@ export function ModelPassesPanel({
         </button>
       </div>
 
+      {busy && (
+        <div className="border-b border-stone-200 px-4 py-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full rounded border border-red-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            Cancel run
+          </button>
+        </div>
+      )}
+
       <label className="flex items-center gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
         <input
           type="checkbox"
@@ -109,6 +147,15 @@ export function ModelPassesPanel({
         </label>
         <CharacterLimitField value={characterLimit} onCommit={onSetCharacterLimit} />
       </div>
+
+      <details className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
+        <summary className="cursor-pointer select-none">Price table</summary>
+        <p className="mt-1 text-stone-500">
+          USD per million tokens. An entry prices a model id, or any model id it prefixes. The
+          estimate is characters ÷ 4 and never blocks a Run.
+        </p>
+        <PriceTableField value={priceTable} onCommit={onSavePriceTable} />
+      </details>
 
       {pastLimit && (
         <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
@@ -138,6 +185,7 @@ export function ModelPassesPanel({
         {modelPasses.map((pass) => {
           const running = pass.id === runningPassId;
           const report = lastRunReport?.passId === pass.id ? lastRunReport : null;
+          const estimate = estimates[pass.id];
           const { strikes, rewrites } = splitViolations(report?.violations ?? []);
           return (
             <li key={pass.id} className="border-b border-stone-200/70 px-4 py-3 last:border-b-0">
@@ -160,6 +208,11 @@ export function ModelPassesPanel({
                     {pass.name}
                   </p>
                   <p className="mt-0.5 text-xs text-stone-500">{pass.description}</p>
+                  {estimate !== undefined && (
+                    <p className="mt-0.5 text-[11px] text-stone-400">
+                      {estimate.tokens.toLocaleString()} tokens estimated · {formatUsd(estimate.costUsd)}
+                    </p>
+                  )}
                 </div>
                 {running ? (
                   <span className="flex shrink-0 items-center gap-1.5 text-xs text-stone-600">
@@ -186,6 +239,7 @@ export function ModelPassesPanel({
               {report !== null && (
                 <>
                   <p className="mt-1 text-xs text-stone-500">
+                    {report.fromCache && "Served from the cache; no Provider call. "}
                     {report.droppedAnchors === 0
                       ? "No Findings dropped outside the target."
                       : `${report.droppedAnchors} Anchor${report.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
@@ -262,6 +316,43 @@ function CharacterLimitField({
         if (event.key === "Enter") event.currentTarget.blur();
       }}
       className="w-28 rounded border border-stone-300 bg-white px-2 py-1 text-right tabular-nums"
+    />
+  );
+}
+
+/** A US dollar figure, with enough precision to show a sub-cent estimate. */
+function formatUsd(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "$0.00";
+  if (value < 0.01) return `$${value.toFixed(4)}`;
+  return `$${value.toFixed(2)}`;
+}
+
+/**
+ * The price table is edited as `model = dollars` lines and committed on blur,
+ * exactly like the character limit: a half-typed price never becomes the table.
+ */
+function PriceTableField({
+  value,
+  onCommit,
+}: {
+  value: PriceTable;
+  onCommit: (table: PriceTable) => void;
+}) {
+  const [draft, setDraft] = useState(() => serializePriceTable(value));
+
+  useEffect(() => {
+    setDraft(serializePriceTable(value));
+  }, [value]);
+
+  return (
+    <textarea
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => onCommit(parsePriceTable(draft))}
+      rows={4}
+      spellCheck={false}
+      placeholder={"gpt-4o = 5\ngpt-4o-mini = 0.6"}
+      className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1 font-mono text-xs"
     />
   );
 }

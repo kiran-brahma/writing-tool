@@ -57,13 +57,38 @@ export class UnreachableError extends Error {
   }
 }
 
+/**
+ * A Run the Writer cancelled. Distinct from `UnreachableError` so a cancelled
+ * Run is never misreported as a Connection that could not be reached.
+ */
+export class CancelledError extends Error {
+  constructor() {
+    super("The Run was cancelled.");
+    this.name = "CancelledError";
+  }
+}
+
+/** True for the abort our own Transport raises, or a browser AbortError. */
+export function isCancelledError(error: unknown): boolean {
+  if (error instanceof CancelledError) return true;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
+}
+
 export function createFetchTransport(options: TransportOptions = {}): Transport {
   const gate = options.gate ?? new ConcurrencyGate();
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const baseDelayMs = options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS;
 
-  async function requestJson(built: BuiltRequest, connection: Connection): Promise<unknown> {
-    const response = await fetchWithRetry(built, connection, gate, maxAttempts, baseDelayMs);
+  async function requestJson(
+    built: BuiltRequest,
+    connection: Connection,
+    signal: AbortSignal | undefined,
+  ): Promise<unknown> {
+    const response = await fetchWithRetry(built, connection, gate, maxAttempts, baseDelayMs, signal);
     const text = await response.text();
     try {
       return JSON.parse(text) as unknown;
@@ -79,7 +104,9 @@ export function createFetchTransport(options: TransportOptions = {}): Transport 
       const adapter = protocolFor(request.connection.protocol);
       const built = adapter.buildRequest(request);
       assertWithinConnection(request.connection, built.url);
-      const body = await requestJson(built, request.connection);
+      const body = await requestJson(built, request.connection, request.signal);
+      const usage = adapter.parseUsage(body);
+      if (usage !== undefined) request.onUsage?.(usage);
       return adapter.parseResponse(body);
     },
 
@@ -87,7 +114,7 @@ export function createFetchTransport(options: TransportOptions = {}): Transport 
       const adapter = protocolFor(connection.protocol);
       const built = adapter.buildModelListRequest(connection);
       assertWithinConnection(connection, built.url);
-      const body = await requestJson(built, connection);
+      const body = await requestJson(built, connection, undefined);
       return adapter.parseModelList(body);
     },
   };
@@ -123,26 +150,33 @@ async function fetchWithRetry(
   gate: ConcurrencyGate,
   maxAttempts: number,
   baseDelayMs: number,
+  signal: AbortSignal | undefined,
 ): Promise<Response> {
   let attempt = 0;
   for (;;) {
     attempt += 1;
+    if (signal?.aborted) throw new CancelledError();
 
     let response: Response;
     try {
-      response = await gate.run(connection, () => fetch(built.url, built.init));
+      response = await gate.run(connection, () =>
+        fetch(built.url, signal === undefined ? built.init : { ...built.init, signal }),
+      );
     } catch (error) {
+      // An abort is a cancellation, not a Connection that could not be reached.
+      if (signal?.aborted || isCancelledError(error)) throw new CancelledError();
       // `fetch` throwing means no readable response at all — the browser's
       // opaque network failure. There is no status to retry on.
       throw new UnreachableError(connection.name, describeError(error));
     }
 
+    if (signal?.aborted) throw new CancelledError();
     if (response.ok) return response;
 
     const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
     const retryable = response.status === 429 || response.status >= 500;
     if (retryable && attempt < maxAttempts) {
-      await sleep(retryAfter ?? backoff(attempt, baseDelayMs));
+      await sleepWithSignal(retryAfter ?? backoff(attempt, baseDelayMs), signal);
       continue;
     }
 
@@ -168,9 +202,22 @@ function backoff(attempt: number, baseDelayMs: number): number {
   return Math.min(MAX_DELAY_MS, baseDelayMs * 2 ** (attempt - 1));
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    globalThis.setTimeout(resolve, ms);
+function sleepWithSignal(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new CancelledError());
+      return;
+    }
+    let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
+    const onAbort = () => {
+      if (timer !== undefined) globalThis.clearTimeout(timer);
+      reject(new CancelledError());
+    };
+    timer = globalThis.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 

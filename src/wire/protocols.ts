@@ -1,5 +1,5 @@
 import { ANTHROPIC_REQUIRED_HEADERS, type Connection, type Protocol } from "./connection";
-import type { ModelRequest } from "./modelRequest";
+import type { ModelRequest, ModelUsage } from "./modelRequest";
 
 /**
  * The Protocol table. This is the only place that knows a wire format, and it
@@ -21,6 +21,12 @@ export interface ProtocolAdapter {
   readonly protocol: Protocol;
   buildRequest(request: ModelRequest): BuiltRequest;
   parseResponse(body: unknown): string;
+  /**
+   * Token usage the Provider reported, when it reported any. Each Protocol
+   * names the counts differently, so extraction lives here beside the response
+   * parsing rather than above the seam.
+   */
+  parseUsage(body: unknown): ModelUsage | undefined;
   buildModelListRequest(connection: Connection): BuiltRequest;
   parseModelList(body: unknown): string[];
 }
@@ -100,6 +106,10 @@ const openAIAdapter: ProtocolAdapter = {
   parseResponse(body) {
     return requireText(openAIText(body), "choices[0].message.content");
   },
+  parseUsage(body) {
+    // OpenAI-shaped: `usage.prompt_tokens` / `usage.completion_tokens`.
+    return usageFromKeys(body, "usage", "prompt_tokens", "completion_tokens");
+  },
   buildModelListRequest: modelsRequest,
   parseModelList(body) {
     return idsFrom(body, "data");
@@ -139,6 +149,10 @@ const anthropicAdapter: ProtocolAdapter = {
   },
   parseResponse(body) {
     return requireText(anthropicText(body), "content[].text");
+  },
+  parseUsage(body) {
+    // Anthropic-shaped: `usage.input_tokens` / `usage.output_tokens`.
+    return usageFromKeys(body, "usage", "input_tokens", "output_tokens");
   },
   buildModelListRequest: modelsRequest,
   parseModelList(body) {
@@ -188,6 +202,10 @@ const geminiAdapter: ProtocolAdapter = {
   },
   parseResponse(body) {
     return requireText(geminiText(body), "candidates[0].content.parts[].text");
+  },
+  parseUsage(body) {
+    // Gemini-native: `usageMetadata.promptTokenCount` / `candidatesTokenCount`.
+    return usageFromKeys(body, "usageMetadata", "promptTokenCount", "candidatesTokenCount");
   },
   buildModelListRequest: modelsRequest,
   parseModelList(body) {
@@ -303,4 +321,32 @@ function recordAt(body: unknown, key: string): unknown[] | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * The two token counts under a named object, or `undefined` when the Provider
+ * reported neither. A count that is present but not a finite number is treated
+ * as absent rather than trusted.
+ */
+function usageFromKeys(
+  body: unknown,
+  containerKey: string,
+  inputKey: string,
+  outputKey: string,
+): ModelUsage | undefined {
+  if (!isRecord(body)) return undefined;
+  const container = body[containerKey];
+  if (!isRecord(container)) return undefined;
+
+  const input = finiteCount(container[inputKey]);
+  const output = finiteCount(container[outputKey]);
+  if (input === undefined && output === undefined) return undefined;
+  return {
+    ...(input === undefined ? {} : { inputTokens: input }),
+    ...(output === undefined ? {} : { outputTokens: output }),
+  };
+}
+
+function finiteCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

@@ -1,7 +1,7 @@
 import type { Connection } from "./connection";
-import type { ModelRequest } from "./modelRequest";
+import type { ModelRequest, ModelUsage } from "./modelRequest";
 import { protocolFor } from "./protocols";
-import type { Transport } from "./transport";
+import { CancelledError, type Transport } from "./transport";
 
 /**
  * The test implementation of the Transport: it records every request it is
@@ -27,6 +27,11 @@ export interface FixtureOptions {
   respond?: (request: ModelRequest) => string | Promise<string>;
   /** The model ids to return for a listing call. */
   models?: string[] | ((connection: Connection) => string[]);
+  /**
+   * Token usage to report for a model call, as a fixed value or a function of
+   * the request. Tests need a Provider that reports usage and one that does not.
+   */
+  usage?: ModelUsage | ((request: ModelRequest) => ModelUsage | undefined);
 }
 
 export function createFixtureTransport(options: FixtureOptions = {}): FixtureTransport {
@@ -46,7 +51,13 @@ export function createFixtureTransport(options: FixtureOptions = {}): FixtureTra
         headers: headerRecord(built.init.headers),
         body: parseBody(built.init.body),
       });
-      return respond(request);
+      // Honor the Run's signal the way `fetch` does, so a test can cancel a
+      // fixture Run mid-flight and see the same cancellation a browser produces.
+      const text = await raceWithSignal(Promise.resolve(respond(request)), request.signal);
+      const usage =
+        typeof options.usage === "function" ? options.usage(request) : options.usage;
+      if (usage !== undefined) request.onUsage?.(usage);
+      return text;
     },
 
     async listModels(connection: Connection): Promise<string[]> {
@@ -79,4 +90,28 @@ function headerRecord(headers: HeadersInit | undefined): Record<string, string> 
 function parseBody(body: BodyInit | null | undefined): unknown {
   if (typeof body !== "string") return null;
   return JSON.parse(body) as unknown;
+}
+
+/**
+ * Reject with `CancelledError` as soon as `signal` aborts, even if the fixture
+ * response never arrives. Without this a test transport that never resolves
+ * would ignore the Writer's cancel, and the cancellation path would be untested.
+ */
+function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) return promise;
+  if (signal.aborted) return Promise.reject(new CancelledError());
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new CancelledError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
 }

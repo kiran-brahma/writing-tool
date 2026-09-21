@@ -29,4 +29,16 @@ export interface ModelRequest {
   maxOutputTokens: number;
   temperature?: number;
   jsonSchema?: object;
+  /**
+   * Story 54: the Run's cancellation signal. The Transport passes it to `fetch`
+   * and stops retrying when it aborts, so a cancelled Run stops costing money.
+   */
+  signal?: AbortSignal;
+  /**
+   * Called once by the Transport when the Provider reported token usage. It is
+   * a callback rather than a widened return type so the seam's primary contract
+   * stays `send(ModelRequest) -> Promise<string>`; Core captures the usage the
+   * Run needs for the session total without the string-returning seam changing.
+   */
+  onUsage?: (usage: ModelUsage) => void;
 }

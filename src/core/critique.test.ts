@@ -230,6 +230,26 @@ describe("critique", () => {
     expect(run.rawResponse).toBe(RESPONSE);
     expect(run.fromCache).toBe(false);
   });
+
+  it("carries the Provider's token usage on the RunResult (story 52)", async () => {
+    const transport = createFixtureTransport({
+      respond: () => RESPONSE,
+      usage: { inputTokens: 100, outputTokens: 20 },
+    });
+
+    const run = await critique(target(), CLICHE_PASS, connection(), {
+      transport,
+      screeningFrame: true,
+      revisionId: "rev-1",
+    });
+
+    expect(run.usage).toEqual({ inputTokens: 100, outputTokens: 20 });
+  });
+
+  it("leaves usage undefined when the Provider reported none", async () => {
+    const run = await critique(target(), CLICHE_PASS, connection(), fixture(RESPONSE).config);
+    expect(run.usage).toBeUndefined();
+  });
 });
 
 /**

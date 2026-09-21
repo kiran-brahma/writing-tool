@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { reResolveFindings, type FindingResolution } from "./core/anchor";
 import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
+import { addRunCost, estimateRunCost, type CostEstimate, type PriceTable } from "./core/cost";
 import type { DocTree } from "./core/docTree";
 import { type DeclineReason, type Finding, type Interval } from "./core/finding";
 import type { DocumentStatus, LibraryEntry } from "./core/library";
@@ -10,7 +11,7 @@ import {
   sameModelWarning as sameModelWarningFor,
   type JudgeResult,
 } from "./core/judge";
-import { isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
+import { isFindingsPass, isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
 import { passProblem, parsePassSet, serializePassSet } from "./core/passSet";
 import { documentContext, targetForPass } from "./core/passContext";
 import {
@@ -69,13 +70,15 @@ import {
 } from "./storage/library";
 import { runRulePasses } from "./storage/ruleRuns";
 import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/modelRuns";
+import { loadPriceTable, savePriceTable as persistPriceTable } from "./storage/pricing";
 import { requestPersistentStorage } from "./storage/persist";
 import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
 import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
 import { useDurability } from "./durability/useDurability";
 import { createCustomConnection, type Connection } from "./wire/connection";
-import { createFetchTransport, type Transport } from "./wire/transport";
+import { transport as appTransport } from "./wire/productionTransport";
+import { isCancelledError, type Transport } from "./wire/transport";
 
 export interface DocumentHandle {
   status: "loading" | "ready" | "error";
@@ -115,6 +118,16 @@ export interface DocumentHandle {
   runError: string | null;
   /** The most recent Run's reported Containment count and drift, per Pass. */
   lastRunReport: RunReport | null;
+  /** Story 51: the editable per-model price table behind the estimate. */
+  priceTable: PriceTable;
+  /** Story 51: the pre-run estimate for each Findings pass, keyed by Pass id. */
+  runEstimates: Record<string, CostEstimate>;
+  /** Story 51: stores the Writer's edited price table. */
+  savePriceTable: (table: PriceTable) => Promise<void>;
+  /** Story 52: what this session's model Runs have cost, including cache hits at zero. */
+  sessionCost: number;
+  /** Story 54: aborts the in-flight Run. An aborted Run stores nothing. */
+  cancelRun: () => void;
   /** Story 36: run one model Pass on demand against the current Target. */
   runModelPass: (passId: string) => Promise<RunResult | null>;
   /** Story 37: run every enabled document-scope Pass in one action. */
@@ -269,6 +282,8 @@ export function useDocument(): DocumentHandle {
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [lastRunReport, setLastRunReport] = useState<DocumentHandle["lastRunReport"]>(null);
+  const [priceTable, setPriceTableState] = useState<PriceTable>({});
+  const [sessionCost, setSessionCost] = useState(0);
   const [screeningFrame, setScreeningFrameState] = useState(true);
   const [characterLimit, setCharacterLimitState] = useState(DEFAULT_CHARACTER_LIMIT);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
@@ -367,6 +382,7 @@ export function useDocument(): DocumentHandle {
     setSlots(await loadSlots(database));
     setScreeningFrameState(await loadScreeningFrame(database));
     setCharacterLimitState(await loadCharacterLimit(database));
+    setPriceTableState(await loadPriceTable(database));
     setLastBackedUp(await loadLastBackedUp(database));
   }, []);
 
@@ -446,8 +462,10 @@ export function useDocument(): DocumentHandle {
         databaseRef.current = database;
 
         await loadGlobalState(database);
-        // The one seam. The app builds it once; every model Run leaves through it.
-        transportRef.current = createFetchTransport();
+        // The one seam, shared with the Connections panel: every model Run and
+        // every test/list request waits behind the same per-Connection gate, so
+        // the visible queue tells the truth and the cap is actually shared.
+        transportRef.current = appTransport;
         await enterDocument(database, opened);
         setLibrary(await listLibrary(database));
 
@@ -908,6 +926,45 @@ export function useDocument(): DocumentHandle {
   );
 
   /**
+   * Story 51: the pre-run cost estimate for each Findings pass, from the same
+   * Target the Run will use. It is shown, never enforced: an unknown model
+   * prices at zero and the estimate is still displayed.
+   */
+  const runEstimates = useMemo(() => {
+    const estimates: Record<string, CostEstimate> = {};
+    if (documentRecord === null) return estimates;
+    const model = criticConnection?.model ?? "";
+    for (const pass of passes) {
+      if (pass.kind !== "model" || !isFindingsPass(pass)) continue;
+      const target = targetForPass(
+        pass,
+        documentRecord.tree,
+        targetBlockIndex,
+        documentRecord.title,
+      );
+      const characters = target === null ? documentRecord.canonical.length : target.canonical.length;
+      estimates[pass.id] = estimateRunCost(characters, model, priceTable);
+    }
+    return estimates;
+  }, [documentRecord, passes, targetBlockIndex, criticConnection, priceTable]);
+
+  /** Story 51: stores the Writer's edited price table. */
+  const savePriceTable = useCallback(async (table: PriceTable) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setPriceTableState(await persistPriceTable(database, table));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
+  /** Story 54: aborts the in-flight Run; the Run itself stores nothing. */
+  const cancelRun = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  /**
    * Stories 104 and 105: the prompt-authoring assistant. It sends the Writer's
    * request and current Pass prompt through the one seam; no Document, Target
    * or prose is available to hand it, which is what makes the assistance legal
@@ -943,6 +1000,8 @@ export function useDocument(): DocumentHandle {
   );
 
   const runInFlightRef = useRef(false);
+  /** Story 54: the controller for the in-flight Run, so Cancel can abort it. */
+  const abortRef = useRef<AbortController | null>(null);
   /** Guards the structural set against a second click before its state renders. */
   const structuralInFlightRef = useRef(false);
   /** Guards the Reader pass against a second click before its state renders. */
@@ -977,6 +1036,8 @@ export function useDocument(): DocumentHandle {
       }
 
       runInFlightRef.current = true;
+      const controller = new AbortController();
+      abortRef.current = controller;
       setRunError(null);
       setRunningPassId(passId);
       setRunStartedAt(Date.now());
@@ -988,7 +1049,13 @@ export function useDocument(): DocumentHandle {
           target,
           screeningFrame,
           characterLimit,
+          signal: controller.signal,
         });
+        // Story 52: the session total uses the Provider's usage when there is
+        // one and the estimate otherwise; a cache hit adds nothing.
+        setSessionCost((total) =>
+          addRunCost(total, result, target.canonical.length, criticConnection.model, priceTable),
+        );
         // The Writer may have opened another Document mid-run. The Run belongs
         // to the Document it started against (and its Findings are stored); the
         // new Document's view must not show them.
@@ -1001,20 +1068,23 @@ export function useDocument(): DocumentHandle {
             droppedAnchors: result.droppedAnchors,
             violations: result.violations,
             chunks: result.chunks,
+            fromCache: result.fromCache,
           });
         }
         return result;
       } catch (error) {
-        // The Provider's own words, surfaced verbatim; never a silent failure.
-        setRunError(describeError(error));
+        // A cancelled Run reports as cancelled; any other failure is the
+        // Provider's own words, surfaced verbatim. Neither is swallowed.
+        setRunError(isCancelledError(error) ? "Run cancelled." : describeError(error));
         return null;
       } finally {
+        if (abortRef.current === controller) abortRef.current = null;
         runInFlightRef.current = false;
         setRunningPassId(null);
         setRunStartedAt(null);
       }
     },
-    [criticConnection, refreshFindings, screeningFrame, characterLimit, targetBlockIndex],
+    [criticConnection, refreshFindings, screeningFrame, characterLimit, targetBlockIndex, priceTable],
   );
 
   /**
@@ -1245,6 +1315,11 @@ export function useDocument(): DocumentHandle {
     runStartedAt,
     runError,
     lastRunReport,
+    priceTable,
+    runEstimates,
+    savePriceTable,
+    sessionCost,
+    cancelRun,
     runModelPass,
     runStructuralSet,
     screeningFrame,

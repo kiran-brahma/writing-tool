@@ -1,5 +1,7 @@
 import type { Connection } from "../wire/connection";
+import type { ModelRequest, ModelUsage } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
+import { isCancelledError } from "../wire/transport";
 import { describeError } from "../errors";
 import { resolveAnchor } from "./anchor";
 import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./chunking";
@@ -30,6 +32,11 @@ export interface RunConfig {
    * `DEFAULT_CHARACTER_LIMIT`; the setting lets the Writer raise or lower it.
    */
   characterLimit?: number;
+  /**
+   * Story 54: the Run's cancellation signal, threaded to the Transport and on
+   * to `fetch`. An aborted Run stores nothing and reports as cancelled.
+   */
+  signal?: AbortSignal;
 }
 
 /** The spec's RunResult. `violations` are surfaced, never silently removed. */
@@ -44,6 +51,11 @@ export interface RunResult {
    * a single call; more when the Run was chunked Section by Section.
    */
   chunks: number;
+  /**
+   * Story 52: the Provider's token usage when it reported any, so the session
+   * total can use the real count instead of the estimate.
+   */
+  usage?: ModelUsage;
 }
 
 /**
@@ -57,6 +69,8 @@ export interface RunReport {
   violations: Violation[];
   /** Story 50: how many calls the Run made; more than one means it was chunked. */
   chunks: number;
+  /** Story 53: true when the Run was served from the cache and cost nothing. */
+  fromCache: boolean;
 }
 
 /**
@@ -99,6 +113,9 @@ export async function critique(
     try {
       results.push(await critiqueOnce(chunk, pass, connection, config));
     } catch (error) {
+      // A cancellation is the Writer's decision, not a chunk failure: surface it
+      // as cancelled rather than wrapping it in a misleading chunk message.
+      if (isCancelledError(error)) throw error;
       // A chunked Run is all-or-nothing, like a single call: the caller stores
       // nothing, so a half-examined Document cannot masquerade as a finished
       // Run. Naming the chunk makes the cost of the retry visible.
@@ -120,7 +137,7 @@ async function critiqueOnce(
   config: RunConfig,
 ): Promise<RunResult> {
   const prompt = fillPrompt(pass.prompt ?? "", promptValues(target));
-  const request = buildPassRequest({
+  const built = buildPassRequest({
     pass,
     connection,
     prompt,
@@ -128,6 +145,16 @@ async function critiqueOnce(
     screeningFrame: config.screeningFrame,
     ...(config.maxOutputTokens === undefined ? {} : { maxOutputTokens: config.maxOutputTokens }),
   });
+  let reportedUsage: ModelUsage | undefined;
+  // The signal and the usage callback travel with the request, so the seam's
+  // `send(ModelRequest) -> Promise<string>` contract is unchanged.
+  const request: ModelRequest = {
+    ...built,
+    ...(config.signal === undefined ? {} : { signal: config.signal }),
+    onUsage: (usage) => {
+      reportedUsage = usage;
+    },
+  };
 
   const rawResponse = await config.transport.send(request);
   const parsed = parseFindings(rawResponse, pass.output);
@@ -155,9 +182,10 @@ async function critiqueOnce(
     violations: parsed.violations,
     droppedAnchors: contained.dropped,
     rawResponse,
-    // The Run cache is #16's; a Run is never a cache hit yet.
+    // The Run cache is #16's; the storage boundary fills `fromCache`.
     fromCache: false,
     chunks: 1,
+    ...(reportedUsage === undefined ? {} : { usage: reportedUsage }),
   };
 }
 
@@ -195,5 +223,27 @@ function mergeChunks(results: RunResult[], canonical: string): RunResult {
     rawResponse: results.map((result) => result.rawResponse).join("\n\n--- chunk ---\n\n"),
     fromCache: false,
     chunks: results.length,
+    ...sumUsage(results),
+  };
+}
+
+/** The summed usage across chunks, or nothing when no chunk reported any. */
+function sumUsage(results: RunResult[]): { usage?: ModelUsage } {
+  let inputTokens: number | undefined;
+  let outputTokens: number | undefined;
+  for (const result of results) {
+    if (result.usage?.inputTokens !== undefined) {
+      inputTokens = (inputTokens ?? 0) + result.usage.inputTokens;
+    }
+    if (result.usage?.outputTokens !== undefined) {
+      outputTokens = (outputTokens ?? 0) + result.usage.outputTokens;
+    }
+  }
+  if (inputTokens === undefined && outputTokens === undefined) return {};
+  return {
+    usage: {
+      ...(inputTokens === undefined ? {} : { inputTokens }),
+      ...(outputTokens === undefined ? {} : { outputTokens }),
+    },
   };
 }

@@ -7,7 +7,7 @@ import { passContext, documentContext } from "../core/passContext";
 import { CLICHE_PASS, TOPIC_STRINGS_PASS } from "../core/starterPasses";
 import type { Target } from "../core/critique";
 import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../wire/connection";
-import { createFixtureTransport } from "../wire/fixtureTransport";
+import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTransport";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
 import { declineFinding, listFindings, listFindingsForPass } from "./findings";
 import { listRunResponses, loadRunResponse, runModelPass } from "./modelRuns";
@@ -142,7 +142,12 @@ describe("runModelPass", () => {
     const second = JSON.stringify({
       findings: [{ issue: "Other", diagnosis: "D", quote: "Target", offset: 0 }],
     });
-    await runModelPass(database, document, runOptions(document, second));
+    // A different model is a cache miss, so this Run reaches the Provider and
+    // its raw response overwrites the one stored for the same promptHash.
+    await runModelPass(database, document, {
+      ...runOptions(document, second),
+      connection: { ...connection(), model: "gpt-test-2" },
+    });
 
     await expect(
       loadRunResponse(database, document.id, CLICHE_PASS.id, hashPass(CLICHE_PASS)),
@@ -242,5 +247,179 @@ describe("runModelPass", () => {
     await expect(
       loadRunResponse(database, saved.id, pass.id, hashPass(pass)),
     ).resolves.toContain("--- chunk ---");
+  });
+});
+
+describe("the Run cache (story 53)", () => {
+  function optionsWith(document: DocumentRecord, transport: FixtureTransport) {
+    return {
+      pass: CLICHE_PASS,
+      connection: connection(),
+      transport,
+      target: targetFor(document),
+      screeningFrame: true,
+      characterLimit: DEFAULT_CHARACTER_LIMIT,
+    };
+  }
+
+  it("returns a cached Run without a Provider call on unchanged text", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const firstTransport = createFixtureTransport({ respond: () => RESPONSE });
+
+    const first = await runModelPass(database, document, optionsWith(document, firstTransport));
+    expect(first.fromCache).toBe(false);
+    expect(firstTransport.requests).toHaveLength(1);
+
+    const secondTransport = createFixtureTransport({ respond: () => RESPONSE });
+    const second = await runModelPass(database, document, optionsWith(document, secondTransport));
+
+    expect(second.fromCache).toBe(true);
+    expect(secondTransport.requests).toHaveLength(0);
+    expect(second.rawResponse).toBe(RESPONSE);
+    expect(second.findings).toHaveLength(1);
+    expect(second.findings[0]).toMatchObject({ issue: "Cliché", promptHash: hashPass(CLICHE_PASS) });
+    // A cache hit is still the document's stored Finding set, reconciled.
+    await expect(listFindingsForPass(database, document.id, CLICHE_PASS.id)).resolves.toHaveLength(1);
+  });
+
+  it("misses when the model changes", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    const transport = createFixtureTransport({ respond: () => RESPONSE });
+    await runModelPass(database, document, {
+      ...optionsWith(document, transport),
+      connection: { ...connection(), model: "gpt-other" },
+    });
+
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it("misses when the Connection id changes even for the same model", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    const transport = createFixtureTransport({ respond: () => RESPONSE });
+    await runModelPass(database, document, {
+      ...optionsWith(document, transport),
+      connection: { ...connection(), id: "openai-alt" },
+    });
+
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it("misses when the canonical text is edited", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    const editedTree: DocTree = {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Context paragraph." }] },
+        { type: "paragraph", content: [{ type: "text", text: "Target with a cliché, edited." }] },
+      ],
+    };
+    const edited = withTree(document, editedTree, 2_000);
+    await persistDocument(database, edited);
+
+    const transport = createFixtureTransport({ respond: () => RESPONSE });
+    await runModelPass(database, edited, optionsWith(edited, transport));
+
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it("misses when the Document title changes, because {{title}} is in the prompt", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    const retitled: DocumentRecord = { ...document, title: "A Different Title" };
+    await persistDocument(database, retitled);
+
+    const transport = createFixtureTransport({ respond: () => RESPONSE });
+    await runModelPass(database, retitled, optionsWith(retitled, transport));
+
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it("misses when the Pass prompt changes (a different promptHash)", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    const transport = createFixtureTransport({ respond: () => RESPONSE });
+    await runModelPass(database, document, {
+      ...optionsWith(document, transport),
+      pass: { ...CLICHE_PASS, prompt: `${CLICHE_PASS.prompt}\nExtra line.` },
+    });
+
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it("a cache hit on a second Document writes independent Findings", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const second: DocumentRecord = {
+      ...document,
+      id: "second-document",
+      // Same title and same text: the prompt is identical, so this is a genuine
+      // cross-Document cache hit.
+      title: document.title,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    await database.documents.put(second);
+
+    const first = await runModelPass(
+      database,
+      document,
+      optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })),
+    );
+    const secondTransport = createFixtureTransport({ respond: () => RESPONSE });
+    const hit = await runModelPass(database, second, optionsWith(second, secondTransport));
+
+    expect(hit.fromCache).toBe(true);
+    expect(secondTransport.requests).toHaveLength(0);
+    // A Finding is stored by id, so the second Document must not have overwritten
+    // the first's row: both Document sets stand, with different ids.
+    const firstFindings = await listFindingsForPass(database, document.id, CLICHE_PASS.id);
+    const secondFindings = await listFindingsForPass(database, second.id, CLICHE_PASS.id);
+    expect(firstFindings).toHaveLength(1);
+    expect(secondFindings).toHaveLength(1);
+    expect(secondFindings[0].id).not.toBe(firstFindings[0].id);
+    expect(secondFindings[0].id).not.toBe(first.findings[0].id);
+  });
+});
+
+describe("cancellation (story 54)", () => {
+  it("an aborted Run stores no Findings, writes no cache entry, and does not retry", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const controller = new AbortController();
+    const transport = createFixtureTransport({
+      respond: () => new Promise<string>(() => {
+        // Never resolves: the abort is the only way out.
+      }),
+    });
+
+    const pending = runModelPass(database, document, {
+      pass: CLICHE_PASS,
+      connection: connection(),
+      transport,
+      target: targetFor(document),
+      screeningFrame: true,
+      characterLimit: DEFAULT_CHARACTER_LIMIT,
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: "CancelledError" });
+    await expect(listFindingsForPass(database, document.id, CLICHE_PASS.id)).resolves.toHaveLength(0);
+    await expect(database.runCache.count()).resolves.toBe(0);
+    expect(transport.requests).toHaveLength(1);
   });
 });

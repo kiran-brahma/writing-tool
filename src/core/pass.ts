@@ -1,3 +1,5 @@
+import { fnv1a } from "./hash";
+
 /**
  * Passes are data, not code: records the Writer can edit, export and import,
  * shipped with a read-only Starter pack. This module holds the shape and the
@@ -78,17 +80,6 @@ export function hashPass(pass: Pass): string {
       ruleConfig: pass.ruleConfig ?? null,
     }),
   );
-}
-
-/** FNV-1a, 32-bit, hex. Deterministic and dependency-free, which is what a
- * pure Core hash has to be — `crypto.subtle` is async and DOM-adjacent. */
-function fnv1a(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index++) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(16).padStart(8, "0");
 }
 
 /**

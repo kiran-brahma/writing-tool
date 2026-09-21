@@ -52,6 +52,11 @@ export default function App() {
     runStartedAt,
     runError,
     lastRunReport,
+    priceTable,
+    runEstimates,
+    savePriceTable,
+    sessionCost,
+    cancelRun,
     runModelPass,
     runStructuralSet,
     screeningFrame,
@@ -612,11 +617,16 @@ export default function App() {
             documentLength={document?.canonical.length ?? 0}
             characterLimit={characterLimit}
             chunkCount={documentChunks}
+            estimates={runEstimates}
+            priceTable={priceTable}
+            sessionCost={sessionCost}
             onRun={(passId) => void runModelPass(passId)}
             onRunStructural={() => void runStructuralSet()}
+            onCancel={cancelRun}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
             onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
             onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
+            onSavePriceTable={(table) => void savePriceTable(table)}
           />
 
           <ConnectionsPanel

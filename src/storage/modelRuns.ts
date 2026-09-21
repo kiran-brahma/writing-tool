@@ -1,13 +1,20 @@
 import { critique, type RunResult, type Target } from "../core/critique";
 import { responseKey } from "../core/finding";
+import { provenanceFor } from "../core/modelCall";
 import { hashPass, type Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
+import { hashRunText, runCacheKey } from "../core/runCache";
 import type { Connection } from "../wire/connection";
 import type { Transport } from "../wire/transport";
 import { listFindingsForPass, provenanceLookup, replaceFindingsForPass } from "./findings";
 import { enqueueMutation } from "./mutationQueue";
-import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
+import type { DocumentRecord, ObelusDatabase, RunCacheRecord } from "./obelusDatabase";
 import { ensureRevision } from "./revisions";
+import {
+  loadRunCache,
+  saveRunCache,
+  type RunCacheInput,
+} from "./runCache";
 
 /**
  * The model-Run repository. A model Run is like a rule Run in one respect — it
@@ -15,8 +22,9 @@ import { ensureRevision } from "./revisions";
  * another: it also records the raw provider response, so the global
  * "show raw response" toggle can expose it for a Finding loaded much later.
  *
- * The Run cache, the cost estimate and cancellation are #16's. This is the
- * end-to-end path one Pass needs.
+ * The Run cache lives here, at the storage boundary, because this is the door
+ * every Run goes through and the only place the Document's canonical text, the
+ * Pass, its `promptHash`, the Connection and the model are all in hand at once.
  */
 
 /** Stores the raw response of a Pass's Run for a Document, keyed by promptHash. */
@@ -63,6 +71,8 @@ export interface ModelRunOptions {
   screeningFrame: boolean;
   /** Story 50: the character limit above which a document Run is chunked. */
   characterLimit: number;
+  /** Story 54: cancels the Run; an aborted Run stores no Findings. */
+  signal?: AbortSignal;
   now?: number;
 }
 
@@ -89,26 +99,68 @@ async function runModelPassNow(
   // Run needs one even before it knows what the model will return.
   const revision = await ensureRevision(database, document, now);
 
-  const result = await critique(options.target, options.pass, options.connection, {
-    transport: options.transport,
+  const input: RunCacheInput = {
+    documentId: document.id,
+    canonicalHash: hashRunText(document.title, document.canonical),
+    passId: options.pass.id,
+    promptHash: hashPass(options.pass),
+    connectionId: options.connection.id,
+    model: options.connection.model,
     screeningFrame: options.screeningFrame,
-    revisionId: revision.id,
     characterLimit: options.characterLimit,
-    now,
-  });
+  };
+  const cached = await loadRunCache(database, runCacheKey(input));
+
+  const result =
+    cached === null
+      ? await critique(options.target, options.pass, options.connection, {
+          transport: options.transport,
+          screeningFrame: options.screeningFrame,
+          revisionId: revision.id,
+          characterLimit: options.characterLimit,
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          now,
+        })
+      : resultFromCache(cached, options.connection, revision.id, now);
+
+  // Store before reconciling: the Provider call is the expensive part, and a
+  // cache entry is valid even if the later Finding write is interrupted.
+  if (cached === null) await saveRunCache(database, input, result, now);
 
   const existing = await listFindingsForPass(database, document.id, options.pass.id);
   const provenance = await provenanceLookup(database, existing);
   const merged = reconcileFindings(result.findings, existing, document.canonical, provenance);
   await replaceFindingsForPass(database, document.id, options.pass.id, merged);
-  await saveRunResponse(
-    database,
-    document.id,
-    options.pass.id,
-    hashPass(options.pass),
-    result.rawResponse,
-    now,
-  );
+  await saveRunResponse(database, document.id, options.pass.id, input.promptHash, result.rawResponse, now);
 
   return { ...result, findings: merged };
+}
+
+/**
+ * A cached Run as a fresh `RunResult`. Finding ids are regenerated and
+ * provenance is rebased onto this Run's Revision: a Finding is stored by id, so
+ * a hit on a second Document must not carry the first Document's ids (it would
+ * overwrite that Document's rows), and its provenance must name a Revision of
+ * the Document it now belongs to. The prose, anchors, violations and raw
+ * response are the cached ones, so the Writer's view is otherwise identical.
+ */
+function resultFromCache(
+  record: RunCacheRecord,
+  connection: Connection,
+  revisionId: string,
+  now: number,
+): RunResult {
+  return {
+    findings: record.findings.map((finding) => ({
+      ...finding,
+      id: crypto.randomUUID(),
+      provenance: provenanceFor(connection, revisionId, now),
+    })),
+    violations: record.violations,
+    droppedAnchors: record.droppedAnchors,
+    rawResponse: record.rawResponse,
+    fromCache: true,
+    chunks: record.chunks,
+    ...(record.usage === undefined ? {} : { usage: record.usage }),
+  };
 }
