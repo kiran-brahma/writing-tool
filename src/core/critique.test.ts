@@ -97,7 +97,7 @@ describe("critique", () => {
 
     expect(hashPass({ ...CLICHE_PASS, prompt: "a different prompt" })).not.toBe(base);
     expect(hashPass({ ...CLICHE_PASS, scope: "document" })).not.toBe(base);
-    expect(hashPass({ ...CLICHE_PASS, output: "note" })).not.toBe(base);
+    expect(hashPass({ ...CLICHE_PASS, output: "audit" })).not.toBe(base);
   });
 
   it("drops and reports Anchors outside the Target (Containment)", async () => {

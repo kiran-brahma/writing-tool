@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type { Pass } from "../core/pass";
 import { blankModelPass } from "../core/starterPasses";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
@@ -7,6 +8,7 @@ import {
   restoreStarterPasses,
   savePass,
   setPassEnabled,
+  UnrunnablePassError,
   updateRuleConfig,
 } from "./passes";
 
@@ -92,6 +94,19 @@ describe("loadOrCreatePasses", () => {
 
     expect(passes.map((pass) => pass.id)).toContain("wordiness");
     expect(passes.find((pass) => pass.id === "hedges")?.enabled).toBe(false);
+  });
+
+  it("refuses a stored Pass whose output shape this build cannot run (story 158)", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    // A legacy row: the note shape was offered by an older Obelus.
+    await database.passes.put({
+      ...blankModelPass("legacy-note"),
+      output: "note",
+    } as unknown as Pass);
+
+    await expect(loadOrCreatePasses(database)).rejects.toBeInstanceOf(UnrunnablePassError);
+    await expect(loadOrCreatePasses(database)).rejects.toThrow(/cannot run/i);
   });
 });
 

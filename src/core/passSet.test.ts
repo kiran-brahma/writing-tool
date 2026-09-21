@@ -95,6 +95,20 @@ describe("passProblem", () => {
     expect(passProblem({ ...CLICHE_PASS, output: "json-schema" })).toMatch(/unknown output shape/i);
   });
 
+  it("names the removed note output shape (story 158)", () => {
+    expect(passProblem({ ...CLICHE_PASS, output: "note" })).toMatch(/unknown output shape/i);
+  });
+
+  it("refuses a Pass set carrying the removed note shape (story 158)", () => {
+    const file = JSON.stringify({
+      format: PASS_SET_FORMAT,
+      version: PASS_SET_FORMAT_VERSION,
+      passes: [{ ...CLICHE_PASS, output: "note" }],
+    });
+
+    expect(() => parsePassSet(file)).toThrow(/unknown output shape/i);
+  });
+
   it("names an unreadable Rule config", () => {
     expect(passProblem({ ...HEDGES_PASS, ruleConfig: { hedges: [1] } })).toMatch(
       /unreadable Rule config/i,

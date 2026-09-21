@@ -482,7 +482,7 @@ function outputLabel(output: OutputShape): string {
       return "Findings";
     case "section-summary":
       return "Reader account (section summary)";
-    case "note":
-      return "Note";
+    case "audit":
+      return "Audit account (reasoning)";
   }
 }

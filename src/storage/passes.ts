@@ -1,7 +1,30 @@
-import type { Pass, RuleConfig } from "../core/pass";
+import { isOutputShape, type Pass, type RuleConfig } from "../core/pass";
 import { STARTER_PASSES } from "../core/starterPasses";
 import { enqueueMutation } from "./mutationQueue";
 import type { ObelusDatabase } from "./obelusDatabase";
+
+/**
+ * Raised when a stored Pass has an output shape this build cannot run. Obelus
+ * refuses the read rather than running a Pass whose output it cannot show or
+ * quietly dropping it: an output shape the Writer can select and cannot run is a
+ * broken promise (story 158). The message names the Pass so the Writer can
+ * remove it or restore the Starter pack.
+ */
+export class UnrunnablePassError extends Error {
+  constructor(passId: string, output: unknown) {
+    super(
+      `The stored Pass "${passId}" has an output shape this build cannot run ` +
+        `(${JSON.stringify(output)}). Obelus will not run it or quietly drop it. ` +
+        `Restore the Starter pack, or remove that Pass, and open Obelus again.`,
+    );
+    this.name = "UnrunnablePassError";
+  }
+}
+
+/** The first stored Pass whose output shape this build cannot run, or null. */
+function firstUnrunnablePass(passes: Pass[]): Pass | null {
+  return passes.find((pass) => !isOutputShape(pass.output)) ?? null;
+}
 
 /**
  * The Passes repository. Passes are data: the Starter pack seeds the store on
@@ -16,6 +39,11 @@ import type { ObelusDatabase } from "./obelusDatabase";
 export async function loadOrCreatePasses(database: ObelusDatabase): Promise<Pass[]> {
   return database.transaction("rw", database.passes, async () => {
     const stored = await database.passes.toArray();
+    // A stored Pass whose output shape this build cannot run is refused before
+    // anything is seeded or returned, rather than coerced to a runnable shape
+    // or silently dropped from the set (story 158).
+    const unrunnable = firstUnrunnablePass(stored);
+    if (unrunnable !== null) throw new UnrunnablePassError(unrunnable.id, unrunnable.output);
     const byId = new Map(stored.map((pass) => [pass.id, pass]));
 
     const missing = STARTER_PASSES.filter((starter) => !byId.has(starter.id));

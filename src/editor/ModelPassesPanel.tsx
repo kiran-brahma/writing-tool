@@ -15,9 +15,8 @@ import { splitViolations } from "./violationMarks";
  * text it was not asked about.
  *
  * Only `findings`-output Passes appear here: a Reader pass returns a Reader
- * account, which its own tab owns, and a `note` Pass would belong to the
- * Workbench. Listing one here would offer a Run whose output this panel cannot
- * show.
+ * account and an Audit pass returns an Audit account, and each has its own tab.
+ * Listing one here would offer a Run whose output this panel cannot show.
  *
  * The global run settings — the Screening frame, the character limit and the
  * price table — live in the AI Settings view, so this panel stays about running

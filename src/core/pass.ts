@@ -8,7 +8,13 @@ import { fnv1a } from "./hash";
 
 export type PassKind = "rule" | "model";
 export type PassScope = "document" | "section" | "paragraph";
-export type OutputShape = "findings" | "section-summary" | "note";
+/**
+ * The shapes a Pass may return. The dead `note` shape was removed in v1.1: a
+ * shape the Writer can select in the Workbench and nothing can run is a broken
+ * promise (story 158). `audit` is the Audit pass's own shape, beside Findings
+ * and the Reader's section summary.
+ */
+export type OutputShape = "findings" | "section-summary" | "audit";
 export type Slot = "critic";
 
 /**
@@ -25,7 +31,7 @@ export const PASS_SCOPES: readonly PassScope[] = ["document", "section", "paragr
 export const OUTPUT_SHAPES: readonly OutputShape[] = [
   "findings",
   "section-summary",
-  "note",
+  "audit",
 ];
 
 export function isPassScope(value: unknown): value is PassScope {
