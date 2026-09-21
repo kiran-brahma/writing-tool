@@ -1,6 +1,7 @@
 import type { BlockNode, DocTree } from "../src/core/docTree";
 import type { Pass } from "../src/core/pass";
 import {
+  AUDIT_PASS,
   CLAIM_STRENGTH_PASS,
   CLICHE_PASS,
   CUT_CANDIDATES_PASS,
@@ -148,6 +149,15 @@ export const HARNESS_DOCUMENT_PASSES: Pass[] = [TOPIC_STRINGS_PASS, PARAGRAPH_RE
 export const HARNESS_READER_PASSES: Pass[] = [READER_PASS];
 
 /**
+ * The Audit pass, run as a fourth matrix. Its output shape is an Audit account
+ * and its scope is the whole Document, so it exercises the document-scope
+ * prompt and the schema-guided parser: no Anchor to contain, but the same
+ * linter, praise and rewrite checks, plus an account that must never carry a
+ * rewrite field.
+ */
+export const HARNESS_AUDIT_PASSES: Pass[] = [AUDIT_PASS];
+
+/**
  * The misbehaving model response every case receives. It carries:
  * - a kept Finding whose diagnosis is praise, which the linter must flag;
  * - a Finding anchored in the context above the target, which Containment must drop;
@@ -181,6 +191,40 @@ export function adversarialResponse(target: Target): string {
         rewrite: FIXTURE_REWRITE,
       },
     ],
+  });
+}
+
+/**
+ * The misbehaving Audit response every Audit case receives. It carries the same
+ * breaches in the account's shape: praise the linter must flag in an authored
+ * field, an out-of-schema `rewrite` string that must be quarantined rather than
+ * kept, and a valid account so the case still parses.
+ */
+export function adversarialAuditResponse(_target: Target): string {
+  return JSON.stringify({
+    type: "argument",
+    corePayload: `The piece claims a plan carries the week. This is ${FIXTURE_PRAISE}, honestly.`,
+    argumentMap: {
+      premises: ["Every Sunday a list is written."],
+      subConclusions: ["A list without habits is ignored by Tuesday."],
+      conclusion: "Keep the list short.",
+    },
+    reasoning: {
+      kind: "inductive",
+      soundness: "The premise that habits carry the plan is never established.",
+      enthymemes: ["Habits, not plans, do the work."],
+    },
+    fallacies: [
+      {
+        name: "False cause",
+        passage: "the low-hanging fruit is usually the first thing to rot",
+        why: "Correlation is treated as causation.",
+        missing: "Evidence that the fruit rots first.",
+      },
+    ],
+    definitions: { intensional: null, extensional: null },
+    priority: ["Establish that habits do the work."],
+    rewrite: FIXTURE_REWRITE,
   });
 }
 

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import type { CostEstimate } from "../core/cost";
 import type { RunReport } from "../core/critique";
 import { isFindingsPass, structuralPasses, type Pass } from "../core/pass";
+import { ElapsedTimer } from "./ElapsedTimer";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
 import { splitViolations } from "./violationMarks";
 
@@ -217,18 +217,6 @@ export function ModelPassesPanel({
       </ol>
     </section>
   );
-}
-
-/** The elapsed time of an in-flight Run, refreshed while it runs. */
-function ElapsedTimer({ since }: { since: number }) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const interval = globalThis.setInterval(() => setNow(Date.now()), 100);
-    return () => globalThis.clearInterval(interval);
-  }, []);
-
-  return <span className="tabular-nums">{((now - since) / 1000).toFixed(1)}s</span>;
 }
 
 /** A US dollar figure, with enough precision to show a sub-cent estimate. */

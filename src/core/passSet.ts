@@ -114,6 +114,12 @@ export function passProblem(candidate: unknown): string | null {
   if (candidate.slot !== "critic") {
     return `Pass "${id}" has an unknown slot`;
   }
+  // Story 154: the Audit's method defines its stance, so no frame may be set on
+  // it. The `frame` field arrives with the frames work (#32); this refuses one
+  // on an Audit Pass even before that field is a known part of the shape.
+  if (candidate.frame !== undefined && candidate.output === "audit") {
+    return `Audit Pass "${id}" may not set a frame; its method defines its stance`;
+  }
   if (typeof candidate.enabled !== "boolean") {
     return `Pass "${id}" needs an enabled flag`;
   }

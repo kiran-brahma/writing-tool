@@ -1,7 +1,7 @@
 import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Provenance } from "./finding";
-import type { Pass } from "./pass";
+import { passAcceptsFrame, type Pass } from "./pass";
 import { SCREENING_FRAME } from "./screeningFrame";
 
 /**
@@ -39,7 +39,9 @@ export function buildPassRequest(options: PassRequestOptions): ModelRequest {
     maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: 0,
     jsonSchema: schema,
-    ...(screeningFrame && pass.slot === "critic" ? { system: SCREENING_FRAME } : {}),
+    ...(screeningFrame && pass.slot === "critic" && passAcceptsFrame(pass)
+      ? { system: SCREENING_FRAME }
+      : {}),
   };
 }
 

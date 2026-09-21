@@ -16,11 +16,13 @@ import {
   type HarnessReport,
 } from "./constitution";
 import {
+  adversarialAuditResponse,
   adversarialReaderResponse,
   adversarialResponse,
   FIXTURE_DROPPED,
   FIXTURE_PRAISE,
   FIXTURE_REWRITE,
+  HARNESS_AUDIT_PASSES,
   HARNESS_DOCUMENTS,
   HARNESS_DOCUMENT_PASSES,
   HARNESS_PASSES,
@@ -33,8 +35,11 @@ const RAN_AT = Date.UTC(2026, 8, 19, 12, 0, 0);
 let report: HarnessReport;
 let documentReport: HarnessReport;
 let readerReport: HarnessReport;
+let auditReport: HarnessReport;
+let chunkedAuditReport: HarnessReport;
 let transports: FixtureTransport[];
 let readerTransports: FixtureTransport[];
+let auditTransports: FixtureTransport[];
 
 beforeAll(async () => {
   transports = [];
@@ -76,6 +81,33 @@ beforeAll(async () => {
       readerTransports.push(transport);
       return transport;
     },
+  });
+
+  auditTransports = [];
+  auditReport = await runConstitutionHarness({
+    connection: connection(),
+    documents: HARNESS_DOCUMENTS,
+    passes: HARNESS_AUDIT_PASSES,
+    screeningFrame: true,
+    transportFor: (testCase) => {
+      const transport = createFixtureTransport({
+        respond: () => adversarialAuditResponse(testCase.target),
+      });
+      auditTransports.push(transport);
+      return transport;
+    },
+  });
+
+  // Story 131: a small character limit forces every fixture Document to chunk,
+  // so the harness proves the audit splits, synthesizes and reports the count.
+  chunkedAuditReport = await runConstitutionHarness({
+    connection: connection(),
+    documents: HARNESS_DOCUMENTS,
+    passes: HARNESS_AUDIT_PASSES,
+    screeningFrame: true,
+    characterLimit: 250,
+    transportFor: (testCase) =>
+      createFixtureTransport({ respond: () => adversarialAuditResponse(testCase.target) }),
   });
 });
 
@@ -202,6 +234,48 @@ describe("constitution harness", () => {
     const body = JSON.stringify(readerTransports[0].requests[0].body);
     expect(body).toContain('"additionalProperties":false');
     expect(body).not.toContain("rewrite");
+  });
+
+  it("runs the Audit pass over the fixture Documents with the account checks", () => {
+    expect(HARNESS_AUDIT_PASSES).toHaveLength(1);
+    expect(auditReport.cases).toHaveLength(3);
+    expect(auditReport.ok).toBe(true);
+  });
+
+  it("holds the Audit prompt and account to the same constitution properties", () => {
+    for (const testCase of auditReport.cases) {
+      expect(testCase.error).toBeNull();
+      expect(testCase.auditAccount).not.toBeNull();
+      expect(testCase.auditAccount).not.toHaveProperty("rewrite");
+      expect(testCase.violations).toContainEqual({ kind: "praise", text: FIXTURE_PRAISE });
+      expect(testCase.violations).toContainEqual({ kind: "rewrite", text: FIXTURE_REWRITE });
+      for (const name of [
+        "parses",
+        "praiseFlagged",
+        "noRewriteField",
+        "promptConstitution",
+      ] as const) {
+        expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
+      }
+    }
+
+    // The constitutional guarantee is the schema itself: the request closes the
+    // object and carries no field for rewritten prose.
+    const body = JSON.stringify(auditTransports[0].requests[0].body);
+    expect(body).toContain('"additionalProperties":false');
+    expect(body).not.toContain("rewrite");
+  });
+
+  it("chunks a long Audit and reports its chunk count", () => {
+    expect(chunkedAuditReport.cases).toHaveLength(3);
+    for (const testCase of chunkedAuditReport.cases) {
+      expect(testCase.error).toBeNull();
+      expect(testCase.chunks).toBeGreaterThan(1);
+      expect(testCase.auditAccount).not.toBeNull();
+      expect(check(testCase, "parses").ok).toBe(true);
+      expect(check(testCase, "praiseFlagged").ok).toBe(true);
+      expect(check(testCase, "noRewriteField").ok).toBe(true);
+    }
   });
 
   it("fails a Pass whose prompt drops a constitution clause", async () => {

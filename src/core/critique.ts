@@ -1,10 +1,9 @@
 import type { Connection } from "../wire/connection";
 import type { ModelRequest, ModelUsage } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
-import { isCancelledError } from "../wire/transport";
-import { describeError } from "../errors";
 import { resolveAnchor } from "./anchor";
-import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./chunking";
+import { DEFAULT_CHARACTER_LIMIT } from "./chunking";
+import { chunkedResults } from "./chunkedRun";
 import { applyContainment } from "./containment";
 import type { Finding, Violation } from "./finding";
 import { FINDINGS_SCHEMA } from "./findingsSchema";
@@ -104,28 +103,10 @@ export async function critique(
   if (pass.output !== "findings") throw new UnsupportedOutputShapeError(pass.output);
 
   const limit = config.characterLimit ?? DEFAULT_CHARACTER_LIMIT;
-  const targets = chunkTarget(target, limit);
-
-  if (targets.length === 1) return critiqueOnce(targets[0], pass, connection, config);
-
-  const results: RunResult[] = [];
-  for (const [index, chunk] of targets.entries()) {
-    try {
-      results.push(await critiqueOnce(chunk, pass, connection, config));
-    } catch (error) {
-      // A cancellation is the Writer's decision, not a chunk failure: surface it
-      // as cancelled rather than wrapping it in a misleading chunk message.
-      if (isCancelledError(error)) throw error;
-      // A chunked Run is all-or-nothing, like a single call: the caller stores
-      // nothing, so a half-examined Document cannot masquerade as a finished
-      // Run. Naming the chunk makes the cost of the retry visible.
-      throw new Error(
-        `Chunk ${index + 1} of ${targets.length} of the "${pass.name}" Run failed; ` +
-          `no Findings were stored. ${describeError(error)}`,
-        { cause: error },
-      );
-    }
-  }
+  const results = await chunkedResults(target, limit, pass, "Run", (chunk) =>
+    critiqueOnce(chunk, pass, connection, config),
+  );
+  if (results.length === 1) return results[0];
   return mergeChunks(results, target.canonical);
 }
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import type { Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
-import { isReaderPass } from "./core/pass";
+import { isAuditPass, isReaderPass } from "./core/pass";
 import { sectionAt, sections } from "./core/sections";
+import { AuditPanel } from "./editor/AuditPanel";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
 import { FindingsSidebar } from "./editor/FindingsSidebar";
@@ -70,6 +71,12 @@ export default function App() {
     readerStartedAt,
     readerError,
     runReaderPass,
+    auditAccounts,
+    auditRunning,
+    auditStartedAt,
+    auditError,
+    auditReport,
+    runAuditPass,
     judgeResult,
     judgeError,
     judgeRunning,
@@ -124,8 +131,8 @@ export default function App() {
   const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
-  /** Stories 91–93: the sidebar's two tabs keep Reader output apart from the queue. */
-  const [sidebarTab, setSidebarTab] = useState<"findings" | "reader">("findings");
+  /** Stories 91–93, 118–136: the sidebar's tabs keep derived output apart. */
+  const [sidebarTab, setSidebarTab] = useState<"findings" | "reader" | "audit">("findings");
   const [importError, setImportError] = useState<string | null>(null);
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
@@ -143,6 +150,12 @@ export default function App() {
   /** The Passes whose output shape is a Reader account; the Reader tab owns them. */
   const readerPasses = useMemo(
     () => passes.filter((pass) => pass.kind === "model" && isReaderPass(pass)),
+    [passes],
+  );
+
+  /** The Passes whose output shape is an Audit account; the Audit tab owns them. */
+  const auditPasses = useMemo(
+    () => passes.filter((pass) => pass.kind === "model" && isAuditPass(pass)),
     [passes],
   );
 
@@ -601,6 +614,11 @@ export default function App() {
                   active={sidebarTab === "reader"}
                   onClick={() => setSidebarTab("reader")}
                 />
+                <SidebarTab
+                  label="Audit"
+                  active={sidebarTab === "audit"}
+                  onClick={() => setSidebarTab("audit")}
+                />
               </div>
               {sidebarTab === "findings" ? (
                 <div className="flex items-center gap-3">
@@ -614,9 +632,13 @@ export default function App() {
                   </label>
                   <span className="text-xs text-stone-500">{openQueue.length} open</span>
                 </div>
-              ) : (
+              ) : sidebarTab === "reader" ? (
                 <span className="text-xs text-stone-500">
                   {readerAccounts.length} account{readerAccounts.length === 1 ? "" : "s"}
+                </span>
+              ) : (
+                <span className="text-xs text-stone-500">
+                  {auditAccounts.length} account{auditAccounts.length === 1 ? "" : "s"}
                 </span>
               )}
             </div>
@@ -632,7 +654,7 @@ export default function App() {
                   void leaveQueue(findingId, () => decline(findingId, reason))
                 }
               />
-            ) : (
+            ) : sidebarTab === "reader" ? (
               <ReaderPanel
                 passes={readerPasses}
                 accounts={readerAccounts}
@@ -641,6 +663,18 @@ export default function App() {
                 error={readerError}
                 criticName={criticConnection?.name ?? null}
                 onRun={(passId) => void runReaderPass(passId)}
+                onToggle={(passId, enabled) => void togglePass(passId, enabled)}
+              />
+            ) : (
+              <AuditPanel
+                passes={auditPasses}
+                accounts={auditAccounts}
+                running={auditRunning}
+                runningSince={auditStartedAt}
+                error={auditError}
+                report={auditReport}
+                criticName={criticConnection?.name ?? null}
+                onRun={(passId) => void runAuditPass(passId)}
                 onToggle={(passId, enabled) => void togglePass(passId, enabled)}
               />
             )}

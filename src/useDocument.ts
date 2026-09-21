@@ -4,14 +4,14 @@ import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
 import { addRunCost, estimateRunCost, type CostEstimate, type PriceTable } from "./core/cost";
 import type { DocTree } from "./core/docTree";
-import { type DeclineReason, type Finding, type Interval } from "./core/finding";
+import { type DeclineReason, type Finding, type Interval, type Violation } from "./core/finding";
 import type { DocumentStatus, LibraryEntry } from "./core/library";
 import {
   judge as judgeCore,
   sameModelWarning as sameModelWarningFor,
   type JudgeResult,
 } from "./core/judge";
-import { isFindingsPass, isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
+import { isAuditPass, isFindingsPass, isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
 import { passProblem, parsePassSet, serializePassSet } from "./core/passSet";
 import { documentContext, targetForPass } from "./core/passContext";
 import { promptCharacters } from "./core/prompt";
@@ -50,6 +50,7 @@ import {
 } from "./storage/findings";
 import {
   openObelusDatabase,
+  type AuditAccountRecord,
   type DocumentRecord,
   type ObelusDatabase,
   type ReaderAccountRecord,
@@ -76,13 +77,24 @@ import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/
 import { loadPriceTable, savePriceTable as persistPriceTable } from "./storage/pricing";
 import { requestPersistentStorage } from "./storage/persist";
 import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
-import { clearAuditAccounts } from "./storage/auditAccounts";
+import {
+  clearAuditAccounts,
+  listAuditAccounts,
+  runAuditPass as runAuditPassRecord,
+} from "./storage/auditAccounts";
 import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
 import { useDurability } from "./durability/useDurability";
 import { createCustomConnection, type Connection } from "./wire/connection";
 import { transport as appTransport } from "./wire/productionTransport";
 import { isCancelledError, type Transport } from "./wire/transport";
+
+/** Story 131: the most recent Audit Run's chunk count and drift, for the surface. */
+export interface AuditRunReport {
+  passId: string;
+  chunks: number;
+  violations: Violation[];
+}
 
 export interface DocumentHandle {
   status: "loading" | "ready" | "error";
@@ -163,6 +175,18 @@ export interface DocumentHandle {
   readerError: string | null;
   /** Stories 91–93: run the Reader pass over every Section, one call each. */
   runReaderPass: (passId: string) => Promise<void>;
+  /** Stories 118–136: the Audit accounts stored for the Document. */
+  auditAccounts: AuditAccountRecord[];
+  /** True while the Audit pass is reading the Document. */
+  auditRunning: boolean;
+  /** When the running Audit pass started, for the elapsed timer. */
+  auditStartedAt: number | null;
+  /** An Audit run's failure, surfaced verbatim rather than swallowed. */
+  auditError: string | null;
+  /** Story 131: the most recent Audit Run's chunk count and drift, keyed by Pass. */
+  auditReport: AuditRunReport | null;
+  /** Stories 118–136: run an Audit pass over the whole Document. */
+  runAuditPass: (passId: string) => Promise<void>;
   /** The Judge's answer for the comparison the Writer ran, or null. */
   judgeResult: JudgeResult | null;
   /** A Judge run's failure, surfaced verbatim rather than swallowed. */
@@ -316,6 +340,11 @@ export function useDocument(): DocumentHandle {
   const [readerRunning, setReaderRunning] = useState(false);
   const [readerStartedAt, setReaderStartedAt] = useState<number | null>(null);
   const [readerError, setReaderError] = useState<string | null>(null);
+  const [auditAccounts, setAuditAccounts] = useState<AuditAccountRecord[]>([]);
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [auditStartedAt, setAuditStartedAt] = useState<number | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditReport, setAuditReport] = useState<AuditRunReport | null>(null);
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
   const [judgeError, setJudgeError] = useState<string | null>(null);
   const [judgeRunning, setJudgeRunning] = useState(false);
@@ -444,6 +473,8 @@ export function useDocument(): DocumentHandle {
       applyResolution({ findings: [], intervals: [], changed: [] });
       setRawResponses(await listRunResponses(database, opened.id));
       setReaderAccounts(await listReaderAccounts(database, opened.id));
+      setAuditAccounts(await listAuditAccounts(database, opened.id));
+      setAuditReport(null);
       await runRulePasses(database, opened, { passes: passesRef.current });
       await refreshFindings(opened);
       await refreshRevisions();
@@ -496,6 +527,8 @@ export function useDocument(): DocumentHandle {
               // the Reader accounts rather than judging text that is gone; an
               // Audit Run (#27) refreshes it.
               await clearAuditAccounts(database, current.id);
+              setAuditAccounts([]);
+              setAuditReport(null);
             }
           },
           takeRevision: async () => {
@@ -645,6 +678,8 @@ export function useDocument(): DocumentHandle {
       savedCanonicalRef.current = updated.canonical;
       setDocumentRecord(updated);
       setReaderAccounts([]);
+      setAuditAccounts([]);
+      setAuditReport(null);
 
       await runRulePasses(database, updated, { passes: passesRef.current });
       await refreshFindings(updated);
@@ -682,6 +717,7 @@ export function useDocument(): DocumentHandle {
       setRunError(null);
       setLastRunReport(null);
       setReaderError(null);
+      setAuditError(null);
       setJudgeResult(null);
       setJudgeError(null);
       await readLibrary();
@@ -702,6 +738,7 @@ export function useDocument(): DocumentHandle {
       setRunError(null);
       setLastRunReport(null);
       setReaderError(null);
+      setAuditError(null);
       setJudgeResult(null);
       setJudgeError(null);
       const opened = await loadOrCreateDocument(database);
@@ -1014,6 +1051,8 @@ export function useDocument(): DocumentHandle {
   const structuralInFlightRef = useRef(false);
   /** Guards the Reader pass against a second click before its state renders. */
   const readerInFlightRef = useRef(false);
+  /** Guards the Audit pass against a second click before its state renders. */
+  const auditInFlightRef = useRef(false);
 
   /**
    * Story 36: one model Pass on demand against the Target its scope permits —
@@ -1195,6 +1234,72 @@ export function useDocument(): DocumentHandle {
   );
 
   /**
+   * Stories 118–136: the Audit pass end to end. A document-scope Run reads the
+   * whole Document once (chunking and synthesizing when it is long) and stores
+   * one Audit account. The account is its own output shape and never enters the
+   * Findings queue. A failure is surfaced as `auditError`, never swallowed, and
+   * stores nothing.
+   */
+  const runAuditPass = useCallback(
+    async (passId: string): Promise<void> => {
+      const database = databaseRef.current;
+      const current = documentRef.current;
+      const transport = transportRef.current;
+      if (database === null || current === null || transport === null) return;
+      if (auditInFlightRef.current) return;
+
+      const pass = passesRef.current.find((entry) => entry.id === passId);
+      if (
+        pass === undefined ||
+        pass.kind !== "model" ||
+        !isAuditPass(pass) ||
+        !pass.enabled
+      ) {
+        return;
+      }
+      if (!hasCritic(criticConnection)) {
+        setAuditError(criticGuardMessage(criticConnection, "the Audit pass"));
+        return;
+      }
+
+      auditInFlightRef.current = true;
+      setAuditError(null);
+      setAuditRunning(true);
+      setAuditStartedAt(Date.now());
+      try {
+        // Save first, so the account describes the prose that is stored and any
+        // accounts for the previous text are cleared before this Run writes.
+        await persistenceRef.current?.flush();
+        // Re-read after the await: a keystroke during the flush would otherwise
+        // have this Run read a Document the save already superseded.
+        const latest = documentRef.current;
+        if (latest === null) return;
+        const outcome = await runAuditPassRecord(database, latest, {
+          pass,
+          connection: criticConnection,
+          transport,
+          characterLimit,
+        });
+        // As with a model Run: if the Writer opened another Document mid-run,
+        // the account belongs to the Document that was read, not the new view.
+        if (documentRef.current?.id === latest.id) {
+          setAuditAccounts(await listAuditAccounts(database, latest.id));
+          setAuditReport({ passId, chunks: outcome.chunks, violations: outcome.violations });
+          savedCanonicalRef.current = latest.canonical;
+        }
+      } catch (error) {
+        // The Provider's own words, surfaced verbatim; never a silent failure.
+        setAuditError(describeError(error));
+      } finally {
+        auditInFlightRef.current = false;
+        setAuditRunning(false);
+        setAuditStartedAt(null);
+      }
+    },
+    [criticConnection, characterLimit],
+  );
+
+  /**
    * Story 78: the Judge end to end. The Writer has already seen both extracted
    * passages; this sends them, twice with the labels swapped, and stores the
    * Verdict. A failure is surfaced as `judgeError`, never swallowed.
@@ -1343,6 +1448,12 @@ export function useDocument(): DocumentHandle {
     readerStartedAt,
     readerError,
     runReaderPass,
+    auditAccounts,
+    auditRunning,
+    auditStartedAt,
+    auditError,
+    auditReport,
+    runAuditPass,
     judgeResult,
     judgeError,
     judgeRunning,

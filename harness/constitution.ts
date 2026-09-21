@@ -1,10 +1,11 @@
 import { resolveAnchor } from "../src/core/anchor";
+import { auditDocument, type AuditAccount } from "../src/core/audit";
 import { isContained } from "../src/core/containment";
 import { critique, type Target } from "../src/core/critique";
 import { describeError } from "../src/errors";
 import type { Finding, Violation } from "../src/core/finding";
 import type { Pass } from "../src/core/pass";
-import { isReaderPass } from "../src/core/pass";
+import { isAuditPass, isReaderPass } from "../src/core/pass";
 import { targetForPass } from "../src/core/passContext";
 import { readSection, type ReaderAccount } from "../src/core/reader";
 import { constitutionPromptClauses } from "../src/core/starterPasses";
@@ -65,6 +66,10 @@ export interface HarnessCaseResult {
   droppedAnchors: number;
   /** The Reader account a section-summary Pass returned, if any. */
   account: ReaderAccount | null;
+  /** The Audit account an audit Pass returned, if any. */
+  auditAccount: AuditAccount | null;
+  /** Story 131: how many chunks the Run was split into; 1 when it fit. */
+  chunks: number;
   rawResponse: string | null;
   error: string | null;
 }
@@ -80,6 +85,11 @@ export interface HarnessOptions {
   documents: HarnessDocument[];
   passes: Pass[];
   screeningFrame: boolean;
+  /**
+   * Story 131: the character limit for a chunked Run. Omitted, the Core default
+   * applies and a short fixture Document is never split.
+   */
+  characterLimit?: number;
   /** One Transport per case, so each case can carry its own recorded response. */
   transportFor: (testCase: HarnessCase) => Transport;
   /** Fixed for a reproducible result; defaults to now. */
@@ -123,6 +133,9 @@ async function runCase(
   // has no Anchors to contain, but the same parser, linter and prompt clauses
   // guard it. Dispatching here keeps one harness for every model Pass.
   if (isReaderPass(pass)) return runReaderCase(testCase, pass, options, ranAt);
+  // The Audit is a different output shape again, document-scoped and schema-
+  // guided; it too shares the parser, linter and prompt clauses.
+  if (isAuditPass(pass)) return runAuditCase(testCase, pass, options, ranAt);
 
   let run;
   try {
@@ -131,6 +144,7 @@ async function runCase(
       screeningFrame: options.screeningFrame,
       revisionId: "harness-revision",
       now: ranAt,
+      ...(options.characterLimit === undefined ? {} : { characterLimit: options.characterLimit }),
     });
   } catch (error) {
     // A response the parser cannot read is a failed case, not a thrown harness:
@@ -156,6 +170,8 @@ async function runCase(
     violations: run.violations,
     droppedAnchors: run.droppedAnchors,
     account: null,
+    auditAccount: null,
+    chunks: run.chunks,
     rawResponse: run.rawResponse,
     error: null,
   };
@@ -202,6 +218,58 @@ async function runReaderCase(
     violations: run.violations,
     droppedAnchors: 0,
     account: run.account,
+    auditAccount: null,
+    chunks: 1,
+    rawResponse: run.rawResponse,
+    error: null,
+  };
+}
+
+/**
+ * The Audit-pass half of a harness case: the same parser, linter and prompt
+ * checks as a Findings case, without Containment. An Audit account has no
+ * Anchor to contain; the rewrite check is what proves its schema refuses
+ * replacement prose, and the chunk count proves a long Document was split and
+ * synthesized rather than silently cut.
+ */
+async function runAuditCase(
+  testCase: HarnessCase,
+  pass: Pass,
+  options: HarnessOptions,
+  ranAt: number,
+): Promise<HarnessCaseResult> {
+  let run;
+  try {
+    run = await auditDocument(testCase.target, pass, options.connection, {
+      transport: options.transportFor(testCase),
+      screeningFrame: options.screeningFrame,
+      revisionId: "harness-revision",
+      now: ranAt,
+      ...(options.characterLimit === undefined ? {} : { characterLimit: options.characterLimit }),
+    });
+  } catch (error) {
+    return failureCase(testCase.documentId, testCase.passId, testCase.target, describeError(error));
+  }
+
+  const checks: HarnessCheck[] = [
+    parseCheck(run.rawResponse),
+    praiseCheck(run.violations),
+    auditRewriteCheck(run.account, run.violations),
+    promptCheck(pass),
+  ];
+
+  return {
+    documentId: testCase.documentId,
+    passId: testCase.passId,
+    target: testCase.target,
+    ok: checks.every((check) => check.ok),
+    checks,
+    findings: [],
+    violations: run.violations,
+    droppedAnchors: 0,
+    account: null,
+    auditAccount: run.account,
+    chunks: run.chunks,
     rawResponse: run.rawResponse,
     error: null,
   };
@@ -267,6 +335,23 @@ function accountRewriteCheck(account: ReaderAccount, violations: Violation[]): H
   };
 }
 
+/** The Audit-account half of the rewrite check: no rewrite field, quarantined. */
+function auditRewriteCheck(account: AuditAccount, violations: Violation[]): HarnessCheck {
+  const leaked = "rewrite" in account;
+  const quarantined = violations.some(
+    (violation) => violation.kind === "rewrite" && violation.text === FIXTURE_REWRITE,
+  );
+  const ok = !leaked && quarantined;
+
+  return {
+    name: "noRewriteField",
+    ok,
+    detail: ok
+      ? `The Audit account carried no rewrite field; "${FIXTURE_REWRITE}" was quarantined.`
+      : `Audit account rewrite field leaked=${String(leaked)}; quarantined=${String(quarantined)}.`,
+  };
+}
+
 function containmentCheck(
   findings: Finding[],
   target: Target,
@@ -323,6 +408,8 @@ function failureCase(
     violations: [],
     droppedAnchors: 0,
     account: null,
+    auditAccount: null,
+    chunks: 0,
     rawResponse: null,
     error,
   };

@@ -49,6 +49,13 @@ export function isOutputShape(value: unknown): value is OutputShape {
  */
 const READER_OUTPUT: OutputShape = "section-summary";
 
+/**
+ * The output shape of the Audit pass. One name for it, so the UI, the storage
+ * runner, the Core entry point and the harness cannot disagree about which
+ * shape is an Audit account.
+ */
+const AUDIT_OUTPUT: OutputShape = "audit";
+
 export interface RuleConfig {
   hedges?: string[];
   wordiness?: [string, string][];
@@ -148,6 +155,22 @@ export function rulePassesToRun(passes: Pass[]): Pass[] {
 /** True for a Pass whose output is a Reader account rather than Findings. */
 export function isReaderPass(pass: Pass): boolean {
   return pass.output === READER_OUTPUT;
+}
+
+/** True for a Pass whose output is an Audit account rather than Findings. */
+export function isAuditPass(pass: Pass): boolean {
+  return pass.output === AUDIT_OUTPUT;
+}
+
+/**
+ * Story 154: the Screening frame does not apply to the Audit — its method
+ * defines its stance, so no frame may be attached to it. The exemption lives
+ * here, beside the output-shape names, so the request builder and any future
+ * `frame` handling cannot disagree about which Passes accept a frame. The
+ * Reader's own exemption, and the per-pass frames #32 adds, land with #32.
+ */
+export function passAcceptsFrame(pass: Pass): boolean {
+  return !isAuditPass(pass);
 }
 
 /** True for a Pass whose output is Findings, the queue's own shape. */

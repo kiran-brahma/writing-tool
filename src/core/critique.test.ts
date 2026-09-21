@@ -3,7 +3,7 @@ import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../
 import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTransport";
 import { critique, type RunConfig, type Target } from "./critique";
 import type { BlockNode, DocTree } from "./docTree";
-import { hashPass, type Pass } from "./pass";
+import { hashPass, isFindingsPass, type Pass } from "./pass";
 import { passContext, documentContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
 import { SCREENING_FRAME } from "./screeningFrame";
@@ -294,7 +294,7 @@ const DOCUMENT_RESPONSE = JSON.stringify({
 
 describe("critique over a document-scope Pass", () => {
   const STARTER_DOCUMENT_PASSES = STARTER_PASSES.filter(
-    (pass) => pass.kind === "model" && pass.scope === "document",
+    (pass) => pass.kind === "model" && pass.scope === "document" && isFindingsPass(pass),
   );
 
   function wholeDocument(): Target {

@@ -18,7 +18,7 @@ import { blankModelPass, constitutionPromptClauses, STARTER_PASSES } from "./sta
 const EXPECTED_MODEL_PASSES: {
   id: string;
   scope: "paragraph" | "section" | "document";
-  output: "findings" | "section-summary";
+  output: "findings" | "section-summary" | "audit";
   enabled: boolean;
   looksFor: RegExp;
 }[] = [
@@ -30,6 +30,7 @@ const EXPECTED_MODEL_PASSES: {
   { id: "cliche", scope: "paragraph", output: "findings", enabled: true, looksFor: /cliché/i },
   { id: "claim-strength", scope: "paragraph", output: "findings", enabled: true, looksFor: /hedge/i },
   { id: "reader", scope: "section", output: "section-summary", enabled: true, looksFor: /distracted reader/i },
+  { id: "audit", scope: "document", output: "audit", enabled: true, looksFor: /reasoning holds up/i },
 ];
 
 describe("Starter model passes", () => {
@@ -51,6 +52,7 @@ describe("Starter model passes", () => {
       "cliche",
       "claim-strength",
       "reader",
+      "audit",
     ]);
   });
 
@@ -79,7 +81,9 @@ describe("Starter model passes", () => {
     expect(scopeOf("paragraph-reorder")).toBe("document");
     expect(scopeOf("cliche")).toBe("paragraph");
     expect(scopeOf("reader")).toBe("section");
+    expect(scopeOf("audit")).toBe("document");
     expect(STARTER_PASSES.find((pass) => pass.id === "reader")?.output).toBe("section-summary");
+    expect(STARTER_PASSES.find((pass) => pass.id === "audit")?.output).toBe("audit");
   });
 
   it("checks every model prompt for the clauses its scope requires", () => {
@@ -99,6 +103,24 @@ describe("Starter model passes", () => {
       const pass = STARTER_PASSES.find((entry) => entry.id === id);
       expect(pass?.prompt).toMatch(looksFor);
     }
+  });
+
+  it("asks the Audit for the checks stories 119–129 name", () => {
+    const prompt = STARTER_PASSES.find((pass) => pass.id === "audit")?.prompt ?? "";
+    // The argument/observation test, deductive versus inductive, validity versus
+    // soundness, the enthymeme check, the definition checks and the fallacy list.
+    expect(prompt).toMatch(/argument if it asserts a conclusion/i);
+    expect(prompt).toMatch(/deductive/i);
+    expect(prompt).toMatch(/validity from soundness/i);
+    expect(prompt).toMatch(/enthymeme/i);
+    expect(prompt).toMatch(/equivocation/i);
+    expect(prompt).toMatch(/persuasive definition/i);
+    // Story 128: an observational piece requires an intensional definition and a
+    // concrete example.
+    expect(prompt).toMatch(/intensional definition/i);
+    expect(prompt).toMatch(/concrete example/i);
+    // Story 125: an unlabelled fault is described in plain terms.
+    expect(prompt).toMatch(/fits no label/i);
   });
 });
 

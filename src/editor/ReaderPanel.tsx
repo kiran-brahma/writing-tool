@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import type { Violation } from "../core/finding";
 import type { Pass } from "../core/pass";
 import type { ReaderAccountRecord } from "../storage/obelusDatabase";
+import { ElapsedTimer } from "./ElapsedTimer";
 import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
 import { splitViolations, violationsOutsideText } from "./violationMarks";
 
@@ -183,16 +183,4 @@ function AccountField({
       </p>
     </div>
   );
-}
-
-/** The elapsed time of an in-flight Reader run, refreshed while it runs. */
-function ElapsedTimer({ since }: { since: number }) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const interval = globalThis.setInterval(() => setNow(Date.now()), 100);
-    return () => globalThis.clearInterval(interval);
-  }, []);
-
-  return <span className="tabular-nums">{((now - since) / 1000).toFixed(1)}s</span>;
 }

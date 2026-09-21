@@ -99,6 +99,16 @@ describe("passProblem", () => {
     expect(passProblem({ ...CLICHE_PASS, output: "note" })).toMatch(/unknown output shape/i);
   });
 
+  it("refuses a frame on an Audit pass (story 154)", () => {
+    const audit = STARTER_PASSES.find((pass) => pass.id === "audit");
+    if (audit === undefined) throw new Error("the Starter pack has no audit pass");
+
+    // The `frame` field arrives with the frames work (#32); an Audit pass may
+    // never carry one, because its method defines its stance.
+    expect(passProblem({ ...audit, frame: "skimmer" })).toMatch(/may not set a frame/i);
+    expect(passProblem({ ...CLICHE_PASS, frame: "skimmer" })).toBeNull();
+  });
+
   it("refuses a Pass set carrying the removed note shape (story 158)", () => {
     const file = JSON.stringify({
       format: PASS_SET_FORMAT,

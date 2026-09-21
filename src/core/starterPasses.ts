@@ -865,14 +865,75 @@ export const READER_PASS: Pass = {
 };
 
 /**
+ * Stories 118–136: the Audit pass. A document-scope model Pass whose output
+ * shape is an Audit account: whether the whole piece's reasoning holds up, what
+ * type of piece it read, its argument map, validity versus soundness, any
+ * enthymemes, fallacies, definitions and the one or two things to fix first. It
+ * reports and never rewrites, so the prompt carries the same two constitutional
+ * clauses as every other critic pass, and the schema has no field for prose.
+ *
+ * The taxonomy is condensed from `docs/reference/musings-reviewer/references/
+ * logic-notes.md` (ADR 0008). The source method's atomicity gate, length cap and
+ * prose audit are deliberately left behind.
+ */
+export const AUDIT_PASS: Pass = {
+  id: "audit",
+  name: "Audit",
+  description: "Reads the whole piece for whether its reasoning holds up.",
+  kind: "model",
+  scope: "document",
+  output: "audit",
+  slot: "critic",
+  enabled: true,
+  prompt: documentPassPrompt(
+    "Audit the whole piece of writing for whether its reasoning holds up. The piece is analyzed, never rewritten.",
+    [
+      "Classify the piece. It is an argument if it asserts a conclusion it wants accepted and other",
+      "statements do evidential work for it; it is an observation if it reports, describes or",
+      "reflects without trying to establish a conclusion.",
+      "",
+      "For an argument:",
+      "- Reconstruct the argument map: every premise, every sub-conclusion, and the one final conclusion.",
+      "- Say whether the reasoning is deductive (the premises claim to guarantee the conclusion) or",
+      "  inductive (they make it probable), and name the form where one genuinely fits.",
+      "- Separate validity from soundness: a valid chain with a premise the piece never established is",
+      "  not sound. Name the unestablished premise.",
+      "- Check the enthymeme: a load-bearing premise left unstated. Surface it rather than let the",
+      "  argument coast on an assumption the reader has to supply.",
+      "",
+      "For both types, where the piece turns on a load-bearing word:",
+      "- Flag equivocation (the word shifts meaning while the logic treats it as one) and boundary",
+      "  vagueness (a threshold is assumed but never stated).",
+      "- Flag a persuasive definition: one that smuggles the verdict into the term before the argument",
+      "  has earned it.",
+      "- For an observation, require an intensional definition (the class and what distinguishes the",
+      "  idea from other members) and a concrete example that shows it applying to reality.",
+      "",
+      "Name a fallacy only where one genuinely fits: ad hominem, appeal to force, appeal to the people,",
+      "appeal to pity, appeal to ignorance, red herring, equivocation, amphiboly, composition,",
+      "division, begging the question, false dilemma, appeal to unreliable authority, false cause,",
+      "slippery slope, complex question. For each, quote the exact passage, say why it fails, and note",
+      "what is missing. The list is not exhaustive: if a flaw fits no label, describe the actual",
+      "problem in plain terms and use no label.",
+      "",
+      "Return the account in these fields: type, corePayload, argumentMap, reasoning, fallacies,",
+      "definitions and priority. Close with the one or two things to fix first in priority, most",
+      "consequential first.",
+      CONSTITUTION_CLAUSES,
+    ].join("\n"),
+  ),
+};
+
+/**
  * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
  * the two house-style passes the Prose Linter and the Economist guide supply
  * (banned words, worn phrases) and Orwell's five rules, then the model passes in
  * the same order: characters and actions (off), topic
  * strings and stress position, paragraphs that could move (off), paragraph
  * unity, cut candidates, cliché and headline-ese (the one #4 shipped), claim
- * strength, and the Reader pass (#11). The document-scope model passes ship
- * with #7; the Reader pass ships with #11.
+ * strength, the Reader pass (#11) and the Audit pass (#27). The document-scope
+ * model passes ship with #7; the Reader pass ships with #11; the Audit ships
+ * with #27.
  *
  * `enabled` here is only the default: the Writer's toggle is persisted, and
  * `loadOrCreatePasses` seeds a Starter pass only when its id is missing, so an
@@ -895,4 +956,5 @@ export const STARTER_PASSES: Pass[] = [
   CLICHE_PASS,
   CLAIM_STRENGTH_PASS,
   READER_PASS,
+  AUDIT_PASS,
 ];
