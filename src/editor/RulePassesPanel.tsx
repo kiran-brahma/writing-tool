@@ -8,6 +8,10 @@ import { applyFieldText, fieldText, ruleFields, type RuleField } from "./ruleCon
  * prose editing — nothing here can insert a word into the Document. An exclusive
  * Pass, when it is on, holds the others, and the panel says so and tags each
  * held Pass rather than pretending they are off.
+ *
+ * Stories 146–148: the rule Passes are the word band of the working order, so
+ * the heading names it and the panel sits after the model Passes in the sidebar.
+ * The order is a label, not a gate: every Pass here stays togglable in any order.
  */
 export interface RulePassesPanelProps {
   passes: Pass[];
@@ -24,7 +28,7 @@ export function RulePassesPanel({ passes, onToggle, onSaveConfig }: RulePassesPa
   return (
     <section className="border-b border-stone-200">
       <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
-        <h2 className="text-sm font-semibold">Rule passes</h2>
+        <h2 className="text-sm font-semibold">Word — rule passes</h2>
         <span className="text-xs text-stone-500">free, offline</span>
       </div>
       {solo !== null && (

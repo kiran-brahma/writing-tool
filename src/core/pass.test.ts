@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { rulePassesToRun, structuralPasses, type Pass } from "./pass";
+import {
+  rulePassesToRun,
+  structuralPasses,
+  workingOrder,
+  type Pass,
+} from "./pass";
 import {
   HEDGES_PASS,
   PARAGRAPH_REORDER_PASS,
@@ -104,5 +109,79 @@ describe("rulePassesToRun", () => {
     const model: Pass = { ...rulePass("m", true), kind: "model" };
 
     expect(rulePassesToRun([model])).toEqual([]);
+  });
+});
+
+describe("workingOrder", () => {
+  it("returns the bands structure, paragraph, word", () => {
+    const order = workingOrder([]);
+
+    expect(order.groups.map((group) => group.band)).toEqual([
+      "structure",
+      "paragraph",
+      "word",
+    ]);
+    expect(order.groups.map((group) => group.label)).toEqual([
+      "Structure",
+      "Paragraph",
+      "Word",
+    ]);
+  });
+
+  it("places each Pass in its band, keeping the order it was given", () => {
+    const order = workingOrder([
+      rulePass("word-a", true),
+      modelPass("local-a", "paragraph", true),
+      modelPass("structure-a", "document", true),
+      modelPass("local-b", "section", true),
+      modelPass("structure-b", "document", true),
+    ]);
+
+    const byBand = Object.fromEntries(
+      order.groups.map((group) => [group.band, group.passes.map((pass) => pass.id)]),
+    );
+    expect(byBand).toEqual({
+      structure: ["structure-a", "structure-b"],
+      paragraph: ["local-a", "local-b"],
+      word: ["word-a"],
+    });
+  });
+
+  it("lists a disabled Pass, so the recommendation never hides a Pass", () => {
+    const order = workingOrder([modelPass("off", "document", false)]);
+
+    expect(order.groups[0].passes.map((pass) => pass.id)).toEqual(["off"]);
+  });
+
+  it("recommends the first enabled Pass in the sequence", () => {
+    const order = workingOrder([
+      modelPass("structure-off", "document", false),
+      modelPass("local-on", "paragraph", true),
+      modelPass("structure-on", "document", true),
+    ]);
+
+    expect(order.next?.id).toBe("structure-on");
+  });
+
+  it("recommends nothing when every Pass is off", () => {
+    expect(workingOrder([rulePass("off", false)]).next).toBeNull();
+    expect(workingOrder([]).next).toBeNull();
+  });
+
+  it("derives the same order for the same input", () => {
+    const passes = [
+      rulePass("word", true),
+      modelPass("local", "paragraph", true),
+      modelPass("structure", "document", true),
+    ];
+
+    // The expected sequence is written out, not recomputed by the function.
+    expect(workingOrder(passes).groups.map((group) => group.passes.map((pass) => pass.id))).toEqual(
+      [["structure"], ["local"], ["word"]],
+    );
+    // A different array with the same contents gives the same order.
+    expect(
+      workingOrder([...passes]).groups.map((group) => group.passes.map((pass) => pass.id)),
+    ).toEqual([["structure"], ["local"], ["word"]]);
   });
 });

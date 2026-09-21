@@ -29,6 +29,11 @@ function pass(id: string, name: string): Pass {
   };
 }
 
+/** A model Pass at the given scope, for the working-order test. */
+function modelPass(id: string, name: string, scope: Pass["scope"]): Pass {
+  return { ...pass(id, name), kind: "model", scope };
+}
+
 describe("groupFindingsByPass", () => {
   it("groups Findings under their Pass, in the Passes' order", () => {
     const groups = groupFindingsByPass(
@@ -48,5 +53,14 @@ describe("groupFindingsByPass", () => {
     );
 
     expect(groups.map((group) => group.id)).toEqual(["first"]);
+  });
+
+  it("orders structure before paragraph before word, whatever the input order", () => {
+    const groups = groupFindingsByPass(
+      [finding("w", "word"), finding("p", "paragraph"), finding("s", "structure")],
+      [pass("word", "Word"), modelPass("paragraph", "Paragraph", "paragraph"), modelPass("structure", "Structure", "document")],
+    );
+
+    expect(groups.map((group) => group.id)).toEqual(["structure", "paragraph", "word"]);
   });
 });

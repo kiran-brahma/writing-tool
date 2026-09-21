@@ -171,6 +171,71 @@ export function rulePassesToRun(passes: Pass[]): Pass[] {
   return exclusive.length > 0 ? exclusive : enabled;
 }
 
+/**
+ * Stories 146–148: the three bands of the working order — structure, then
+ * paragraph, then word. The names are the recommendation's terms; the Writer's
+ * vocabulary in `CONTEXT.md` calls a document-scope Pass *structural* and a
+ * paragraph-scope one *local*.
+ */
+export type WorkingOrderBand = "structure" | "paragraph" | "word";
+
+export interface WorkingOrderGroup {
+  band: WorkingOrderBand;
+  /** The heading the sidebar shows for this band. */
+  label: string;
+  /** Every Pass in the band, in the order it was given. */
+  passes: Pass[];
+}
+
+/**
+ * Story 146: the recommended sequence, and the next Pass it points at. The
+ * order is derived on every read and never stored on a Pass, so there is
+ * nothing to keep in sync (story 148). `next` is the first enabled Pass in the
+ * sequence, or `null` when every Pass is off — a recommendation, never a gate
+ * (story 147): nothing here refuses a Run or holds a Pass back.
+ */
+export interface WorkingOrder {
+  groups: WorkingOrderGroup[];
+  next: Pass | null;
+}
+
+/** The bands in the order they are recommended. */
+const WORKING_ORDER_BANDS: readonly { band: WorkingOrderBand; label: string }[] = [
+  { band: "structure", label: "Structure" },
+  { band: "paragraph", label: "Paragraph" },
+  { band: "word", label: "Word" },
+];
+
+/**
+ * Story 148: the band a single Pass belongs to, derived from its kind and its
+ * scope rather than stored. A rule Pass is work at the word level whatever its
+ * stored scope (the Starter rule Passes are all document-scope because they
+ * read the whole text, not because they are structural). A model Pass with
+ * document scope is structural; a section- or paragraph-scope model Pass is
+ * local, so both land in the paragraph band.
+ */
+function workingOrderBand(pass: Pass): WorkingOrderBand {
+  if (pass.kind === "rule") return "word";
+  if (pass.scope === "document") return "structure";
+  return "paragraph";
+}
+
+/**
+ * Stories 146 and 148: the Passes offered in the recommended order — structure,
+ * then paragraph, then word — with the recommended next run. The same input
+ * always produces the same order: the bands are fixed and a band keeps the
+ * order it was handed, so no clock, store or random source enters in.
+ */
+export function workingOrder(passes: Pass[]): WorkingOrder {
+  const groups = WORKING_ORDER_BANDS.map(({ band, label }) => ({
+    band,
+    label,
+    passes: passes.filter((pass) => workingOrderBand(pass) === band),
+  }));
+  const next = groups.flatMap((group) => group.passes).find((pass) => pass.enabled) ?? null;
+  return { groups, next };
+}
+
 /** True for a Pass whose output is a Reader account rather than Findings. */
 export function isReaderPass(pass: Pass): boolean {
   return pass.output === READER_OUTPUT;

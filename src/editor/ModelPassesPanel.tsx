@@ -1,6 +1,6 @@
 import type { CostEstimate } from "../core/cost";
 import type { RunReport } from "../core/critique";
-import { isFindingsPass, structuralPasses, type Pass } from "../core/pass";
+import { isFindingsPass, structuralPasses, workingOrder, type Pass } from "../core/pass";
 import { ElapsedTimer } from "./ElapsedTimer";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
 import { splitViolations } from "./violationMarks";
@@ -13,6 +13,12 @@ import { splitViolations } from "./violationMarks";
  * object, because there is no streaming in v1. When Containment drops an Anchor
  * the count is shown here, so the Writer knows the model tried to speak about
  * text it was not asked about.
+ *
+ * Stories 146–148: the panel offers the Passes in the recommended working order
+ * — structure, then paragraph — and names the recommended next run. It is a
+ * recommendation, not a gate: every Run stays available whatever the order, and
+ * nothing is stored. The word band is the rule Passes, which run free on save
+ * and so have no Run button here.
  *
  * Only `findings`-output Passes appear here: a Reader pass returns a Reader
  * account and an Audit pass returns an Audit account, and each has its own tab.
@@ -68,6 +74,7 @@ export function ModelPassesPanel({
   onToggle,
 }: ModelPassesPanelProps) {
   const modelPasses = passes.filter((pass) => pass.kind === "model" && isFindingsPass(pass));
+  const order = workingOrder(modelPasses);
   const hasStructuralPasses = structuralPasses(passes).length > 0;
   const busy = runningPassId !== null || structuralRunning;
   const pastLimit = hasStructuralPasses && documentLength > characterLimit;
@@ -83,6 +90,15 @@ export function ModelPassesPanel({
       <div className="flex items-center justify-between border-b border-stone-200 px-4 py-1.5 text-xs text-stone-600">
         <span>This session</span>
         <span className="tabular-nums">{formatUsd(sessionCost)}</span>
+      </div>
+
+      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-1.5 text-xs text-stone-600">
+        <span>Working order</span>
+        <span className="font-medium text-stone-700">
+          {order.next === null
+            ? "No model pass is on"
+            : `Recommended next: ${order.next.name}`}
+        </span>
       </div>
 
       <div className="border-b border-stone-200 px-4 py-2">
@@ -137,85 +153,123 @@ export function ModelPassesPanel({
         </p>
       )}
 
-      <ol>
-        {modelPasses.map((pass) => {
-          const running = pass.id === runningPassId;
-          const report = lastRunReport?.passId === pass.id ? lastRunReport : null;
-          const estimate = estimates[pass.id];
-          const { strikes, rewrites } = splitViolations(report?.violations ?? []);
-          return (
-            <li key={pass.id} className="border-b border-stone-200/70 px-4 py-3 last:border-b-0">
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={pass.enabled}
-                  aria-label={`Enable ${pass.name}`}
-                  onChange={(event) => onToggle(pass.id, event.target.checked)}
+      {order.groups.map((group) =>
+        group.passes.length === 0 ? null : (
+          <div key={group.band}>
+            <h3 className="border-b border-stone-200 bg-stone-200/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-stone-600">
+              {group.label}
+            </h3>
+            <ol>
+              {group.passes.map((pass) => (
+                <ModelPassRow
+                  key={pass.id}
+                  pass={pass}
+                  running={pass.id === runningPassId}
+                  runningSince={runningSince}
+                  report={lastRunReport?.passId === pass.id ? lastRunReport : null}
+                  estimate={estimates[pass.id]}
+                  busy={busy}
+                  onRun={onRun}
+                  onToggle={onToggle}
                 />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={
-                      pass.enabled
-                        ? "text-sm font-medium text-stone-800"
-                        : "text-sm font-medium text-stone-400"
-                    }
-                  >
-                    {pass.name}
-                  </p>
-                  <p className="mt-0.5 text-xs text-stone-500">{pass.description}</p>
-                  {estimate !== undefined && (
-                    <p className="mt-0.5 text-[11px] text-stone-400">
-                      {estimate.tokens.toLocaleString()} tokens estimated · {formatUsd(estimate.costUsd)}
-                    </p>
-                  )}
-                </div>
-                {running ? (
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-stone-600">
-                    <span
-                      className="h-3 w-3 animate-spin rounded-full border-2 border-stone-300 border-t-stone-700"
-                      aria-hidden="true"
-                    />
-                    {runningSince === null ? null : <ElapsedTimer since={runningSince} />}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={!pass.enabled || busy}
-                    onClick={() => onRun(pass.id)}
-                    className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Run
-                  </button>
-                )}
-              </div>
-              {!pass.enabled && (
-                <p className="mt-1 pl-6 text-xs italic text-stone-400">Disabled.</p>
-              )}
-              {report !== null && (
-                <>
-                  <p className="mt-1 text-xs text-stone-500">
-                    {report.fromCache && "Served from the cache; no Provider call. "}
-                    {report.droppedAnchors === 0
-                      ? "No Findings dropped outside the target."
-                      : `${report.droppedAnchors} Anchor${report.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
-                    {report.chunks > 1 &&
-                      ` Ran in ${report.chunks} overlapping chunks.`}
-                  </p>
-                  {strikes.length > 0 && (
-                    <p className="mt-1 text-xs text-stone-500">
-                      Model drift, struck through rather than hidden:{" "}
-                      <StruckViolations violations={strikes} />
-                    </p>
-                  )}
-                  {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
-                </>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+              ))}
+            </ol>
+          </div>
+        ),
+      )}
     </section>
+  );
+}
+
+interface ModelPassRowProps {
+  pass: Pass;
+  running: boolean;
+  runningSince: number | null;
+  report: RunReport | null;
+  estimate: CostEstimate | undefined;
+  busy: boolean;
+  onRun: (passId: string) => void;
+  onToggle: (passId: string, enabled: boolean) => void;
+}
+
+/** One model Pass in the working-order bands: toggle it, run it, read its report. */
+function ModelPassRow({
+  pass,
+  running,
+  runningSince,
+  report,
+  estimate,
+  busy,
+  onRun,
+  onToggle,
+}: ModelPassRowProps) {
+  const { strikes, rewrites } = splitViolations(report?.violations ?? []);
+  return (
+    <li className="border-b border-stone-200/70 px-4 py-3 last:border-b-0">
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={pass.enabled}
+          aria-label={`Enable ${pass.name}`}
+          onChange={(event) => onToggle(pass.id, event.target.checked)}
+        />
+        <div className="min-w-0 flex-1">
+          <p
+            className={
+              pass.enabled
+                ? "text-sm font-medium text-stone-800"
+                : "text-sm font-medium text-stone-400"
+            }
+          >
+            {pass.name}
+          </p>
+          <p className="mt-0.5 text-xs text-stone-500">{pass.description}</p>
+          {estimate !== undefined && (
+            <p className="mt-0.5 text-[11px] text-stone-400">
+              {estimate.tokens.toLocaleString()} tokens estimated · {formatUsd(estimate.costUsd)}
+            </p>
+          )}
+        </div>
+        {running ? (
+          <span className="flex shrink-0 items-center gap-1.5 text-xs text-stone-600">
+            <span
+              className="h-3 w-3 animate-spin rounded-full border-2 border-stone-300 border-t-stone-700"
+              aria-hidden="true"
+            />
+            {runningSince === null ? null : <ElapsedTimer since={runningSince} />}
+          </span>
+        ) : (
+          <button
+            type="button"
+            disabled={!pass.enabled || busy}
+            onClick={() => onRun(pass.id)}
+            className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Run
+          </button>
+        )}
+      </div>
+      {!pass.enabled && <p className="mt-1 pl-6 text-xs italic text-stone-400">Disabled.</p>}
+      {report !== null && (
+        <>
+          <p className="mt-1 text-xs text-stone-500">
+            {report.fromCache && "Served from the cache; no Provider call. "}
+            {report.droppedAnchors === 0
+              ? "No Findings dropped outside the target."
+              : `${report.droppedAnchors} Anchor${report.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
+            {report.chunks > 1 && ` Ran in ${report.chunks} overlapping chunks.`}
+          </p>
+          {strikes.length > 0 && (
+            <p className="mt-1 text-xs text-stone-500">
+              Model drift, struck through rather than hidden:{" "}
+              <StruckViolations violations={strikes} />
+            </p>
+          )}
+          {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
+        </>
+      )}
+    </li>
   );
 }
 

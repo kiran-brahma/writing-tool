@@ -684,12 +684,10 @@ export default function App() {
             )}
           </section>
 
-          <RulePassesPanel
-            passes={passes}
-            onToggle={(passId, enabled) => void togglePass(passId, enabled)}
-            onSaveConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
-          />
-
+          {/* Stories 146–148: the Passes in the recommended working order —
+              structure, then paragraph (the model Passes), then word (the rule
+              Passes). A recommendation, not a gate: every panel stays usable in
+              any order. */}
           <ModelPassesPanel
             passes={passes}
             runningPassId={runningPassId}
@@ -707,6 +705,12 @@ export default function App() {
             onRunStructural={() => void runStructuralSet()}
             onCancel={cancelRun}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
+          />
+
+          <RulePassesPanel
+            passes={passes}
+            onToggle={(passId, enabled) => void togglePass(passId, enabled)}
+            onSaveConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
           />
 
           <JudgePanel
