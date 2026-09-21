@@ -11,6 +11,16 @@ export interface ModelMessage {
   content: string;
 }
 
+/**
+ * Token counts a Provider reported for one call. Both are optional: Protocols
+ * and Providers differ in what they return, and a Provider that reports none
+ * leaves the Run's session total to fall back to the pre-run estimate.
+ */
+export interface ModelUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
 export interface ModelRequest {
   connection: Connection;
   model: string;

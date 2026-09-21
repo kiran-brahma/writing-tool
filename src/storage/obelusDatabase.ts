@@ -1,11 +1,12 @@
 import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
-import type { Finding } from "../core/finding";
+import type { Finding, Violation } from "../core/finding";
 import type { DocumentStatus } from "../core/library";
 import type { Pass } from "../core/pass";
 import type { ReaderAccount } from "../core/reader";
 import type { SectionRef } from "../core/sections";
 import type { Connection } from "../wire/connection";
+import type { ModelUsage } from "../wire/modelRequest";
 
 /**
  * Storage is one database, versioned, with forward-only migrations. A database
@@ -84,6 +85,34 @@ export interface RunResponseRecord {
 }
 
 /**
+ * A whole model Run, cached under the Run key (story 53): the hash of the
+ * Document's text and title, the Pass, its `promptHash`, the Connection and
+ * model, and the two settings that shape the request. A cache hit restores the
+ * Findings, the raw response and the usage, and makes no Provider call.
+ * `documentId` is carried for cleanup and does not join the key; the cache is
+ * about the prose, not the Document record.
+ */
+export interface RunCacheRecord {
+  /** `runCacheKey(...)`; the primary key. */
+  key: string;
+  documentId: string;
+  canonicalHash: string;
+  passId: string;
+  promptHash: string;
+  connectionId: string;
+  model: string;
+  screeningFrame: boolean;
+  characterLimit: number;
+  findings: Finding[];
+  violations: Violation[];
+  droppedAnchors: number;
+  rawResponse: string;
+  chunks: number;
+  usage?: ModelUsage;
+  at: number;
+}
+
+/**
  * A settings row, keyed by name. Slots live here rather than on a Connection,
  * because which Connection is the Critic is about the Writer's pairing, not
  * about either Connection.
@@ -93,7 +122,7 @@ export interface SettingsRecord {
   value: unknown;
 }
 
-export const OBELUS_DATABASE_VERSION = 6;
+export const OBELUS_DATABASE_VERSION = 7;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -122,6 +151,7 @@ export class ObelusDatabase extends Dexie {
   settings!: Table<SettingsRecord, string>;
   runResponses!: Table<RunResponseRecord, [string, string, string]>;
   readerAccounts!: Table<ReaderAccountRecord, string>;
+  runCache!: Table<RunCacheRecord, string>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
     super(name);
@@ -184,6 +214,24 @@ export class ObelusDatabase extends Dexie {
       settings: "key",
       runResponses: "[documentId+passId+promptHash], documentId",
       readerAccounts: "id, documentId, [documentId+passId]",
+    });
+    // Migration 7: the Run cache, the repository #16 introduces. Additive: a new
+    // store for a whole model Run's result, keyed by the canonical hash, the
+    // Pass, its promptHash, the Connection and the model, and nothing existing
+    // is rewritten. This is the one migration here that does not ship alone with
+    // its behaviour, which docs/migrations.md says never to do; the two are
+    // separable only by a second deploy, and that is recorded in #16's report
+    // rather than by editing an already-shipped version.
+    this.version(7).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
+      connections: "id, builtIn",
+      settings: "key",
+      runResponses: "[documentId+passId+promptHash], documentId",
+      readerAccounts: "id, documentId, [documentId+passId]",
+      runCache: "key, documentId",
     });
   }
 }

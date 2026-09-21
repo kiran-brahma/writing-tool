@@ -17,6 +17,7 @@ import type {
   ObelusDatabase,
   ReaderAccountRecord,
   RevisionRecord,
+  RunCacheRecord,
   RunResponseRecord,
   SettingsRecord,
 } from "./obelusDatabase";
@@ -52,6 +53,8 @@ export interface LibraryBackup {
   settings: SettingsRecord[];
   runResponses: RunResponseRecord[];
   readerAccounts: ReaderAccountRecord[];
+  /** The Run cache. Disposable, but a backup is a full snapshot of the stores. */
+  runCache: RunCacheRecord[];
 }
 
 export interface DocumentBundle {
@@ -101,7 +104,17 @@ export async function exportLibraryBackup(
   const includeKeys = options.includeKeys ?? false;
   const now = options.now ?? Date.now();
 
-  const [documents, revisions, findings, passes, connections, settings, runResponses, readerAccounts] =
+  const [
+    documents,
+    revisions,
+    findings,
+    passes,
+    connections,
+    settings,
+    runResponses,
+    readerAccounts,
+    runCache,
+  ] =
     await database.transaction(
       "r",
       [
@@ -113,6 +126,7 @@ export async function exportLibraryBackup(
         database.settings,
         database.runResponses,
         database.readerAccounts,
+        database.runCache,
       ],
       () =>
         Promise.all([
@@ -124,6 +138,7 @@ export async function exportLibraryBackup(
           database.settings.toArray(),
           database.runResponses.toArray(),
           database.readerAccounts.toArray(),
+          database.runCache.toArray(),
         ]),
     );
 
@@ -142,6 +157,7 @@ export async function exportLibraryBackup(
     settings: withSetting(settings, LAST_BACKED_UP_SETTING_KEY, now),
     runResponses,
     readerAccounts,
+    runCache,
   };
 }
 
@@ -209,6 +225,9 @@ export function parseLibraryBackup(text: string): LibraryBackup {
   if (!Array.isArray(value.documents) || !value.documents.every(isDocumentRecord)) {
     throw new BackupFormatError("That backup holds a Document Obelus cannot read.");
   }
+  // The Run cache is disposable, so a backup written before this store existed
+  // is still readable; it restores as an empty cache rather than being refused.
+  if (!Array.isArray(value.runCache)) value.runCache = [];
   return value as unknown as LibraryBackup;
 }
 
@@ -317,6 +336,7 @@ export function importLibraryBackup(
         database.settings,
         database.runResponses,
         database.readerAccounts,
+        database.runCache,
       ],
       async () => {
         // A backup that excluded keys is authoritative about prose, not about
@@ -345,6 +365,7 @@ export function importLibraryBackup(
           database.settings.clear(),
           database.runResponses.clear(),
           database.readerAccounts.clear(),
+          database.runCache.clear(),
         ]);
 
         await database.documents.bulkPut(backup.documents);
@@ -355,6 +376,7 @@ export function importLibraryBackup(
         await database.settings.bulkPut(backup.settings);
         await database.runResponses.bulkPut(backup.runResponses);
         await database.readerAccounts.bulkPut(backup.readerAccounts);
+        await database.runCache.bulkPut(backup.runCache);
 
         // The restored settings may carry a stale reminder; the file's timestamp
         // is the honest one, because that is when the data was last captured.

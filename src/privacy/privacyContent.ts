@@ -33,6 +33,7 @@ export const PRIVACY_STORES: readonly string[] = [
   "findings",
   "readerAccounts",
   "runResponses",
+  "runCache",
   "passes",
   "connections",
   "settings",
@@ -51,7 +52,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
   {
     heading: "Where your Documents live",
     paragraphs: [
-      `Your Documents, Revisions, Findings, Reader accounts, raw model responses, Passes, Connections and settings live in this browser's IndexedDB, in a database named ${PRIVACY_DATABASE_NAME}. IndexedDB is local storage owned by this browser profile on this machine. Obelus does not sync it, upload it, or keep a copy of it anywhere else.`,
+      `Your Documents, Revisions, Findings, Reader accounts, raw model responses, the Run cache, Passes, Connections and settings live in this browser's IndexedDB, in a database named ${PRIVACY_DATABASE_NAME}. IndexedDB is local storage owned by this browser profile on this machine. Obelus does not sync it, upload it, or keep a copy of it anywhere else.`,
       `Because it is local, it can also be lost: clearing your browser data or a browser eviction can remove it. That is what the Library's Backup button is for.`,
       `The stores you will find are: ${PRIVACY_STORES.join(", ")}.`,
     ],
@@ -82,7 +83,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
       {
         title: "Read your own data",
         body: [
-          `Open DevTools, then Application, then IndexedDB, then ${PRIVACY_DATABASE_NAME}. Expand the stores and you will find your documents, revisions, findings, reader accounts, raw responses, passes, connections and settings — the actual rows, on this machine. If you chose a session key, you will not find it in connections; it exists only in memory and disappears on reload.`,
+          `Open DevTools, then Application, then IndexedDB, then ${PRIVACY_DATABASE_NAME}. Expand the stores and you will find your documents, revisions, findings, reader accounts, raw responses, the run cache, passes, connections and settings — the actual rows, on this machine. If you chose a session key, you will not find it in connections; it exists only in memory and disappears on reload.`,
         ],
       },
       {
