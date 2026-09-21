@@ -144,18 +144,16 @@ The graph has seven independent waves:
 
 ## Two questions, both settled
 
-Both were closed by completing the order: #5 landed after #4 and #14 as the graph required, and #4
-was split once (#24) rather than overflowing. The reasoning is kept because it is why the order was
+Both were closed by completing the order, and the reasoning is kept because it is why the order was
 shaped this way.
 
-**#5's edge on #4 may be removable.** #5 is blocked by #4 and #14, but only #14 is needed to exercise
-re-location — #14's rule-pass Findings already give it Anchors. Dropping the #4 edge moves the
-highest-risk behaviour in the design from step 12 to step 5, seven steps earlier, which is where the
-Goldilocks review wanted it. Decide this deliberately rather than by default.
+**#5's edge on #4 was kept.** #5 is blocked by #4 and #14, but only #14 is needed to exercise
+re-location — #14's rule-pass Findings already give it Anchors. Dropping the #4 edge would have moved
+the highest-risk behaviour in the design from step 12 to step 5, seven steps earlier, which is where
+the Goldilocks review wanted it. It was not dropped; the work landed in the order the table shows.
 
-**#4 has already been split once** — the praise linter, the struck-through display, the quarantined
-rewrite and the affordance source check moved to #24. If it overflows again, split it again rather
-than running long.
+**#4 was split once.** The praise linter, the struck-through display, the quarantined rewrite and the
+affordance source check moved to #24, and #4 did not overflow again.
 
 ## Coverage
 
