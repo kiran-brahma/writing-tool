@@ -85,3 +85,15 @@ export function promptValues(target: Target): PromptValues {
     document: target.documentText,
   };
 }
+
+/**
+ * The characters a Run actually sends: the Pass template with the Target's
+ * placeholder values filled, the same builder `critiqueOnce` uses. A local Pass
+ * is priced at its Target plus the one Paragraph of context either side, not at
+ * the whole Document; a structural Pass that fills `{{document}}` is priced at
+ * the Document it sends. Cost is an estimate over what leaves the browser, so it
+ * follows the request, not the Document.
+ */
+export function promptCharacters(template: string, target: Target): number {
+  return fillPrompt(template, promptValues(target)).length;
+}

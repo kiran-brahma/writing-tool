@@ -14,6 +14,7 @@ import {
 import { isFindingsPass, isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
 import { passProblem, parsePassSet, serializePassSet } from "./core/passSet";
 import { documentContext, targetForPass } from "./core/passContext";
+import { promptCharacters } from "./core/prompt";
 import {
   assistPassPrompt,
   type PromptAssistantRequest,
@@ -942,7 +943,7 @@ export function useDocument(): DocumentHandle {
         targetBlockIndex,
         documentRecord.title,
       );
-      const characters = target === null ? documentRecord.canonical.length : target.canonical.length;
+      const characters = target === null ? documentRecord.canonical.length : promptCharacters(pass.prompt ?? "", target);
       estimates[pass.id] = estimateRunCost(characters, model, priceTable);
     }
     return estimates;
@@ -1052,9 +1053,11 @@ export function useDocument(): DocumentHandle {
           signal: controller.signal,
         });
         // Story 52: the session total uses the Provider's usage when there is
-        // one and the estimate otherwise; a cache hit adds nothing.
+        // one and the estimate otherwise; a cache hit adds nothing. The
+        // fallback prices the characters the Run actually sent — its Target
+        // plus context for a local Pass — not the whole Document.
         setSessionCost((total) =>
-          addRunCost(total, result, target.canonical.length, criticConnection.model, priceTable),
+          addRunCost(total, result, promptCharacters(pass.prompt ?? "", target), criticConnection.model, priceTable),
         );
         // The Writer may have opened another Document mid-run. The Run belongs
         // to the Document it started against (and its Findings are stored); the

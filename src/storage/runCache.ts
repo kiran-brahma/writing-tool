@@ -45,6 +45,7 @@ export function toRunCacheRecord(
     model: input.model,
     screeningFrame: input.screeningFrame,
     characterLimit: input.characterLimit,
+    target: input.target,
     findings: result.findings,
     violations: result.violations,
     droppedAnchors: result.droppedAnchors,

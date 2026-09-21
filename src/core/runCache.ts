@@ -1,11 +1,12 @@
+import type { Interval } from "./finding";
 import { fnv1a } from "./hash";
 
 /**
  * The Run cache's key, as pure Core. It is everything that shapes what a model
  * Pass returns except the prose-agnostic plumbing: the hash of the Document's
- * text and title, the Pass, its `promptHash`, the Connection and model, and the
- * two global settings that change the request the Run makes (the Screening frame
- * and the chunking limit).
+ * text and title, the Pass, its `promptHash`, the Connection and model, the
+ * Target the Run was asked about, and the two global settings that change the
+ * request the Run makes (the Screening frame and the chunking limit).
  *
  * The spec names `hash(canonical string) + pass id + promptHash + Connection +
  * model`. The title is folded into the text hash because `{{title}}` is a
@@ -19,6 +20,14 @@ import { fnv1a } from "./hash";
  * model id. The text hash ties the entry to the exact Document text, so any edit
  * anywhere misses rather than returning Findings for prose that no longer
  * exists.
+ *
+ * The Target interval is in the key because a local Pass's input depends on the
+ * cursor, not only on the Document: `{{target}}`, `{{context_above}}` and
+ * `{{context_below}}` are all filled from the Target. Two Runs of the same Pass
+ * over the same unchanged Document with the cursor in different Paragraphs make
+ * different requests, so they must not share a cache entry. The whole-Document
+ * hash already covers the text; the interval says *which* Paragraph or Section
+ * the Run was asked about.
  */
 export interface RunCacheKeyInput {
   /**
@@ -33,6 +42,8 @@ export interface RunCacheKeyInput {
   model: string;
   screeningFrame: boolean;
   characterLimit: number;
+  /** The Target's half-open interval in the Document's canonical string. */
+  target: Interval;
 }
 
 /** FNV-1a over the one canonical string. */
@@ -63,5 +74,7 @@ export function runCacheKey(input: RunCacheKeyInput): string {
     input.model,
     input.screeningFrame,
     input.characterLimit,
+    input.target.start,
+    input.target.end,
   ]);
 }

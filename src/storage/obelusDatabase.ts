@@ -1,6 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { DocTree } from "../core/docTree";
-import type { Finding, Violation } from "../core/finding";
+import type { Finding, Interval, Violation } from "../core/finding";
 import type { DocumentStatus } from "../core/library";
 import type { Pass } from "../core/pass";
 import type { ReaderAccount } from "../core/reader";
@@ -87,10 +87,15 @@ export interface RunResponseRecord {
 /**
  * A whole model Run, cached under the Run key (story 53): the hash of the
  * Document's text and title, the Pass, its `promptHash`, the Connection and
- * model, and the two settings that shape the request. A cache hit restores the
- * Findings, the raw response and the usage, and makes no Provider call.
- * `documentId` is carried for cleanup and does not join the key; the cache is
- * about the prose, not the Document record.
+ * model, the Target interval the Run was asked about, and the two settings that
+ * shape the request. A cache hit restores the Findings, the raw response and the
+ * usage, and makes no Provider call. `documentId` is carried for cleanup and
+ * does not join the key; the cache is about the prose, not the Document record.
+ *
+ * The Target interval is part of the entry because a local Pass's input depends
+ * on the cursor: two Runs with the same Document text but a different Target are
+ * different requests. It is not an indexed field, so adding it needs no schema
+ * version.
  */
 export interface RunCacheRecord {
   /** `runCacheKey(...)`; the primary key. */
@@ -103,6 +108,8 @@ export interface RunCacheRecord {
   model: string;
   screeningFrame: boolean;
   characterLimit: number;
+  /** The Target's half-open interval in the Document's canonical string. */
+  target: Interval;
   findings: Finding[];
   violations: Violation[];
   droppedAnchors: number;

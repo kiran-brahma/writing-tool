@@ -1,5 +1,7 @@
+import { resolveAnchor } from "../core/anchor";
+import { isContained } from "../core/containment";
 import { critique, type RunResult, type Target } from "../core/critique";
-import { responseKey } from "../core/finding";
+import { responseKey, type Finding } from "../core/finding";
 import { provenanceFor } from "../core/modelCall";
 import { hashPass, type Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
@@ -108,6 +110,10 @@ async function runModelPassNow(
     model: options.connection.model,
     screeningFrame: options.screeningFrame,
     characterLimit: options.characterLimit,
+    // A local Pass's input depends on the cursor, so the Target interval joins
+    // the key: the same Pass over the same Document in another Paragraph is a
+    // different request and must not be served from this Run's entry.
+    target: options.target.interval,
   };
   const cached = await loadRunCache(database, runCacheKey(input));
 
@@ -121,7 +127,7 @@ async function runModelPassNow(
           ...(options.signal === undefined ? {} : { signal: options.signal }),
           now,
         })
-      : resultFromCache(cached, options.connection, revision.id, now);
+      : resultFromCache(cached, options.target, options.connection, revision.id, now);
 
   // Store before reconciling: the Provider call is the expensive part, and a
   // cache entry is valid even if the later Finding write is interrupted.
@@ -143,21 +149,37 @@ async function runModelPassNow(
  * overwrite that Document's rows), and its provenance must name a Revision of
  * the Document it now belongs to. The prose, anchors, violations and raw
  * response are the cached ones, so the Writer's view is otherwise identical.
+ *
+ * The Findings are re-contained against the current Target even though the key
+ * already names it. Defence in depth: if a future key component is ever missed,
+ * a cached Finding outside the Target is dropped and counted here rather than
+ * surfaced against the wrong Paragraph.
  */
 function resultFromCache(
   record: RunCacheRecord,
+  target: Target,
   connection: Connection,
   revisionId: string,
   now: number,
 ): RunResult {
+  const kept: Finding[] = [];
+  let dropped = 0;
+  for (const finding of record.findings) {
+    if (isContained(resolveAnchor(finding.anchor, target.canonical), target.interval)) {
+      kept.push(finding);
+    } else {
+      dropped += 1;
+    }
+  }
+
   return {
-    findings: record.findings.map((finding) => ({
+    findings: kept.map((finding) => ({
       ...finding,
       id: crypto.randomUUID(),
       provenance: provenanceFor(connection, revisionId, now),
     })),
     violations: record.violations,
-    droppedAnchors: record.droppedAnchors,
+    droppedAnchors: record.droppedAnchors + dropped,
     rawResponse: record.rawResponse,
     fromCache: true,
     chunks: record.chunks,

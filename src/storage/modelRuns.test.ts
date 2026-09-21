@@ -4,6 +4,7 @@ import type { DocTree } from "../core/docTree";
 import { responseKey } from "../core/finding";
 import { hashPass } from "../core/pass";
 import { passContext, documentContext } from "../core/passContext";
+import { hashRunText } from "../core/runCache";
 import { CLICHE_PASS, TOPIC_STRINGS_PASS } from "../core/starterPasses";
 import type { Target } from "../core/critique";
 import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../wire/connection";
@@ -12,6 +13,7 @@ import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
 import { declineFinding, listFindings, listFindingsForPass } from "./findings";
 import { listRunResponses, loadRunResponse, runModelPass } from "./modelRuns";
 import { openObelusDatabase, type DocumentRecord, type ObelusDatabase } from "./obelusDatabase";
+import { saveRunCache } from "./runCache";
 import { listRevisions } from "./revisions";
 
 const openedDatabases: ObelusDatabase[] = [];
@@ -53,6 +55,13 @@ async function savedDocument(database: ObelusDatabase): Promise<DocumentRecord> 
 
 function targetFor(document: DocumentRecord): Target {
   const target = passContext(document.tree, 1, document.title);
+  if (target === null) throw new Error("no paragraph");
+  return target;
+}
+
+/** The Target for the Paragraph at `blockIndex`, for a different cursor. */
+function targetAt(document: DocumentRecord, blockIndex: number): Target {
+  const target = passContext(document.tree, blockIndex, document.title);
   if (target === null) throw new Error("no paragraph");
   return target;
 }
@@ -281,6 +290,85 @@ describe("the Run cache (story 53)", () => {
     expect(second.findings[0]).toMatchObject({ issue: "Cliché", promptHash: hashPass(CLICHE_PASS) });
     // A cache hit is still the document's stored Finding set, reconciled.
     await expect(listFindingsForPass(database, document.id, CLICHE_PASS.id)).resolves.toHaveLength(1);
+  });
+
+  it("misses when the Target changes, returning Findings for the current Paragraph", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const firstTransport = createFixtureTransport({ respond: () => RESPONSE });
+    const first = await runModelPass(database, document, optionsWith(document, firstTransport));
+    expect(first.fromCache).toBe(false);
+    expect(firstTransport.requests).toHaveLength(1);
+    expect(first.findings[0].anchor.quote).toBe("cliché");
+
+    // Same Document text, same Pass, same model: only the cursor (and so the
+    // Target) moved to the first Paragraph. That is a different request, so it
+    // must reach the Provider rather than reuse the other Paragraph's entry.
+    const contextResponse = JSON.stringify({
+      findings: [{ issue: "Cohesion", diagnosis: "D", quote: "Context", offset: 0 }],
+    });
+    const secondTransport = createFixtureTransport({ respond: () => contextResponse });
+    const second = await runModelPass(database, document, {
+      ...optionsWith(document, secondTransport),
+      target: targetAt(document, 0),
+    });
+
+    expect(second.fromCache).toBe(false);
+    expect(secondTransport.requests).toHaveLength(1);
+    expect(second.findings).toHaveLength(1);
+    expect(second.findings[0].anchor.quote).toBe("Context");
+  });
+
+  it("drops a cached Finding outside the current Target, and counts it", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    const current = targetFor(document);
+    const outsideResponse = JSON.stringify({
+      findings: [{ issue: "Cohesion", diagnosis: "D", quote: "Context", offset: 0 }],
+    });
+    // A genuine Finding anchored in the neighbouring Paragraph, from a Run on
+    // that Target.
+    const outsideRun = await runModelPass(database, document, {
+      ...optionsWith(document, createFixtureTransport({ respond: () => outsideResponse })),
+      target: targetAt(document, 0),
+    });
+    const outsideFinding = outsideRun.findings[0];
+
+    // A cache entry that claims the current Target but holds a Finding anchored
+    // outside it: the shape any future gap in the key would produce. Defence in
+    // depth must refuse to surface or store it.
+    await saveRunCache(
+      database,
+      {
+        documentId: document.id,
+        canonicalHash: hashRunText(document.title, document.canonical),
+        passId: CLICHE_PASS.id,
+        promptHash: hashPass(CLICHE_PASS),
+        connectionId: connection().id,
+        model: connection().model,
+        screeningFrame: true,
+        characterLimit: DEFAULT_CHARACTER_LIMIT,
+        target: current.interval,
+      },
+      {
+        findings: [outsideFinding],
+        violations: [],
+        droppedAnchors: 0,
+        rawResponse: outsideResponse,
+        fromCache: false,
+        chunks: 1,
+      },
+      2_000,
+    );
+
+    const transport = createFixtureTransport({ respond: () => outsideResponse });
+    const hit = await runModelPass(database, document, optionsWith(document, transport));
+
+    expect(transport.requests).toHaveLength(0);
+    expect(hit.fromCache).toBe(true);
+    expect(hit.findings).toHaveLength(0);
+    expect(hit.droppedAnchors).toBe(1);
+    await expect(listFindingsForPass(database, document.id, CLICHE_PASS.id)).resolves.toHaveLength(0);
   });
 
   it("misses when the model changes", async () => {
