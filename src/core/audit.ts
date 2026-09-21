@@ -70,3 +70,83 @@ export interface AuditAccount extends AuditAccountContent {
   /** Praise or rewrite-shaped content the linter caught, struck through on display. */
   violations?: Violation[];
 }
+
+/**
+ * The Audit schema Obelus sends a model. Like the Findings and Reader schemas,
+ * this is a constitutional decision rather than a prompt instruction:
+ * `additionalProperties: false` at every level, and no field for replacement
+ * prose, leave a model nowhere to put a sentence of its own (story 134).
+ *
+ * `provenance` and `violations` are deliberately absent: Obelus stamps those on
+ * read, exactly as it does for a Reader account, so the model cannot author them.
+ */
+export const AUDIT_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    type: {
+      type: "string",
+      enum: ["argument", "observation"],
+      description:
+        "Whether the piece carries an argument to reconstruct, or only an observation.",
+    },
+    corePayload: {
+      type: "string",
+      description: "The central claim or observation the piece is actually making.",
+    },
+    argumentMap: {
+      type: "object",
+      description: "The premises, sub-conclusions and conclusion the audit reconstructed.",
+      properties: {
+        premises: { type: "array", items: { type: "string" } },
+        subConclusions: { type: "array", items: { type: "string" } },
+        conclusion: { type: "string" },
+      },
+      required: ["premises", "subConclusions", "conclusion"],
+      additionalProperties: false,
+    },
+    reasoning: {
+      type: "object",
+      description: "The reasoning kind, its form, its soundness and any enthymemes.",
+      properties: {
+        kind: { type: "string", enum: ["deductive", "inductive"] },
+        form: { type: "string" },
+        soundness: { type: "string" },
+        enthymemes: { type: "array", items: { type: "string" } },
+      },
+      required: ["kind", "soundness", "enthymemes"],
+      additionalProperties: false,
+    },
+    fallacies: {
+      type: "array",
+      description: "Named fallacies, or faults described in plain terms when no label fit.",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: ["string", "null"] },
+          passage: { type: "string" },
+          why: { type: "string" },
+          missing: { type: "string" },
+        },
+        required: ["name", "passage", "why", "missing"],
+        additionalProperties: false,
+      },
+    },
+    definitions: {
+      type: "object",
+      description: "The intensional and extensional definitions the audit found.",
+      properties: {
+        intensional: { type: ["string", "null"] },
+        extensional: { type: ["string", "null"] },
+      },
+      required: ["intensional", "extensional"],
+      additionalProperties: false,
+    },
+    priority: {
+      type: "array",
+      description: "What to fix first, most consequential first.",
+      items: { type: "string" },
+    },
+  },
+  required: ["type", "corePayload", "fallacies", "priority"],
+  additionalProperties: false,
+};
