@@ -227,10 +227,9 @@ export class ObelusDatabase extends Dexie {
     // Migration 7: the Run cache, the repository #16 introduces. Additive: a new
     // store for a whole model Run's result, keyed by the canonical hash, the
     // Pass, its promptHash, the Connection and the model, and nothing existing
-    // is rewritten. This is the one migration here that does not ship alone with
-    // its behaviour, which docs/migrations.md says never to do; the two are
-    // separable only by a second deploy, and that is recorded in #16's report
-    // rather than by editing an already-shipped version.
+    // is rewritten. It ships in its own commit, ahead of the Run-cache behaviour
+    // that uses the store, as docs/migrations.md requires: deploy this migration
+    // alone, then the behaviour in the next deploy.
     this.version(7).stores({
       documents: "id, updatedAt",
       revisions: "id, documentId, createdAt, [documentId+createdAt]",

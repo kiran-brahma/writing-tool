@@ -40,6 +40,13 @@ locked out until forward code returns. The rule is therefore:
 > Never ship a migration and a behaviour change in the same deploy. Ship the migration alone, behind a
 > backup reminder, and ship the behaviour that uses it in the next deploy.
 
+**Worked example: migration 7 (`runCache`), #16.** The store and its record type land in one commit
+(`migration: add the runCache store (#16)`), and the Run-cache behaviour that reads and writes it
+lands in the next (`feat: run control (#16)`). Deploy the migration commit first, confirm the Library
+opened, then deploy the behaviour. Rolling the behaviour deploy back to the migration deploy is safe
+because the migration deploy's code already understands schema version 7; rolling back past the
+migration deploy is the Library outage this rule exists to prevent.
+
 Rolling back a deploy that shipped **no** migration is safe once the service worker is forced to
 advance. `public/sw.js` names its cache for the release (bumped on every deploy), so `activate`
 deletes the previous release's cache wholesale; it also calls `skipWaiting()` and `clients.claim()` so

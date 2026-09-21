@@ -67,9 +67,9 @@ since landed: the Writer writes and edits their own Pass prompts with placeholde
 fixed scope and output shapes, edits Rule config, round-trips the Pass set as JSON and restores the
 Starter pack, and can ask a model to draft a Pass prompt — assistance that reaches a Pass record and
 never the prose. **Every ticket in the order has landed: the frontier is complete and only the parent
-spec issue #1 stays open.** One operational caveat remains: #16's migration 7 (`runCache`) shipped in
-the same change as its behaviour, and `docs/migrations.md` says a migration should ship alone, so the
-next deploy that touches the schema must not bundle another.
+spec issue #1 stays open.** #16's migration 7 (`runCache`) is its own commit, ahead of the
+Run-cache behaviour, so it can ship alone as `docs/migrations.md` requires: deploy the migration
+commit first, then the behaviour that uses the store.
 
 ## How to work a ticket
 
