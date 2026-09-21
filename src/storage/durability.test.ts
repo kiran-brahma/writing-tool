@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
 import {
   openObelusDatabase,
+  type AuditAccountRecord,
   type FindingRecord,
   type ObelusDatabase,
   type ReaderAccountRecord,
@@ -129,6 +130,20 @@ function readerAccount(id: string, documentId: string): ReaderAccountRecord {
   };
 }
 
+function auditAccount(id: string, documentId: string): AuditAccountRecord {
+  return {
+    id,
+    documentId,
+    passId: "audit",
+    promptHash: "hash",
+    type: "argument",
+    corePayload: "It argues that X follows from Y.",
+    fallacies: [],
+    priority: ["State the missing premise."],
+    provenance: { providerId: "openai", model: "gpt", at: 3, revisionId: "rev-1" },
+  };
+}
+
 function runResponse(documentId: string): RunResponseRecord {
   return { documentId, passId: "hedges", promptHash: "hash", rawResponse: "{}", at: 3 };
 }
@@ -142,6 +157,7 @@ async function seed(database: ObelusDatabase): Promise<void> {
   await database.settings.put({ key: "screeningFrame", value: false });
   await database.runResponses.put(runResponse("doc-1"));
   await database.readerAccounts.put(readerAccount("acct-1", "doc-1"));
+  await database.auditAccounts.put(auditAccount("audit-1", "doc-1"));
 }
 
 describe("exportLibraryBackup", () => {
@@ -161,6 +177,7 @@ describe("exportLibraryBackup", () => {
     expect(backup.connections).toHaveLength(1);
     expect(backup.runResponses).toHaveLength(1);
     expect(backup.readerAccounts).toHaveLength(1);
+    expect(backup.auditAccounts).toHaveLength(1);
     expect(backup.settings).toContainEqual({ key: LAST_BACKED_UP_SETTING_KEY, value: 5_000 });
 
     // Export does not stamp the reminder; only a produced file does.
@@ -191,6 +208,14 @@ describe("exportLibraryBackup", () => {
     // The store postdates the file, so the file carries no accounts and restores
     // as empty rather than being refused.
     expect(parsed.auditAccounts).toEqual([]);
+  });
+
+  it("refuses a backup whose Audit-account list is present but unreadable", async () => {
+    const backup = await exportLibraryBackup(await openTestDatabase());
+    const malformed = JSON.parse(serializeLibraryBackup(backup)) as Record<string, unknown>;
+    malformed.auditAccounts = "not a list";
+
+    expect(() => parseLibraryBackup(JSON.stringify(malformed))).toThrow(/Audit-account/);
   });
 
   it("story 112: strips persisted keys by default", async () => {
@@ -245,6 +270,7 @@ describe("library backup round trip", () => {
     expect(findings.map((entry) => entry.id)).toEqual(["find-1"]);
     expect(await target.connections.count()).toBe(1);
     expect(await target.readerAccounts.count()).toBe(1);
+    expect(await target.auditAccounts.count()).toBe(1);
     await expect(loadLastBackedUp(target)).resolves.toBe(5_000);
   });
 
@@ -389,6 +415,7 @@ describe("document bundle", () => {
     ]);
     await database.findings.put(finding("find-1", "doc-1", "rev-1"));
     await database.readerAccounts.put(readerAccount("acct-1", "doc-1"));
+    await database.auditAccounts.put(auditAccount("audit-1", "doc-1"));
 
     const text = serializeDocumentBundle((await exportDocumentBundle(database, "doc-1"))!);
     await importDocumentBundle(database, parseDocumentBundle(text), { id: "doc-2" });
@@ -401,6 +428,11 @@ describe("document bundle", () => {
 
     const accounts = await database.readerAccounts.where("documentId").equals("doc-2").toArray();
     expect(importedRevisionIds.has(accounts[0].provenance.revisionId)).toBe(true);
+
+    const audits = await database.auditAccounts.where("documentId").equals("doc-2").toArray();
+    expect(audits).toHaveLength(1);
+    expect(audits[0].id).not.toBe("audit-1");
+    expect(importedRevisionIds.has(audits[0].provenance.revisionId)).toBe(true);
   });
 
   it("refuses a bundle written by a newer build", () => {

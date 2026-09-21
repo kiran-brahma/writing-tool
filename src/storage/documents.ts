@@ -158,6 +158,7 @@ export async function importDocument(
     database.findings,
     database.runResponses,
     database.readerAccounts,
+    database.auditAccounts,
     async () => {
       await database.documents.put(updated);
       await database.findings.where("documentId").equals(document.id).delete();
@@ -167,6 +168,9 @@ export async function importDocument(
       // A Reader account is derived from a Section of the replaced prose, so it
       // goes with the Findings rather than describing text that is gone.
       await database.readerAccounts.where("documentId").equals(document.id).delete();
+      // An Audit account is derived from the whole replaced prose, so it goes
+      // too rather than judging text that is gone.
+      await database.auditAccounts.where("documentId").equals(document.id).delete();
     },
   );
   return updated;

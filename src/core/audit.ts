@@ -7,8 +7,10 @@ import type { Provenance, Violation } from "./finding";
  * account, what the model authors is a closed shape with no field for rewritten
  * prose, so an audit cannot hand the Writer a sentence.
  *
- * The wire schema the model answers to lives beside this type (`AUDIT_SCHEMA`),
- * so the shape and the schema cannot drift apart.
+ * The wire schema the model answers to is declared once (`AUDIT_SCHEMA`) and is
+ * the intended single source for the field set: the parser lands with the Audit
+ * pass (#27) and derives its known fields from the schema, exactly as the
+ * Findings and Reader parsers do.
  */
 
 /**

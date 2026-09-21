@@ -153,4 +153,24 @@ describe("importDocument", () => {
 
     expect(await listFindings(database, document.id)).toEqual([]);
   });
+
+  it("clears the old Document's Audit accounts when the prose is replaced", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    await database.auditAccounts.put({
+      id: "audit-1",
+      documentId: document.id,
+      passId: "audit",
+      promptHash: "hash",
+      type: "argument",
+      corePayload: "It argues.",
+      fallacies: [],
+      priority: [],
+      provenance: { providerId: "openai", model: "gpt", at: 1, revisionId: "rev-1" },
+    });
+
+    await importDocument(database, document, "clean prose.\n", 1_300);
+
+    expect(await database.auditAccounts.count()).toBe(0);
+  });
 });

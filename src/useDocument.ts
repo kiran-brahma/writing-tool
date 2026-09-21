@@ -76,6 +76,7 @@ import { listRunResponses, runModelPass as runModelPassRecord } from "./storage/
 import { loadPriceTable, savePriceTable as persistPriceTable } from "./storage/pricing";
 import { requestPersistentStorage } from "./storage/persist";
 import { listReaderAccounts, clearReaderAccounts, runReaderPass as runReaderPassRecord } from "./storage/readerAccounts";
+import { clearAuditAccounts } from "./storage/auditAccounts";
 import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
 import { useDurability } from "./durability/useDurability";
@@ -491,6 +492,10 @@ export function useDocument(): DocumentHandle {
               savedCanonicalRef.current = current.canonical;
               await clearReaderAccounts(database, current.id);
               setReaderAccounts([]);
+              // An Audit account describes the whole piece too, so it goes with
+              // the Reader accounts rather than judging text that is gone; an
+              // Audit Run (#27) refreshes it.
+              await clearAuditAccounts(database, current.id);
             }
           },
           takeRevision: async () => {

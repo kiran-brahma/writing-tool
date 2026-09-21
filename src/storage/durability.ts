@@ -234,10 +234,15 @@ export function parseLibraryBackup(text: string): LibraryBackup {
   }
   // The Run cache is disposable, so a backup written before this store existed
   // is still readable; it restores as an empty cache rather than being refused.
-  // An Audit-account store added after a backup was written is the same: the
-  // file predates the store, so it carries none, and restores as empty.
-  if (!Array.isArray(value.auditAccounts)) value.auditAccounts = [];
   if (!Array.isArray(value.runCache)) value.runCache = [];
+  // An Audit-account store added after a backup was written is the same: the
+  // file predates the store, so it carries none. A present but unreadable value
+  // is refused rather than silently emptied.
+  if (value.auditAccounts === undefined) {
+    value.auditAccounts = [];
+  } else if (!Array.isArray(value.auditAccounts)) {
+    throw new BackupFormatError("That backup holds an unreadable Audit-account list.");
+  }
   return value as unknown as LibraryBackup;
 }
 
@@ -251,8 +256,12 @@ export function parseDocumentBundle(text: string): DocumentBundle {
     throw new BackupFormatError("That bundle has no readable Document.");
   }
   // A bundle written before the Audit-account store existed still reads; it
-  // carries no accounts rather than being refused.
-  if (!Array.isArray(value.auditAccounts)) value.auditAccounts = [];
+  // carries no accounts. A present but unreadable value is refused.
+  if (value.auditAccounts === undefined) {
+    value.auditAccounts = [];
+  } else if (!Array.isArray(value.auditAccounts)) {
+    throw new BackupFormatError("That bundle holds an unreadable Audit-account list.");
+  }
   return value as unknown as DocumentBundle;
 }
 

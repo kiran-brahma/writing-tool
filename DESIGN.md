@@ -98,7 +98,7 @@ Pass {
   id, name, description,
   kind:   "rule" | "model",
   scope:  "document" | "section" | "paragraph",
-  output: "findings" | "section-summary" | "note",
+  output: "findings" | "section-summary" | "audit",
   prompt: template,          // model passes only
   slot:   "critic",          // override per pass
   enabled, prompt_version
@@ -143,7 +143,7 @@ Shipped but off by default: 7, 9.
 
 **Prompt templates.** Placeholders `{{title}} {{outline}} {{document}} {{target}}
 {{context_above}} {{context_below}}`, validated on save; an unknown placeholder is a hard error.
-Output schemas are fixed (`findings`, `section-summary`, `note`) rather than user-editable JSON
+Output schemas are fixed (`findings`, `section-summary`, `audit`) rather than user-editable JSON
 Schema — three shapes is enough rope.
 
 ## 5. Provider layer

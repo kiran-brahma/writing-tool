@@ -51,6 +51,12 @@ describe("structuralPasses", () => {
     expect(structural.map((pass) => pass.id)).not.toContain("hedges");
   });
 
+  it("excludes a document-scope Pass whose output is not Findings", () => {
+    const audit: Pass = { ...modelPass("audit", "document", true), output: "audit" };
+
+    expect(structuralPasses([audit])).toEqual([]);
+  });
+
   it("returns an empty set for an empty Pass list", () => {
     expect(structuralPasses([])).toEqual([]);
   });

@@ -115,13 +115,20 @@ export function hashPass(pass: Pass): string {
 
 /**
  * Story 37: the structural set — the enabled model Passes whose scope is the
- * whole document. The rule lives here rather than in the shell so the
- * "Run structural set" button and the action it triggers cannot disagree about
- * what the set contains, and so the rule is testable without a DOM.
+ * whole document **and whose output is Findings**. The rule lives here rather
+ * than in the shell so the "Run structural set" button and the action it
+ * triggers cannot disagree about what the set contains, and so the rule is
+ * testable without a DOM. A document-scope Pass of another output shape — an
+ * Audit pass (#27) — belongs to its own surface, not this set: running it here
+ * would offer a Run whose output this path cannot show.
  */
 export function structuralPasses(passes: Pass[]): Pass[] {
   return passes.filter(
-    (pass) => pass.kind === "model" && pass.scope === "document" && pass.enabled,
+    (pass) =>
+      pass.kind === "model" &&
+      pass.scope === "document" &&
+      pass.enabled &&
+      isFindingsPass(pass),
   );
 }
 
