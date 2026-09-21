@@ -103,6 +103,7 @@ export const WORDINESS_PASS: Pass = {
   enabled: true,
   ruleConfig: {
     wordiness: [
+      // Constructions the starter pack has always carried.
       ["in order to", "to"],
       ["due to the fact that", "because"],
       ["at this point in time", "now"],
@@ -113,6 +114,63 @@ export const WORDINESS_PASS: Pass = {
       ["in spite of the fact that", "although"],
       ["the fact that", "that"],
       ["in the near future", "soon"],
+      // The Economist guide's Reduction List: a long phrase and the short one it
+      // replaces. The replacement is the Writer's own config data, never model
+      // output, and it appears in the diagnosis only (DESIGN §4).
+      ["absolute certainty", "certainty"],
+      ["pilotless drone", "drone"],
+      ["razed to the ground", "razed"],
+      ["track record", "record"],
+      ["wilderness area", "wilderness"],
+      ["policymaking process", "policymaking"],
+      ["large-scale", "large"],
+      ["weather conditions", "weather"],
+      ["bought up", "bought"],
+      ["sold off", "sold"],
+      ["headed up by", "headed by"],
+      ["cut back", "cut"],
+      ["cutbacks", "cuts"],
+      ["end result", "result"],
+      ["for free", "free"],
+      ["from whence", "whence"],
+      ["final outcome", "outcome"],
+      ["nod your head", "nod"],
+      ["shrug your shoulders", "shrug"],
+      ["top priority", "priority"],
+      ["major speech", "a speech"],
+      ["role model", "model"],
+      ["past experience", "experience"],
+      ["lived experience", "experience"],
+      ["personal experience", "experience"],
+      ["empirical research", "research"],
+      ["safe haven", "haven"],
+      ["located in", "in"],
+      ["pre-prepared", "prepared"],
+      ["pre-planned", "planned"],
+      ["in close proximity to", "close to"],
+      // The guide's "prefer an Anglo-Saxon word" list, kept to the substitutions
+      // that do not need a part-of-speech judgment to apply.
+      ["purchase", "buy"],
+      ["approximately", "about"],
+      ["sufficient", "enough"],
+      ["donate", "give"],
+      ["obtain", "get"],
+      ["establish", "set up"],
+      ["demonstrate", "show"],
+      ["expenditure", "spending"],
+      ["relinquish", "give up"],
+      ["violate", "break"],
+      ["distribute", "hand out"],
+      ["wealthy", "rich"],
+      ["persons", "people"],
+      ["workforce", "workers"],
+      ["compensation", "pay"],
+      ["revenue", "sales"],
+      ["mortality", "death"],
+      ["redundancies", "lay-offs"],
+      ["kinetic action", "battle"],
+      ["demonstrates an unwillingness to", "refuses to"],
+      ["manifests avoidance behaviour", "avoids"],
     ],
   },
 };
@@ -128,6 +186,190 @@ export const REPETITION_PASS: Pass = {
   enabled: true,
   ruleConfig: {
     repetitionWindow: 3,
+  },
+};
+
+/**
+ * The house avoid list: the Prose Linter's deduplicated banned-words list and
+ * the Economist guide's jargon. It is the list the Writer edits, not a
+ * judgment a rule cannot make; anything whose meaning depends on the part of
+ * speech (the guide's "address" as a transitive verb, "key" as an adjective)
+ * is left out, because a literal sweep would flag the innocent use too. The
+ * Prose Linter's own "Still mine to decide" note concedes that ensure, obtain,
+ * demonstrate, regarding, additionally, drive and solutions are ordinary words
+ * whose zero-tolerance flagging invites circumlocution, so they are left off a
+ * pass that runs on every save; the Writer may add them back. "Obtain" and
+ * "demonstrate" are also paired with a shorter word by the wordiness pass. The
+ * diagnosis reports and never supplies a replacement, so the pass is
+ * constitution-safe by construction (ADR-0003). "Leverage" and "platform"
+ * stay on the list; a sense the source carves out (financial leverage, a named
+ * product) is a judgment for the Writer to decline, not for a regex to make.
+ */
+export const BANNED_WORDS_PASS: Pass = {
+  id: "banned-words",
+  name: "Banned words and jargon",
+  description: "Flags words on the house avoid list.",
+  kind: "rule",
+  scope: "document",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  ruleConfig: {
+    bannedWords: [
+      // Prose Linter W1, deduplicated there, minus the ordinary words its own
+      // "Still mine to decide" note pulls back from.
+      "align",
+      "catalyst",
+      "crushing it",
+      "deep dive",
+      "delve",
+      "democratize",
+      "disruptive",
+      "ecosystem",
+      "elevate",
+      "empower",
+      "facilitate",
+      "flywheel",
+      "foster",
+      "furthermore",
+      "game-changer",
+      "garner",
+      "guru",
+      "growth hack",
+      "harness",
+      "human capital",
+      "hustle",
+      "innovative",
+      "journey",
+      "landscape",
+      "leverage",
+      "moreover",
+      "ninja",
+      "north star",
+      "optimize",
+      "paradigm",
+      "platform",
+      "prior to",
+      "realm",
+      "reimagine",
+      "robust",
+      "rockstar",
+      "scalable",
+      "seamless",
+      "strategic",
+      "streamline",
+      "subsequent to",
+      "synergy",
+      "tapestry",
+      "testament",
+      "10x",
+      "unlock",
+      "unleash",
+      "unparalleled",
+      "utilize",
+      "world-class",
+      // The Economist guide's "Words to Avoid", minus the parts of speech a
+      // literal sweep cannot tell apart. "Obtain" and "demonstrate" are absent
+      // because the wordiness pass already pairs them with a shorter word.
+      "aspirational",
+      "famously",
+      "high-profile",
+      "iconic",
+      "implode",
+      "participate in",
+      "passionate",
+      "proactive",
+      "prestigious",
+      "reputational",
+      "savvy",
+      "segue",
+      "stakeholders",
+      "supportive",
+      "surreal",
+      "trajectory",
+      "transformative",
+    ],
+  },
+};
+
+/**
+ * Worn phrases: the guide's replace list, its jargon metaphors, and the Prose
+ * Linter's banned openers and analytical phrases. Like the banned-word pass it
+ * marks and does not rewrite, and it is shipped enabled because a cliché is the
+ * one thing a rule can name with as much confidence as a model can.
+ */
+export const WORN_PHRASES_PASS: Pass = {
+  id: "worn-phrases",
+  name: "Worn phrases and clichés",
+  description: "Flags clichés and jargon metaphors.",
+  kind: "rule",
+  scope: "document",
+  output: "findings",
+  slot: "critic",
+  enabled: true,
+  ruleConfig: {
+    wornPhrases: [
+      // The guide's "Replace" list.
+      "accident waiting to happen",
+      "chattering classes",
+      "deer in the headlights",
+      "eye-watering sums",
+      "fit for purpose",
+      "going forward",
+      "the green light",
+      "grinding to a halt",
+      "heavy lifting",
+      "honeymoon period",
+      "level playing-field",
+      "perfect storm",
+      "poster child",
+      "pulling teeth",
+      "rack up",
+      "ramping up",
+      "tipping point",
+      "too close to call",
+      "wake-up call",
+      "whopping bills",
+      "quantum leap",
+      "begging the question",
+      "exponential growth",
+      "inflection point",
+      // The guide's jargon metaphors.
+      "blue-sky thinking",
+      "thinking out of the box",
+      "at the end of the day",
+      "elephant in the room",
+      "800-pound gorilla",
+      "big beast",
+      "low-hanging fruit",
+      "quick wins",
+      "take this offline",
+      "put a pin in it",
+      "circle back",
+      "reach out",
+      "limited bandwidth",
+      "joining the dots",
+      "walking the walk",
+      "from soup to nuts",
+      "suck it and see",
+      "let a thousand flowers bloom",
+      "strategic shoots",
+      "early innings",
+      "sea change",
+      "flesh wound",
+      "constantly evolving palates",
+      "bubbling under the radar",
+      "hit some turbulence",
+      // Prose Linter W2 and W3: banned openers and analytical phrases.
+      "in a world where",
+      "in today's fast-paced",
+      "it remains to be seen",
+      "time will tell",
+      "there are many factors",
+      "best practices suggest",
+      "industry benchmarks indicate",
+      "experts believe",
+    ],
   },
 };
 
@@ -515,7 +757,8 @@ export const READER_PASS: Pass = {
 
 /**
  * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
- * the model passes in the same order: characters and actions (off), topic
+ * the two house-style passes the Prose Linter and the Economist guide supply
+ * (banned words, worn phrases), then the model passes in the same order: characters and actions (off), topic
  * strings and stress position, paragraphs that could move (off), paragraph
  * unity, cut candidates, cliché and headline-ese (the one #4 shipped), claim
  * strength, and the Reader pass (#11). The document-scope model passes ship
@@ -531,6 +774,8 @@ export const STARTER_PASSES: Pass[] = [
   OPENERS_PASS,
   WORDINESS_PASS,
   REPETITION_PASS,
+  BANNED_WORDS_PASS,
+  WORN_PHRASES_PASS,
   CHARACTERS_ACTIONS_PASS,
   TOPIC_STRINGS_PASS,
   PARAGRAPH_REORDER_PASS,

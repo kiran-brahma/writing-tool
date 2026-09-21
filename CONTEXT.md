@@ -131,11 +131,15 @@ A wire format: `openai-shaped`, `anthropic-shaped` or `gemini-native`.
 _Avoid_: API, dialect, provider API
 
 **Connection**:
-A configured entry the Writer creates: a Protocol, a base URL, a key and a model.
+A configured route the Writer creates: a Protocol, a base URL, a key and a concurrency cap. The
+model a Run uses is chosen per Slot, not on the Connection; a Connection's own model is only a
+fallback for a Slot that names none.
 _Avoid_: provider config, provider, endpoint, credentials
 
 **Slot**:
-A named place a Connection is assigned. There are two: `critic` and `judge`.
+A named place a Connection and a model are assigned. There are two: `critic` and `judge`. The two
+Slots may share one Connection while naming different models, so the Judge can be independent
+without a second route to the Provider. An empty model inherits the Connection's own.
 _Avoid_: role, position, model slot
 
 **Critic**:

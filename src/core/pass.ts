@@ -49,6 +49,14 @@ export interface RuleConfig {
   repetitionWindow?: number;
   openers?: string[];
   nominalizationSuffixes?: string[];
+  /**
+   * Words and short phrases a house style bans outright; the Prose Linter's
+   * "always empty" list and the Economist guide's jargon. Reported, never
+   * replaced: a rule may mark but not write (ADR-0003).
+   */
+  bannedWords?: string[];
+  /** Clichés, jargon metaphors and worn figures of speech. Reported, not rewritten. */
+  wornPhrases?: string[];
 }
 
 export interface Pass {

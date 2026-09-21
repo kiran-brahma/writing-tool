@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLICHE_PASS, HEDGES_PASS, STARTER_PASSES } from "./starterPasses";
+import { BANNED_WORDS_PASS, CLICHE_PASS, HEDGES_PASS, STARTER_PASSES, WORN_PHRASES_PASS } from "./starterPasses";
 import {
   parsePassSet,
   passProblem,
@@ -94,5 +94,14 @@ describe("passProblem", () => {
     expect(passProblem({ ...HEDGES_PASS, ruleConfig: { hedges: [1] } })).toMatch(
       /unreadable Rule config/i,
     );
+  });
+
+  it("names an unreadable house-style list", () => {
+    expect(passProblem({ ...BANNED_WORDS_PASS, ruleConfig: { bannedWords: [1] } })).toMatch(
+      /unreadable Rule config/i,
+    );
+    expect(
+      passProblem({ ...WORN_PHRASES_PASS, ruleConfig: { wornPhrases: ["a", 2] } }),
+    ).toMatch(/unreadable Rule config/i);
   });
 });

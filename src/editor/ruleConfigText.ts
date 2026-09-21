@@ -48,6 +48,18 @@ const FIELDS: RuleField[] = [
     kind: "number",
     help: "How many sentences a repeat may span.",
   },
+  {
+    key: "bannedWords",
+    label: "Banned words and phrases",
+    kind: "list",
+    help: "One word or phrase per line. Reported, never replaced.",
+  },
+  {
+    key: "wornPhrases",
+    label: "Worn phrases",
+    kind: "list",
+    help: "One cliché or jargon metaphor per line. Reported, never replaced.",
+  },
 ];
 
 /** The fields a Pass's Rule config carries, in editor order. */
@@ -68,7 +80,9 @@ export function fieldText(config: RuleConfig, key: RuleFieldKey): string {
     }
     case "hedges":
     case "nominalizationSuffixes":
-    case "openers": {
+    case "openers":
+    case "bannedWords":
+    case "wornPhrases": {
       const value = config[key];
       return value === undefined ? "" : value.join("\n");
     }

@@ -38,6 +38,8 @@ describe("loadOrCreatePasses", () => {
       "openers",
       "wordiness",
       "repetition",
+      "banned-words",
+      "worn-phrases",
       "characters-actions",
       "topic-strings",
       "paragraph-reorder",
@@ -53,6 +55,8 @@ describe("loadOrCreatePasses", () => {
       "openers",
       "wordiness",
       "repetition",
+      "banned-words",
+      "worn-phrases",
     ]);
     expect(passes.filter((pass) => pass.kind === "model").map((pass) => pass.id)).toEqual([
       "characters-actions",

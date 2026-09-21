@@ -278,10 +278,24 @@ describe("sameModelWarning", () => {
     expect(sameModelWarning(critic, judge)).toContain("same-model");
   });
 
-  it("warns when the Critic and the Judge are the same Connection", () => {
+  it("warns when the Critic and the Judge are the same Connection with the same model", () => {
     const critic = connection();
 
     expect(sameModelWarning(critic, critic)).not.toBeNull();
+  });
+
+  it("stays silent when one Connection serves both Slots with different models", () => {
+    const critic = connection({ id: "openai", model: "gpt-x" });
+    const judge = connection({ id: "openai", model: "gpt-y" });
+
+    expect(sameModelWarning(critic, judge)).toBeNull();
+  });
+
+  it("warns when one Connection serves both Slots with no model to tell them apart", () => {
+    const critic = connection({ id: "openai", model: "" });
+    const judge = connection({ id: "openai", model: "" });
+
+    expect(sameModelWarning(critic, judge)).not.toBeNull();
   });
 
   it("stays silent when the models differ or a Slot is unset", () => {

@@ -26,6 +26,17 @@ describe("fieldText and applyFieldText", () => {
     expect(applyFieldText(config, "hedges", text)).toEqual(config);
   });
 
+  it("round-trips the house-style lists", () => {
+    const config: RuleConfig = {
+      bannedWords: ["leverage", "deep dive"],
+      wornPhrases: ["perfect storm", "wake-up call"],
+    };
+
+    for (const key of ["bannedWords", "wornPhrases"] as const) {
+      expect(applyFieldText(config, key, fieldText(config, key))).toEqual(config);
+    }
+  });
+
   it("drops blank lines and trims a list", () => {
     const config: RuleConfig = { hedges: ["very"] };
 

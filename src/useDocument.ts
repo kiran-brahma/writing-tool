@@ -31,8 +31,10 @@ import {
   loadSlots,
   removeConnection as removeConnectionRecord,
   saveConnection as saveConnectionRecord,
+  slotConnection,
   type Slot,
   type SlotAssignment,
+  type SlotBinding,
 } from "./storage/connections";
 import {
   exportDocument,
@@ -219,7 +221,7 @@ export interface DocumentHandle {
   saveConnection: (connection: Connection) => Promise<void>;
   addCustomConnection: () => Promise<void>;
   removeConnection: (connectionId: string) => Promise<void>;
-  assignSlot: (slot: Slot, connectionId: string | null) => Promise<void>;
+  assignSlot: (slot: Slot, binding: SlotBinding | null) => Promise<void>;
   importFromMarkdown: (markdown: string) => Promise<void>;
   exportToMarkdown: () => string;
   /**
@@ -896,20 +898,20 @@ export function useDocument(): DocumentHandle {
 
   const clearPassSetError = useCallback(() => setPassSetError(null), []);
 
-  /** The Connection in the critic Slot, or null when none is assigned. */
-  const criticConnection = useMemo(() => {
-    const id = slots.critic;
-    if (id === null) return null;
-    return connections.find((connection) => connection.id === id) ?? null;
-  }, [connections, slots]);
+  /** The Connection the critic Slot resolves to, with its model, or null. */
+  const criticConnection = useMemo(
+    () => slotConnection(connections, slots.critic),
+    [connections, slots],
+  );
 
   /**
-   * The judge Slot's Connection, or the story-90 default: a different
-   * Connection from the Critic, so the Judge is independent by default.
+   * The judge Slot's Connection, with its model override, or the story-90
+   * default: a different Connection from the Critic, so the Judge is
+   * independent by default. A Slot may share the Critic's Connection while
+   * naming a different model.
    */
   const judgeConnection = useMemo(() => {
-    const id = slots.judge;
-    if (id !== null) return connections.find((connection) => connection.id === id) ?? null;
+    if (slots.judge !== null) return slotConnection(connections, slots.judge);
     return defaultJudgeConnection(connections, criticConnection);
   }, [connections, slots, criticConnection]);
 
@@ -1201,7 +1203,7 @@ export function useDocument(): DocumentHandle {
         return null;
       }
       if (judgeConnection.model.trim() === "") {
-        setJudgeError(`Set a model on the ${judgeConnection.name} Connection first.`);
+        setJudgeError("Set a model on the Judge Slot in AI Settings first.");
         return null;
       }
       if (before.trim() === "" || after.trim() === "") {
@@ -1285,11 +1287,11 @@ export function useDocument(): DocumentHandle {
     }
   }, []);
 
-  const assignSlot = useCallback(async (slot: Slot, connectionId: string | null) => {
+  const assignSlot = useCallback(async (slot: Slot, binding: SlotBinding | null) => {
     const database = databaseRef.current;
     if (database === null) return;
     try {
-      setSlots(await assignSlotRecord(database, slot, connectionId));
+      setSlots(await assignSlotRecord(database, slot, binding));
     } catch (error) {
       setSaveError(describeError(error));
     }
@@ -1403,7 +1405,7 @@ function criticGuardMessage(connection: Connection | null, what: string): string
   if (connection === null) {
     return `Assign a Connection to the critic Slot before running ${what}.`;
   }
-  return `Set a model on the ${connection.name} Connection first.`;
+  return `Set a model on the Critic Slot in AI Settings first.`;
 }
 
 /** Replace one Connection in the list, or append it if it is new. */

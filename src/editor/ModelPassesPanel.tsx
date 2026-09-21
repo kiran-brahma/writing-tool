@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import { MIN_CHARACTER_LIMIT } from "../core/chunking";
-import {
-  parsePriceTable,
-  serializePriceTable,
-  type CostEstimate,
-  type PriceTable,
-} from "../core/cost";
+import type { CostEstimate } from "../core/cost";
 import type { RunReport } from "../core/critique";
 import { isFindingsPass, structuralPasses, type Pass } from "../core/pass";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
@@ -25,8 +19,9 @@ import { splitViolations } from "./violationMarks";
  * Workbench. Listing one here would offer a Run whose output this panel cannot
  * show.
  *
- * The Screening frame toggle is global and applies to critic Passes only; the
- * Judge, when it arrives, never receives it.
+ * The global run settings — the Screening frame, the character limit and the
+ * price table — live in the AI Settings view, so this panel stays about running
+ * Passes and reading their output.
  */
 export interface ModelPassesPanelProps {
   passes: Pass[];
@@ -37,7 +32,6 @@ export interface ModelPassesPanelProps {
   lastRunReport: RunReport | null;
   runError: string | null;
   criticName: string | null;
-  screeningFrame: boolean;
   /** Story 50: the length of the current Document's canonical string. */
   documentLength: number;
   /** Story 50: past this many characters a structural Run is chunked. */
@@ -46,8 +40,6 @@ export interface ModelPassesPanelProps {
   chunkCount: number;
   /** Story 51: the pre-run estimate for each Findings pass, keyed by Pass id. */
   estimates: Record<string, CostEstimate>;
-  /** Story 51: the Writer's editable per-model price table. */
-  priceTable: PriceTable;
   /** Story 52: this session's accumulated model-Run cost. */
   sessionCost: number;
   onRun: (passId: string) => void;
@@ -56,11 +48,6 @@ export interface ModelPassesPanelProps {
   /** Story 54: abort the running Pass. */
   onCancel: () => void;
   onToggle: (passId: string, enabled: boolean) => void;
-  onToggleScreening: (enabled: boolean) => void;
-  /** Story 50: the Writer changes the limit at which chunking starts. */
-  onSetCharacterLimit: (limit: number) => void;
-  /** Story 51: store the Writer's edited price table. */
-  onSavePriceTable: (table: PriceTable) => void;
 }
 
 export function ModelPassesPanel({
@@ -71,20 +58,15 @@ export function ModelPassesPanel({
   lastRunReport,
   runError,
   criticName,
-  screeningFrame,
   documentLength,
   characterLimit,
   chunkCount,
   estimates,
-  priceTable,
   sessionCost,
   onRun,
   onRunStructural,
   onCancel,
   onToggle,
-  onToggleScreening,
-  onSetCharacterLimit,
-  onSavePriceTable,
 }: ModelPassesPanelProps) {
   const modelPasses = passes.filter((pass) => pass.kind === "model" && isFindingsPass(pass));
   const hasStructuralPasses = structuralPasses(passes).length > 0;
@@ -131,31 +113,6 @@ export function ModelPassesPanel({
           </button>
         </div>
       )}
-
-      <label className="flex items-center gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
-        <input
-          type="checkbox"
-          checked={screeningFrame}
-          onChange={(event) => onToggleScreening(event.target.checked)}
-        />
-        Screening frame (critic passes only)
-      </label>
-
-      <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
-        <label htmlFor="character-limit" className="shrink-0">
-          Character limit
-        </label>
-        <CharacterLimitField value={characterLimit} onCommit={onSetCharacterLimit} />
-      </div>
-
-      <details className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
-        <summary className="cursor-pointer select-none">Price table</summary>
-        <p className="mt-1 text-stone-500">
-          USD per million tokens. An entry prices a model id, or any model id it prefixes. The
-          estimate is characters ÷ 4 and never blocks a Run.
-        </p>
-        <PriceTableField value={priceTable} onCommit={onSavePriceTable} />
-      </details>
 
       {pastLimit && (
         <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
@@ -275,84 +232,9 @@ function ElapsedTimer({ since }: { since: number }) {
   return <span className="tabular-nums">{((now - since) / 1000).toFixed(1)}s</span>;
 }
 
-/**
- * The character limit is edited as a draft and committed on blur or Enter, so a
- * half-typed number never briefly becomes the limit and the field does not jump
- * while the Writer types. The committed value round-trips through the setting,
- * which normalises it; a rejected draft snaps back to the stored value.
- */
-function CharacterLimitField({
-  value,
-  onCommit,
-}: {
-  value: number;
-  onCommit: (limit: number) => void;
-}) {
-  const [draft, setDraft] = useState(String(value));
-
-  useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
-
-  const commit = () => {
-    const parsed = Number(draft);
-    if (!Number.isFinite(parsed)) {
-      setDraft(String(value));
-      return;
-    }
-    onCommit(parsed);
-  };
-
-  return (
-    <input
-      id="character-limit"
-      type="number"
-      min={MIN_CHARACTER_LIMIT}
-      step={500}
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") event.currentTarget.blur();
-      }}
-      className="w-28 rounded border border-stone-300 bg-white px-2 py-1 text-right tabular-nums"
-    />
-  );
-}
-
 /** A US dollar figure, with enough precision to show a sub-cent estimate. */
 function formatUsd(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return "$0.00";
   if (value < 0.01) return `$${value.toFixed(4)}`;
   return `$${value.toFixed(2)}`;
-}
-
-/**
- * The price table is edited as `model = dollars` lines and committed on blur,
- * exactly like the character limit: a half-typed price never becomes the table.
- */
-function PriceTableField({
-  value,
-  onCommit,
-}: {
-  value: PriceTable;
-  onCommit: (table: PriceTable) => void;
-}) {
-  const [draft, setDraft] = useState(() => serializePriceTable(value));
-
-  useEffect(() => {
-    setDraft(serializePriceTable(value));
-  }, [value]);
-
-  return (
-    <textarea
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => onCommit(parsePriceTable(draft))}
-      rows={4}
-      spellCheck={false}
-      placeholder={"gpt-4o = 5\ngpt-4o-mini = 0.6"}
-      className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1 font-mono text-xs"
-    />
-  );
 }

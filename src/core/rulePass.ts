@@ -63,6 +63,12 @@ export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
   if (config.repetitionWindow !== undefined) {
     matches.push(...matchRepetition(canonical, config.repetitionWindow));
   }
+  if (config.bannedWords !== undefined) {
+    matches.push(...matchBannedWords(canonical, config.bannedWords));
+  }
+  if (config.wornPhrases !== undefined) {
+    matches.push(...matchWornPhrases(canonical, config.wornPhrases));
+  }
 
   return matches.sort((a, b) => a.offset - b.offset);
 }
@@ -196,6 +202,37 @@ function matchWordiness(canonical: string, pairs: [string, string][]): RuleMatch
       };
     },
   );
+}
+
+/**
+ * Words and short phrases a house style bans outright: the Prose Linter's
+ * always-empty list and the Economist guide's jargon. The list is data. The
+ * diagnosis names the problem and never proposes a replacement word, because a
+ * rule may mark but not write (ADR-0003); where the source offers a specific
+ * shorter equivalent, that pairing lives in a Pass's `wordiness` config.
+ */
+function matchBannedWords(canonical: string, bannedWords: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, bannedWords, (quote, term) => ({
+    issue: `Banned word: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis:
+      "This word is on the house avoid list: it inflates or obscures without adding detail. " +
+      "Name the concrete thing instead.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/**
+ * Clichés, jargon metaphors and worn figures of speech. The list is data. As
+ * with banned words, the diagnosis never supplies replacement prose: the Writer
+ * decides what the phrase becomes.
+ */
+function matchWornPhrases(canonical: string, wornPhrases: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, wornPhrases, (quote, term) => ({
+    issue: `Worn phrase: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis:
+      "A stock figure of speech, worn smooth by overuse. Say what is actually happening.",
+    pattern: term.toLowerCase(),
+  }));
 }
 
 // ---------------------------------------------------------------------------

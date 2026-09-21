@@ -16,7 +16,7 @@ import { ReaderPanel } from "./editor/ReaderPanel";
 import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
-import { ConnectionsPanel } from "./wire/ConnectionsPanel";
+import { AiSettingsView } from "./settings/AiSettingsView";
 import { WorkbenchView } from "./workbench/WorkbenchView";
 
 /**
@@ -113,11 +113,15 @@ export default function App() {
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20: the Library is a view of its own; the Editor is the default. */
-  const [view, setView] = useState<"editor" | "library" | "privacy" | "workbench">("editor");
+  const [view, setView] = useState<"editor" | "library" | "privacy" | "workbench" | "settings">(
+    "editor",
+  );
   /** Which view the Privacy page returns to when the Writer leaves it. */
   const [privacyReturn, setPrivacyReturn] = useState<"editor" | "library">("editor");
   /** Which view the Pass workbench returns to when the Writer leaves it. */
   const [workbenchReturn, setWorkbenchReturn] = useState<"editor" | "library">("editor");
+  /** Which view AI Settings returns to when the Writer leaves it. */
+  const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
   /** Stories 91–93: the sidebar's two tabs keep Reader output apart from the queue. */
@@ -175,6 +179,15 @@ export default function App() {
   const openWorkbench = useCallback(() => {
     setWorkbenchReturn(view === "library" ? "library" : "editor");
     setView("workbench");
+  }, [view]);
+
+  /**
+   * AI Settings: Connections, Slots and the run settings, in one view reachable
+   * from the Editor and the Library.
+   */
+  const openSettings = useCallback(() => {
+    setSettingsReturn(view === "library" ? "library" : "editor");
+    setView("settings");
   }, [view]);
 
   /** Clears the Editor's view state that belongs to the Document being left. */
@@ -274,39 +287,9 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openQueue, currentFindingId, currentFinding, leaveQueue, markAddressed, decline, sidebarTab]);
 
-  if (status === "loading") {
-    return (
-      <CenteredMessage>
-        <p className="text-stone-500">Opening your Library…</p>
-      </CenteredMessage>
-    );
-  }
-
-  if (status === "error") {
-    return (
-      <CenteredMessage>
-        <h1 className="text-lg font-semibold text-stone-900">Obelus could not open your Library</h1>
-        <p className="mt-2 max-w-md text-sm text-stone-600">{openError}</p>
-      </CenteredMessage>
-    );
-  }
-
-  const visibleRevisions = milestonesOnly
-    ? revisions.filter((revision) => revision.flagged)
-    : revisions;
-
-  const onFlagMilestone = async () => {
-    await flagMilestone(milestoneNote);
-    setMilestoneNote("");
-  };
-
-  const onExport = () => {
-    downloadText(
-      `${slug(document?.title ?? "document")}.md`,
-      exportToMarkdown(),
-      "text/markdown;charset=utf-8",
-    );
-  };
+  // These are hooks, so they must run on every render, before the early returns
+  // below. Declaring them after the returns changed the hook count once the
+  // Library finished loading and React refused to render (error #310).
 
   /** Story 102: downloads the whole Pass set as one JSON file. */
   const onExportPassSet = useCallback(() => {
@@ -371,6 +354,40 @@ export default function App() {
     [importBundle, leaveEditor],
   );
 
+  if (status === "loading") {
+    return (
+      <CenteredMessage>
+        <p className="text-stone-500">Opening your Library…</p>
+      </CenteredMessage>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <CenteredMessage>
+        <h1 className="text-lg font-semibold text-stone-900">Obelus could not open your Library</h1>
+        <p className="mt-2 max-w-md text-sm text-stone-600">{openError}</p>
+      </CenteredMessage>
+    );
+  }
+
+  const visibleRevisions = milestonesOnly
+    ? revisions.filter((revision) => revision.flagged)
+    : revisions;
+
+  const onFlagMilestone = async () => {
+    await flagMilestone(milestoneNote);
+    setMilestoneNote("");
+  };
+
+  const onExport = () => {
+    downloadText(
+      `${slug(document?.title ?? "document")}.md`,
+      exportToMarkdown(),
+      "text/markdown;charset=utf-8",
+    );
+  };
+
   const onImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.target;
     const file = input.files?.[0];
@@ -404,6 +421,14 @@ export default function App() {
               className={HEADER_BUTTON_CLASS}
             >
               Back to {privacyReturn === "library" ? "the Library" : "the Editor"}
+            </button>
+          ) : view === "settings" ? (
+            <button
+              type="button"
+              onClick={() => setView(settingsReturn)}
+              className={HEADER_BUTTON_CLASS}
+            >
+              Back to {settingsReturn === "library" ? "the Library" : "the Editor"}
             </button>
           ) : (
             <>
@@ -450,6 +475,9 @@ export default function App() {
                   Pass workbench
                 </button>
               )}
+              <button type="button" onClick={openSettings} className={HEADER_BUTTON_CLASS}>
+                AI Settings
+              </button>
               <button type="button" onClick={openPrivacy} className={HEADER_BUTTON_CLASS}>
                 Privacy
               </button>
@@ -489,6 +517,25 @@ export default function App() {
       )}
 
       {view === "privacy" && <PrivacyView />}
+
+      {view === "settings" && (
+        <AiSettingsView
+          connections={connections}
+          slots={slots}
+          judgeIsDefault={judgeIsDefault}
+          judgeDefaultName={judgeIsDefault ? (judgeConnection?.name ?? null) : null}
+          screeningFrame={screeningFrame}
+          characterLimit={characterLimit}
+          priceTable={priceTable}
+          onSaveConnection={(connection) => void saveConnection(connection)}
+          onAddCustom={() => void addCustomConnection()}
+          onRemoveConnection={(connectionId) => void removeConnection(connectionId)}
+          onAssignSlot={(slot, binding) => void assignSlot(slot, binding)}
+          onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
+          onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
+          onSavePriceTable={(table) => void savePriceTable(table)}
+        />
+      )}
 
       {view === "workbench" && (
         <WorkbenchView
@@ -613,29 +660,15 @@ export default function App() {
             lastRunReport={lastRunReport}
             runError={runError}
             criticName={criticConnection?.name ?? null}
-            screeningFrame={screeningFrame}
             documentLength={document?.canonical.length ?? 0}
             characterLimit={characterLimit}
             chunkCount={documentChunks}
             estimates={runEstimates}
-            priceTable={priceTable}
             sessionCost={sessionCost}
             onRun={(passId) => void runModelPass(passId)}
             onRunStructural={() => void runStructuralSet()}
             onCancel={cancelRun}
             onToggle={(passId, enabled) => void togglePass(passId, enabled)}
-            onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
-            onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
-            onSavePriceTable={(table) => void savePriceTable(table)}
-          />
-
-          <ConnectionsPanel
-            connections={connections}
-            slots={slots}
-            onSave={(connection) => void saveConnection(connection)}
-            onAddCustom={() => void addCustomConnection()}
-            onRemove={(connectionId) => void removeConnection(connectionId)}
-            onAssignSlot={(slot, connectionId) => void assignSlot(slot, connectionId)}
           />
 
           <JudgePanel

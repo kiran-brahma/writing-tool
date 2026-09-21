@@ -7,6 +7,8 @@ import {
   loadSlots,
   removeConnection,
   saveConnection,
+  slotConnection,
+  SLOTS_SETTING_KEY,
 } from "./connections";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import { clearAllSessionKeys } from "./sessionKeys";
@@ -145,23 +147,80 @@ describe("Custom Connections and Slots (stories 7, 14)", () => {
     expect(await removeConnection(database, "openai")).toBe(false);
   });
 
-  it("assigns a Connection to the critic and judge Slots", async () => {
+  it("assigns a Connection and a model to the critic and judge Slots", async () => {
     const database = await openTestDatabase();
     await loadOrCreateConnections(database);
-    await assignSlot(database, "critic", "openai");
-    const slots = await assignSlot(database, "judge", "anthropic");
+    await assignSlot(database, "critic", { connectionId: "openai", model: "gpt-x" });
+    const slots = await assignSlot(database, "judge", { connectionId: "anthropic", model: "claude-y" });
 
-    expect(slots).toEqual({ critic: "openai", judge: "anthropic" });
-    await expect(loadSlots(database)).resolves.toEqual({ critic: "openai", judge: "anthropic" });
+    expect(slots).toEqual({
+      critic: { connectionId: "openai", model: "gpt-x" },
+      judge: { connectionId: "anthropic", model: "claude-y" },
+    });
+    await expect(loadSlots(database)).resolves.toEqual(slots);
+  });
+
+  it("lets both Slots share one Connection with two different models", async () => {
+    // The reason the Judge needs no second route: one Provider, one key, two models.
+    const database = await openTestDatabase();
+    await loadOrCreateConnections(database);
+    await assignSlot(database, "critic", { connectionId: "openai", model: "gpt-x" });
+    await assignSlot(database, "judge", { connectionId: "openai", model: "gpt-y" });
+
+    const slots = await loadSlots(database);
+
+    expect(slots.critic?.connectionId).toBe(slots.judge?.connectionId);
+    expect(slots.critic?.model).toBe("gpt-x");
+    expect(slots.judge?.model).toBe("gpt-y");
+  });
+
+  it("reads a Slot stored before bindings as a binding that inherits the Connection's model", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({
+      key: SLOTS_SETTING_KEY,
+      value: { critic: "openai", judge: null },
+    });
+
+    await expect(loadSlots(database)).resolves.toEqual({
+      critic: { connectionId: "openai", model: "" },
+      judge: null,
+    });
   });
 
   it("clears a Slot when its Custom Connection is removed", async () => {
     const database = await openTestDatabase();
     await loadOrCreateConnections(database);
     await saveConnection(database, createCustomConnection("custom-1"));
-    await assignSlot(database, "critic", "custom-1");
+    await assignSlot(database, "critic", { connectionId: "custom-1", model: "" });
     await removeConnection(database, "custom-1");
     await expect(loadSlots(database)).resolves.toEqual({ critic: null, judge: null });
+  });
+});
+
+describe("slotConnection", () => {
+  const base = { ...createCustomConnection("route"), model: "gpt-base" };
+
+  it("applies the Slot's model over the Connection's own, and empty inherits", () => {
+    expect(
+      slotConnection([base], { connectionId: "route", model: "judge-model" }),
+    ).toMatchObject({ model: "judge-model" });
+    expect(slotConnection([base], { connectionId: "route", model: "" })).toMatchObject({
+      model: "gpt-base",
+    });
+  });
+
+  it("resolves to null for an unset Slot or a Connection that is gone", () => {
+    expect(slotConnection([base], null)).toBeNull();
+    expect(slotConnection([base], { connectionId: "missing", model: "x" })).toBeNull();
+  });
+
+  it("lets one Connection serve both Slots with different models", () => {
+    const critic = slotConnection([base], { connectionId: "route", model: "gpt-x" });
+    const judge = slotConnection([base], { connectionId: "route", model: "gpt-y" });
+
+    expect(critic?.model).toBe("gpt-x");
+    expect(judge?.model).toBe("gpt-y");
+    expect(critic?.baseUrl).toBe(judge?.baseUrl);
   });
 });
 

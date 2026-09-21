@@ -213,6 +213,16 @@ function readRuleConfig(value: unknown): RuleConfig | null {
     }
     config.repetitionWindow = value.repetitionWindow;
   }
+  if (value.bannedWords !== undefined) {
+    const bannedWords = stringArray(value.bannedWords);
+    if (bannedWords === null) return null;
+    config.bannedWords = bannedWords;
+  }
+  if (value.wornPhrases !== undefined) {
+    const wornPhrases = stringArray(value.wornPhrases);
+    if (wornPhrases === null) return null;
+    config.wornPhrases = wornPhrases;
+  }
   return config;
 }
 

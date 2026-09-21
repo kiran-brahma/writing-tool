@@ -269,13 +269,18 @@ export function sameModelWarning(
   const criticModel = critic.model.trim();
   const judgeModel = judge.model.trim();
   const sameModel = criticModel !== "" && criticModel === judgeModel;
-  if (critic.id !== judge.id && !sameModel) return null;
+  // An unnamed Critic and Judge on one Connection are the same route with
+  // nothing to tell them apart. The same Connection with different models is
+  // now a legitimate setup, so it does not warn on the shared id alone.
+  const sameUnnamedConnection =
+    criticModel === "" && judgeModel === "" && critic.id === judge.id;
+  if (!sameModel && !sameUnnamedConnection) return null;
 
   const named = criticModel === "" ? critic.name : criticModel;
   return (
     `The Critic and the Judge both use "${named}", so the Judge may not be independent. ` +
-    `This is a warning, not a block; assign a different Connection to the Judge Slot for ` +
-    `an independent verdict.`
+    `This is a warning, not a block; give the Judge Slot a different model for an ` +
+    `independent verdict.`
   );
 }
 

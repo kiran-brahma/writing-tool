@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Finding } from "./finding";
 import type { Pass, RuleConfig } from "./pass";
 import { ruleMatches, runRulePass } from "./rulePass";
-import { HEDGES_PASS, STARTER_PASSES, WORDINESS_PASS } from "./starterPasses";
+import { HEDGES_PASS, STARTER_PASSES, WORDINESS_PASS, BANNED_WORDS_PASS, WORN_PHRASES_PASS } from "./starterPasses";
 
 /** A rule Pass carrying only the config under test. */
 function passWith(ruleConfig: RuleConfig): Pass {
@@ -151,6 +151,50 @@ describe("ruleMatches", () => {
     const matches = ruleMatches("In order to go.\n", WORDINESS_PASS);
 
     expect(matches.map((match) => match.pattern)).toEqual(["in order to"]);
+  });
+
+  it("flags a banned word and names the problem without a replacement", () => {
+    const matches = ruleMatches(
+      "We should leverage our ecosystem.\n",
+      passWith({ bannedWords: ["leverage", "ecosystem"] }),
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["leverage", "ecosystem"]);
+    expect(matches[0].issue).toBe('Banned word: "leverage"');
+    expect(matches[0].diagnosis).not.toContain('"');
+  });
+
+  it("flags a worn phrase and prefers the longer configured phrase", () => {
+    const matches = ruleMatches(
+      "It is a perfect storm.\n",
+      passWith({ wornPhrases: ["storm", "perfect storm"] }),
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["perfect storm"]);
+    expect(matches[0].issue).toBe('Worn phrase: "perfect storm"');
+  });
+
+  it("flags the Reduction List and the Anglo-Saxon preference from the guide", () => {
+    const matches = ruleMatches(
+      "We sold off the track record. We purchase a drone.\n",
+      WORDINESS_PASS,
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual([
+      "sold off",
+      "track record",
+      "purchase",
+    ]);
+    expect(matches[1].diagnosis).toContain('"record"');
+  });
+
+  it("ships the doc-derived house-style lists in the Starter pack", () => {
+    expect(
+      ruleMatches("We leverage synergy.\n", BANNED_WORDS_PASS).map((match) => match.pattern),
+    ).toEqual(["leverage", "synergy"]);
+    expect(
+      ruleMatches("It is a perfect storm.\n", WORN_PHRASES_PASS).map((match) => match.pattern),
+    ).toEqual(["perfect storm"]);
   });
 });
 

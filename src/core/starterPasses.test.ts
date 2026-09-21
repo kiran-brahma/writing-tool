@@ -40,6 +40,8 @@ describe("Starter model passes", () => {
       "openers",
       "wordiness",
       "repetition",
+      "banned-words",
+      "worn-phrases",
       "characters-actions",
       "topic-strings",
       "paragraph-reorder",
