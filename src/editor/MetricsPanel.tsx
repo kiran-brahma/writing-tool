@@ -6,12 +6,14 @@ import { documentMetrics, paragraphShapeMetrics } from "../core/metrics";
  * Story 31: sentence length, its variance and adverb density, so a monotone
  * rhythm is visible rather than felt. Story 141 adds A3 uniform paragraph shape
  * as a metric — the longest run of Paragraphs sharing a sentence count — so a
- * monotone paragraph rhythm is visible too. Everything here is derived on every
- * keystroke; it is free, local and deterministic, while the Findings the panel
- * sits beside refresh on save.
+ * monotone paragraph rhythm is visible too. Story 143 adds be-verb, preposition
+ * and abstract-noun density, the deterministic diagnostic set. Everything here
+ * is derived on every keystroke; it is free, local and deterministic, while the
+ * Findings the panel sits beside refresh on save.
  *
- * A3 reads the Document tree rather than the canonical string, because block
- * structure is the tree's to know; the rest of the metrics read the string.
+ * A metric is a signal, not a verdict: no row has a threshold, a colour or a
+ * gate. A3 reads the Document tree rather than the canonical string, because
+ * block structure is the tree's to know; the rest of the metrics read the string.
  */
 export function MetricsPanel({ canonical, tree }: { canonical: string; tree: DocTree }) {
   const metrics = useMemo(() => documentMetrics(canonical), [canonical]);
@@ -26,11 +28,21 @@ export function MetricsPanel({ canonical, tree }: { canonical: string; tree: Doc
         <Metric label="Length variance" value={format(metrics.sentenceLengthVariance)} />
         <Metric label="Longest" value={`${metrics.longestSentence} words`} />
         <Metric label="Adverbs" value={`${format(metrics.adverbDensity)} / 100 words`} />
+        <Metric label="Be-verbs" value={`${format(metrics.beVerbDensity)} / 100 words`} />
+        <Metric
+          label="Prepositions"
+          value={`${format(metrics.prepositionDensity)} / 100 words`}
+        />
+        <Metric
+          label="Abstract nouns"
+          value={`${format(metrics.abstractNounDensity)} / 100 words`}
+        />
         <Metric
           label="Uniform paragraphs"
           value={`${shape.longestUniformParagraphRun} in a row`}
         />
       </dl>
+      <p className="mt-2 text-xs text-stone-500">A signal, not a verdict.</p>
       <ChipRow label="Sentence lengths" values={metrics.sentenceLengths} />
       <ChipRow label="Paragraph sentence counts" values={shape.paragraphSentenceCounts} />
     </section>

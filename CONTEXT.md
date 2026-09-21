@@ -204,6 +204,12 @@ An Audit pass's output: the piece's argument map, any fallacies or definition ga
 that matter most.
 _Avoid_: report, notes, argument account
 
+**Lard Factor**:
+The share of an earlier Revision's words that a later Revision removes, so progress is visible rather
+than felt; it is negative when the later Revision is longer. A signal, not a verdict: it gates
+nothing.
+_Avoid_: lard score, cut ratio, reduction
+
 ## The judge's answers
 
 **Verdict**:

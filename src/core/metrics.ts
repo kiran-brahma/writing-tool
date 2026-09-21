@@ -1,7 +1,8 @@
 import { canonicalBlocks } from "./canonicalText";
 import type { DocTree } from "./docTree";
-import { splitSentences } from "./sentences";
+import { splitSentences, type Sentence } from "./sentences";
 import { countWords, tokenizeWords } from "./tokens";
+import { wordDiff } from "./wordDiff";
 
 /**
  * Document rhythm metrics: sentence length and its variance, and adverb
@@ -17,6 +18,18 @@ import { countWords, tokenizeWords } from "./tokens";
  *   common adverbs that do not end in `-ly`. It is a rule, not a parser, so a
  *   noun like "family" counts: the number is a signal, not a verdict.
  * - Adverb density is adverbs per 100 words.
+ * - Be-verbs are the forms of *be*: `am`, `is`, `are`, `was`, `were`, `be`,
+ *   `being`, `been`. Contractions are one token to the tokenizer, so "it's" is
+ *   not split into "it" and "is"; the count is a rule, not a parser.
+ * - Prepositions are a fixed list of common prepositions. A homograph that is
+ *   sometimes a preposition and sometimes not ("to", "as", "for") is counted
+ *   as one here, the way Lanham's Paramedic Method circles it.
+ * - Abstract nouns are words ending in a nominalization suffix, at least four
+ *   characters longer than the suffix, the same floor the nominalizations rule
+ *   applies. This overlaps that pass on purpose: the metric is a trend, not a
+ *   list of instances.
+ * - Density is per 100 words for every count on this interface, so the panel's
+ *   numbers are comparable.
  */
 export interface DocumentMetrics {
   sentenceCount: number;
@@ -30,6 +43,15 @@ export interface DocumentMetrics {
   adverbCount: number;
   /** Adverbs per 100 words. */
   adverbDensity: number;
+  beVerbCount: number;
+  /** Be-verbs per 100 words. */
+  beVerbDensity: number;
+  prepositionCount: number;
+  /** Prepositions per 100 words. */
+  prepositionDensity: number;
+  abstractNounCount: number;
+  /** Abstract nouns per 100 words. */
+  abstractNounDensity: number;
 }
 
 /**
@@ -82,12 +104,12 @@ export function documentMetrics(canonical: string): DocumentMetrics {
           0,
         ) / sentenceCount;
   const longestSentence = lengths.reduce((longest, length) => Math.max(longest, length), 0);
-  // Adverbs are counted over the same prose the lengths are, so the numerator
-  // and denominator of the density cannot disagree about what text is prose.
-  const adverbCount = sentences.reduce(
-    (total, sentence) => total + countAdverbs(sentence.text),
-    0,
-  );
+  // Every count is read over the same prose the lengths are, so a count and the
+  // word total behind its density cannot disagree about what text is prose.
+  const adverbCount = countInSentences(sentences, isAdverb);
+  const beVerbCount = countInSentences(sentences, isBeVerb);
+  const prepositionCount = countInSentences(sentences, isPreposition);
+  const abstractNounCount = countInSentences(sentences, isAbstractNoun);
 
   return {
     sentenceCount,
@@ -97,8 +119,34 @@ export function documentMetrics(canonical: string): DocumentMetrics {
     sentenceLengthVariance,
     longestSentence,
     adverbCount,
-    adverbDensity: wordCount === 0 ? 0 : (adverbCount / wordCount) * 100,
+    adverbDensity: perHundredWords(adverbCount, wordCount),
+    beVerbCount,
+    beVerbDensity: perHundredWords(beVerbCount, wordCount),
+    prepositionCount,
+    prepositionDensity: perHundredWords(prepositionCount, wordCount),
+    abstractNounCount,
+    abstractNounDensity: perHundredWords(abstractNounCount, wordCount),
   };
+}
+
+/**
+ * The Lard Factor between two Revisions: the share of the earlier Revision's
+ * words that the later one removes, `(before − after) / before`, read from the
+ * word-level diff so the number and the visible diff cannot disagree. A negative
+ * factor means the later Revision is longer. An empty "before" has no share to
+ * take, so it returns 0. It is display only: a signal, not a verdict, and
+ * nothing gates on it.
+ */
+export function lardFactor(before: string, after: string): number {
+  let beforeWords = 0;
+  let afterWords = 0;
+  for (const segment of wordDiff(before, after)) {
+    const words = countWords(segment.value);
+    if (segment.kind !== "added") beforeWords += words;
+    if (segment.kind !== "removed") afterWords += words;
+  }
+
+  return beforeWords === 0 ? 0 : (beforeWords - afterWords) / beforeWords;
 }
 
 /**
@@ -135,10 +183,142 @@ export function isAdverb(token: string): boolean {
   return lower.length >= 4 && lower.endsWith("ly");
 }
 
-function countAdverbs(text: string): number {
+/**
+ * The forms of *be*. This list is deliberately fixed and independent of the
+ * passive rule's editable auxiliary config, so the metric stays a stable
+ * diagnostic while the Writer edits that rule.
+ */
+const BE_VERBS = new Set(["am", "is", "are", "was", "were", "be", "being", "been"]);
+
+export function isBeVerb(token: string): boolean {
+  return BE_VERBS.has(token.toLowerCase());
+}
+
+/**
+ * Common prepositions. A word that is only sometimes a preposition is counted
+ * anyway, because the method circles the word, not its parse.
+ */
+const PREPOSITIONS = new Set([
+  "about",
+  "above",
+  "across",
+  "after",
+  "against",
+  "along",
+  "alongside",
+  "amid",
+  "amidst",
+  "among",
+  "amongst",
+  "around",
+  "as",
+  "at",
+  "atop",
+  "before",
+  "behind",
+  "below",
+  "beneath",
+  "beside",
+  "besides",
+  "between",
+  "beyond",
+  "by",
+  "concerning",
+  "despite",
+  "down",
+  "during",
+  "except",
+  "excluding",
+  "for",
+  "from",
+  "in",
+  "including",
+  "inside",
+  "into",
+  "like",
+  "minus",
+  "near",
+  "notwithstanding",
+  "of",
+  "off",
+  "on",
+  "onto",
+  "opposite",
+  "out",
+  "outside",
+  "over",
+  "past",
+  "per",
+  "plus",
+  "regarding",
+  "round",
+  "since",
+  "than",
+  "through",
+  "throughout",
+  "till",
+  "to",
+  "toward",
+  "towards",
+  "under",
+  "underneath",
+  "unlike",
+  "until",
+  "unto",
+  "up",
+  "upon",
+  "versus",
+  "via",
+  "with",
+  "within",
+  "without",
+  "worth",
+]);
+
+export function isPreposition(token: string): boolean {
+  return PREPOSITIONS.has(token.toLowerCase());
+}
+
+/**
+ * The abstract-noun suffixes from the Sword/Williams/Lanham diagnostic set,
+ * plus `sion` and `ancy`, which the nominalizations rule also counts. This list
+ * is deliberately fixed and independent of that rule's editable suffix config,
+ * so the metric stays a stable diagnostic. A word must be at least four
+ * characters longer than the suffix, the same floor the rule applies: "nation"
+ * and "city" do not fire, while "implementation" and "capitalism" do.
+ */
+const ABSTRACT_NOUN_SUFFIXES = [
+  "tion",
+  "sion",
+  "ment",
+  "ance",
+  "ence",
+  "ency",
+  "ancy",
+  "ity",
+  "ness",
+  "ism",
+];
+
+export function isAbstractNoun(token: string): boolean {
+  const lower = token.toLowerCase();
+  return ABSTRACT_NOUN_SUFFIXES.some(
+    (suffix) => lower.endsWith(suffix) && lower.length >= suffix.length + 4,
+  );
+}
+
+/** How many words in the prose satisfy a classifier. */
+function countInSentences(sentences: Sentence[], predicate: (token: string) => boolean): number {
   let count = 0;
-  for (const token of tokenizeWords(text)) {
-    if (isAdverb(token.value)) count += 1;
+  for (const sentence of sentences) {
+    for (const token of tokenizeWords(sentence.text)) {
+      if (predicate(token.value)) count += 1;
+    }
   }
   return count;
+}
+
+/** A count per hundred words, zero when there are no words to divide by. */
+function perHundredWords(count: number, wordCount: number): number {
+  return wordCount === 0 ? 0 : (count / wordCount) * 100;
 }

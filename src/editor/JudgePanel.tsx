@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AnchorDraft } from "../core/finding";
 import type { JudgeResult, JudgeVerdict } from "../core/judge";
 import { extractPassages, type ExtractedPassages } from "../core/judgeSelection";
+import { lardFactor } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
 
@@ -90,6 +91,13 @@ export function JudgePanel({
     [beforeCanonical, afterCanonical],
   );
 
+  // Story 144: the Lard Factor for the same pair the diff is for, so the number
+  // and the diff on screen cannot disagree. Display only.
+  const lard =
+    beforeCanonical !== null && afterCanonical !== null
+      ? lardFactor(beforeCanonical, afterCanonical)
+      : null;
+
   // A Verdict is shown only while the passages on screen are the ones it judged,
   // so switching the pair never leaves a stale preference labelled as this one's.
   const shownResult =
@@ -170,6 +178,16 @@ export function JudgePanel({
               diff.map((segment, index) => <DiffSegmentView key={index} segment={segment} />)
             )}
           </pre>
+          {lard !== null && (
+            <p className="mt-1 text-xs text-stone-600">
+              Lard Factor:{" "}
+              <span className="font-medium text-stone-800">{formatLardFactor(lard)}</span>{" "}
+              <span className="text-stone-500">
+                — the share of the earlier Revision's words cut in the later one. A signal, not a
+                verdict.
+              </span>
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -385,4 +403,9 @@ function preferenceLabel(preference: JudgeVerdict["preference"]): string {
     case "tie":
       return "Neither version is clearly better";
   }
+}
+
+/** The Lard Factor as a signed percentage, one decimal, so 0.125 reads "12.5%". */
+function formatLardFactor(factor: number): string {
+  return `${(factor * 100).toFixed(1)}%`;
 }
