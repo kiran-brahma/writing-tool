@@ -75,11 +75,16 @@ describe("send", () => {
   });
 
   it("reports an unreachable Connection honestly when fetch throws (story 55)", async () => {
+    // The OpenAI bad-key case: a 401 without Access-Control-Allow-Origin reaches
+    // the browser as an opaque network failure. It must be reported as
+    // unreachable, pointing at "Test connection", and never guessed at.
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     const transport = createFetchTransport();
-    await expect(transport.send(request(connection("openai")))).rejects.toBeInstanceOf(
-      UnreachableError,
-    );
+    const error = await transport.send(request(connection("openai"))).catch((thrown) => thrown);
+    expect(error).toBeInstanceOf(UnreachableError);
+    expect((error as Error).message).toContain("OpenAI");
+    expect((error as Error).message).toContain("Test connection");
+    expect((error as Error).message).toContain("Failed to fetch");
   });
 
   it("refuses a URL outside the configured Connection (privacy, story 13)", () => {
