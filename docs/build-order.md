@@ -112,6 +112,10 @@ next deploy that touches the schema must not bundle another.
 
 Steps 9 and 10 may swap: both are blocked only by row 7.
 
+**#2 (Toolchain and shell)** has no row because it is the order's foundation rather than a step in
+it: the Vite/React/TypeScript toolchain, the test runner, the gates, the in-memory IndexedDB setup
+and the deployed shell with its CSP. It is closed.
+
 ## Why this order
 
 **The offline loop completes at step 3.** After #15 — with no API key, no Connection and no network — a
@@ -138,7 +142,11 @@ The graph has seven independent waves:
 - **Wave 6:** #9, #10, #11, #20
 - **Wave 7:** #21
 
-## Two things to decide
+## Two questions, both settled
+
+Both were closed by completing the order: #5 landed after #4 and #14 as the graph required, and #4
+was split once (#24) rather than overflowing. The reasoning is kept because it is why the order was
+shaped this way.
 
 **#5's edge on #4 may be removable.** #5 is blocked by #4 and #14, but only #14 is needed to exercise
 re-location — #14's rule-pass Findings already give it Anchors. Dropping the #4 edge moves the
