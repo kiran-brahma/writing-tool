@@ -12,6 +12,7 @@ import { hashPass, type Pass } from "./pass";
 import { parseFindings, UnsupportedOutputShapeError } from "./parseFindings";
 import { fillPrompt, promptValues } from "./prompt";
 import type { Target } from "./target";
+import { isInsideVoiceList, voiceListIntervals } from "./voiceList";
 
 /** The Target shape is part of the entry point's contract; export it here too. */
 export type { Target } from "./target";
@@ -21,6 +22,12 @@ export interface RunConfig {
   transport: Transport;
   /** Story 77: the screening frame is settable and applies to critic Passes. */
   screeningFrame: boolean;
+  /**
+   * Story 151: the Writer's Voice list, sent to a Findings pass so it does not
+   * report the words the Writer has declared theirs. Omitted or empty, no clause
+   * is attached.
+   */
+  voiceList?: string[];
   /** The Revision current when the Run was triggered. */
   revisionId: string;
   now?: number;
@@ -118,12 +125,14 @@ async function critiqueOnce(
   config: RunConfig,
 ): Promise<RunResult> {
   const prompt = fillPrompt(pass.prompt ?? "", promptValues(target));
+  const voiceList = config.voiceList ?? [];
   const built = buildPassRequest({
     pass,
     connection,
     prompt,
     schema: FINDINGS_SCHEMA,
     screeningFrame: config.screeningFrame,
+    voiceList,
     ...(config.maxOutputTokens === undefined ? {} : { maxOutputTokens: config.maxOutputTokens }),
   });
   let reportedUsage: ModelUsage | undefined;
@@ -143,7 +152,11 @@ async function critiqueOnce(
 
   const now = config.now ?? Date.now();
   const promptHash = hashPass(pass);
-  const findings: Finding[] = contained.kept.map(({ draft, interval: _interval }) => ({
+  // Story 152: a model Finding that still duplicates a Voice-list entry is
+  // annotated, never hidden, so a model that ignored the list stays visible. The
+  // check uses the interval Containment resolved, not the model's offset hint.
+  const voiceEntries = voiceListIntervals(target.canonical, voiceList);
+  const findings: Finding[] = contained.kept.map(({ draft, interval }) => ({
     id: crypto.randomUUID(),
     passId: pass.id,
     promptHash,
@@ -156,6 +169,7 @@ async function critiqueOnce(
     status: "open",
     provenance: provenanceFor(connection, config.revisionId, now),
     ...(draft.violations.length === 0 ? {} : { violations: draft.violations }),
+    ...(isInsideVoiceList(interval, voiceEntries) ? { inVoiceList: true as const } : {}),
   }));
 
   return {

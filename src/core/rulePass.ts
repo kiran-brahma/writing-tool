@@ -1,8 +1,10 @@
 import { resolveAnchor } from "./anchor";
 import type { AnchorDraft, Finding } from "./finding";
+import { cleanTerms, literalTermSpans, termPattern } from "./literalTerms";
 import { hashPass, type Pass, type RuleConfig } from "./pass";
 import { splitSentences, type Sentence } from "./sentences";
 import { tokenizeWords } from "./tokens";
+import { filterVoiceMatches } from "./voiceList";
 
 /**
  * The rule engine's contract: a pure function from the canonical string plus a
@@ -35,6 +37,12 @@ export interface RuleRunContext {
  * A rule Pass over the canonical string. The hedge sweep runs automatically on
  * save; #6 adds the remaining rule Passes behind the same entry point.
  *
+ * `voiceList` is the Writer's Voice list; it is applied here as well as in
+ * `ruleMatches`, so a caller that supplies its own `matches` cannot bypass
+ * story 150. The filter is idempotent, so the storage path — which precomputes
+ * filtered matches to decide whether a Revision is needed — can pass them back
+ * unchanged.
+ *
  * `matches` is the analysis phase's output. A caller that already computed it —
  * Storage does, because it needs to know whether any Pass matched before it
  * decides to take a Revision — passes it back so the document is analysed once.
@@ -44,13 +52,27 @@ export function runRulePass(
   canonical: string,
   pass: Pass,
   context: RuleRunContext,
-  matches: RuleMatch[] = ruleMatches(canonical, pass),
+  voiceList: string[] = [],
+  matches: RuleMatch[] = ruleMatches(canonical, pass, voiceList),
 ): Finding[] {
-  return findingsFromMatches(matches, canonical, pass, context);
+  return findingsFromMatches(
+    filterVoiceMatches(matches, canonical, voiceList),
+    canonical,
+    pass,
+    context,
+  );
 }
 
-/** The deterministic matches a rule Pass finds, in document order. */
-export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
+/**
+ * The deterministic matches a rule Pass finds, in document order. Story 150: a
+ * match inside a Voice-list entry is dropped here, so a declared word leaves the
+ * queue before a Finding or a Revision is minted for it.
+ */
+export function ruleMatches(
+  canonical: string,
+  pass: Pass,
+  voiceList: string[] = [],
+): RuleMatch[] {
   const config: RuleConfig = pass.ruleConfig ?? {};
   const matches: RuleMatch[] = [];
 
@@ -96,7 +118,7 @@ export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
     matches.push(...matchAiTellOpeners(canonical, config.aiTellOpeners));
   }
 
-  return matches.sort((a, b) => a.offset - b.offset);
+  return filterVoiceMatches(matches.sort((a, b) => a.offset - b.offset), canonical, voiceList);
 }
 
 /** Shapes matches into Findings, computing each Anchor's state by resolution. */
@@ -149,44 +171,23 @@ interface TermDescription {
 }
 
 /**
- * Configured terms, trimmed, deduplicated and ordered longest-first so a phrase
- * wins over any word inside it. Shared by the literal-term and opener sweeps.
- */
-function uniqueTerms(values: string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))].sort(
-    (a, b) => b.length - a.length,
-  );
-}
-
-/**
  * Every configured term in the canonical string, in document order. Longer
  * terms are tried first so a phrase such as "of course" wins over any word in
- * it, and matching is case-insensitive with word boundaries so "just" does not
- * fire inside "justice". The regex engine consumes each match, so two
- * configured terms can never flag the same span.
+ * it. The matching itself is shared with the Voice list in `literalTerms`.
  */
 function matchLiteralTerms(
   canonical: string,
   terms: string[],
   describe: (quote: string, term: string) => TermDescription,
 ): RuleMatch[] {
-  const cleaned = uniqueTerms(terms);
-  if (cleaned.length === 0) return [];
+  const cleaned = cleanTerms(terms);
 
-  const pattern = new RegExp(cleaned.map(toTermPattern).join("|"), "gi");
-  const matches: RuleMatch[] = [];
-
-  for (const match of canonical.matchAll(pattern)) {
-    const start = match.index;
-    if (start === undefined) continue;
-    const quote = match[0];
+  return literalTermSpans(canonical, cleaned).map(({ quote, offset }) => {
     const normalized = quote.replace(/\s+/g, " ");
     const term =
       cleaned.find((candidate) => candidate.toLowerCase() === normalized.toLowerCase()) ?? normalized;
-    matches.push({ quote, offset: start, ...describe(quote, term) });
-  }
-
-  return matches;
+    return { quote, offset, ...describe(quote, term) };
+  });
 }
 
 /**
@@ -376,7 +377,7 @@ interface PassiveSpan {
  * whether the active is available is the Writer's judgment.
  */
 function findPassiveSpans(canonical: string, auxiliaries: string[]): PassiveSpan[] {
-  const cleaned = new Set(uniqueTerms(auxiliaries.map((auxiliary) => auxiliary.toLowerCase())));
+  const cleaned = new Set(cleanTerms(auxiliaries.map((auxiliary) => auxiliary.toLowerCase())));
   if (cleaned.size === 0) return [];
 
   const words = tokenizeWords(canonical);
@@ -449,7 +450,7 @@ function matchPassiveVoice(canonical: string, auxiliaries: string[]): RuleMatch[
  * lives with or edits away.
  */
 function matchNominalizations(canonical: string, suffixes: string[]): RuleMatch[] {
-  const cleaned = uniqueTerms(suffixes.map((suffix) => suffix.toLowerCase()));
+  const cleaned = cleanTerms(suffixes.map((suffix) => suffix.toLowerCase()));
   if (cleaned.length === 0) return [];
 
   const matches: RuleMatch[] = [];
@@ -504,7 +505,7 @@ function matchSentenceOpeners(
   openers: string[],
   describe: (quote: string, term: string) => TermDescription,
 ): RuleMatch[] {
-  const cleaned = uniqueTerms(openers);
+  const cleaned = cleanTerms(openers);
   if (cleaned.length === 0) return [];
 
   const matches: RuleMatch[] = [];
@@ -513,7 +514,7 @@ function matchSentenceOpeners(
     const leading = sentence.text.length - stripped.length;
 
     for (const term of cleaned) {
-      const pattern = new RegExp(`^${toTermPattern(term)}`, "i");
+      const pattern = new RegExp(`^${termPattern(term)}`, "i");
       const found = stripped.match(pattern);
       if (found === null) continue;
       const quote = found[0];
@@ -649,14 +650,3 @@ function firstContentWord(sentence: Sentence): { value: string; key: string; off
 }
 
 // ---------------------------------------------------------------------------
-// Shared term escaping
-// ---------------------------------------------------------------------------
-
-function toTermPattern(term: string): string {
-  // Whitespace inside a configured term is a space or a tab, never a newline:
-  // canonical blocks are separated by blank lines, so `\s+` could match a
-  // phrase across two blocks. Paragraph-internal line breaks already collapse
-  // to single spaces, so a literal phrase is always on one line.
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \t]+/g, "[ \\t]+");
-  return `\\b${escaped}\\b`;
-}

@@ -350,6 +350,7 @@ describe("the Run cache (story 53)", () => {
         model: connection().model,
         screeningFrame: true,
         characterLimit: DEFAULT_CHARACTER_LIMIT,
+        voiceList: [],
         target: current.interval,
       },
       {

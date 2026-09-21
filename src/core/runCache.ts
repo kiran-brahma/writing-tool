@@ -51,6 +51,12 @@ export interface RunCacheKeyInput {
   model: string;
   screeningFrame: boolean;
   characterLimit: number;
+  /**
+   * Story 151: the Voice list is attached to a Findings pass's request, so it
+   * shapes what the Transport is asked. A change to it must miss the cache
+   * rather than reuse Findings annotated against the previous list.
+   */
+  voiceList: string[];
   /** The Target's half-open interval in the Document's canonical string. */
   target: Interval;
 }
@@ -85,6 +91,7 @@ export function runCacheKey(input: RunCacheKeyInput): string {
     input.model,
     input.screeningFrame,
     input.characterLimit,
+    input.voiceList,
     input.target.start,
     input.target.end,
   ]);

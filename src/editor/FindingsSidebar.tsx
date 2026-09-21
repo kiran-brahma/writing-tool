@@ -142,6 +142,14 @@ function FindingRow({
         <p className="mt-1 text-stone-600">
           <StruckText text={finding.diagnosis} violations={violations} />
         </p>
+        {finding.inVoiceList === true && (
+          <p className="mt-1 text-xs text-stone-500">
+            <span className="rounded bg-stone-200 px-1.5 py-0.5 font-medium text-stone-600">
+              In your Voice list
+            </span>{" "}
+            The model flagged it anyway.
+          </p>
+        )}
         {!attached && (
           <p className="mt-1 text-xs italic text-stone-500">No longer found in the text.</p>
         )}

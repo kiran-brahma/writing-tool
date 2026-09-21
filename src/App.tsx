@@ -65,6 +65,8 @@ export default function App() {
     setScreeningFrame,
     characterLimit,
     setCharacterLimit,
+    voiceList,
+    setVoiceList,
     documentChunks,
     rawResponses,
     readerAccounts,
@@ -540,6 +542,7 @@ export default function App() {
           judgeDefaultName={judgeIsDefault ? (judgeConnection?.name ?? null) : null}
           screeningFrame={screeningFrame}
           characterLimit={characterLimit}
+          voiceList={voiceList}
           priceTable={priceTable}
           onSaveConnection={(connection) => void saveConnection(connection)}
           onAddCustom={() => void addCustomConnection()}
@@ -547,6 +550,7 @@ export default function App() {
           onAssignSlot={(slot, binding) => void assignSlot(slot, binding)}
           onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
           onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
+          onSaveVoiceList={(entries) => void setVoiceList(entries)}
           onSavePriceTable={(table) => void savePriceTable(table)}
         />
       )}

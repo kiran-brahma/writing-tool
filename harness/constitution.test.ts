@@ -33,11 +33,13 @@ import { storeHarnessReport } from "./store";
 const RAN_AT = Date.UTC(2026, 8, 19, 12, 0, 0);
 
 let report: HarnessReport;
+let voiceListReport: HarnessReport;
 let documentReport: HarnessReport;
 let readerReport: HarnessReport;
 let auditReport: HarnessReport;
 let chunkedAuditReport: HarnessReport;
 let transports: FixtureTransport[];
+let voiceListTransports: FixtureTransport[];
 let readerTransports: FixtureTransport[];
 let auditTransports: FixtureTransport[];
 
@@ -67,6 +69,25 @@ beforeAll(async () => {
     screeningFrame: true,
     transportFor: (testCase) =>
       createFixtureTransport({ respond: () => adversarialResponse(testCase.target) }),
+  });
+
+  // Story 151: the findings run with a Voice list, so the new system clause is
+  // exercised through the real `critique` entry point and held to the same
+  // constitution properties as every other findings case.
+  voiceListTransports = [];
+  voiceListReport = await runConstitutionHarness({
+    connection: connection(),
+    documents: HARNESS_DOCUMENTS,
+    passes: HARNESS_PASSES,
+    screeningFrame: true,
+    voiceList: ["leverage", "at its core"],
+    transportFor: (testCase) => {
+      const transport = createFixtureTransport({
+        respond: () => adversarialResponse(testCase.target),
+      });
+      voiceListTransports.push(transport);
+      return transport;
+    },
   });
 
   readerReport = await runConstitutionHarness({
@@ -178,6 +199,26 @@ describe("constitution harness", () => {
     for (const testCase of report.cases) {
       expect(check(testCase, "promptConstitution").ok).toBe(true);
     }
+  });
+
+  it("holds the Findings prompts to the constitution with a Voice list attached", () => {
+    expect(voiceListReport.cases).toHaveLength(9);
+    expect(voiceListReport.ok).toBe(true);
+    for (const testCase of voiceListReport.cases) {
+      expect(testCase.error).toBeNull();
+      for (const name of [
+        "parses",
+        "praiseFlagged",
+        "noRewriteField",
+        "anchorsContained",
+        "promptConstitution",
+      ] as const) {
+        expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
+      }
+    }
+
+    // The clause reached the request as a system instruction, not as prose.
+    expect(JSON.stringify(voiceListTransports[0].requests[0].body)).toContain("their own voice");
   });
 
   it("runs three fixture Documents × the two document-scope model Passes", () => {

@@ -347,6 +347,26 @@ describe("ruleMatches", () => {
     expect(matches.map((match) => match.quote)).toEqual(["bespoke"]);
     expect(ruleMatches("This is bespoke.\n", AI_TELLS_PASS)).toEqual([]);
   });
+
+  it("drops a match inside a Voice-list entry (story 150)", () => {
+    const pass = passWith({ hedges: ["very", "quite"] });
+
+    // "quite" is declared theirs; "very" is not.
+    const matches = ruleMatches("It is very quite good.\n", pass, ["quite"]);
+
+    expect(matches.map((match) => match.quote)).toEqual(["very"]);
+  });
+
+  it("silences a word inside a declared phrase, but not the same word outside it", () => {
+    const pass = passWith({ hedges: ["very"] });
+
+    // "very" sits inside the declared phrase "very good", so it leaves.
+    expect(ruleMatches("It is very good.\n", pass, ["very good"])).toEqual([]);
+    // Declaring the adjective alone does not cover the intensifier.
+    expect(
+      ruleMatches("It is very good.\n", pass, ["good"]).map((match) => match.quote),
+    ).toEqual(["very"]);
+  });
 });
 
 describe("runRulePass", () => {
@@ -380,6 +400,12 @@ describe("runRulePass", () => {
     expect(first.map((finding) => finding.anchor)).toEqual(
       second.map((finding) => finding.anchor),
     );
+  });
+
+  it("applies the Voice list to the matches it computes itself", () => {
+    const silenced = runRulePass("This is very good.\n", HEDGES_PASS, context, ["very good"]);
+
+    expect(silenced).toEqual([]);
   });
 });
 

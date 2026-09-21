@@ -24,6 +24,8 @@ export interface AiSettingsViewProps {
   judgeDefaultName: string | null;
   screeningFrame: boolean;
   characterLimit: number;
+  /** Stories 149–152: the words and phrases the Writer has declared theirs. */
+  voiceList: string[];
   priceTable: PriceTable;
   onSaveConnection: (connection: Connection) => void;
   onAddCustom: () => void;
@@ -31,6 +33,7 @@ export interface AiSettingsViewProps {
   onAssignSlot: (slot: Slot, binding: SlotBinding | null) => void;
   onToggleScreening: (enabled: boolean) => void;
   onSetCharacterLimit: (limit: number) => void;
+  onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
 }
 
@@ -41,6 +44,7 @@ export function AiSettingsView({
   judgeDefaultName,
   screeningFrame,
   characterLimit,
+  voiceList,
   priceTable,
   onSaveConnection,
   onAddCustom,
@@ -48,6 +52,7 @@ export function AiSettingsView({
   onAssignSlot,
   onToggleScreening,
   onSetCharacterLimit,
+  onSaveVoiceList,
   onSavePriceTable,
 }: AiSettingsViewProps) {
   return (
@@ -75,9 +80,11 @@ export function AiSettingsView({
       <RunSettingsPanel
         screeningFrame={screeningFrame}
         characterLimit={characterLimit}
+        voiceList={voiceList}
         priceTable={priceTable}
         onToggleScreening={onToggleScreening}
         onSetCharacterLimit={onSetCharacterLimit}
+        onSaveVoiceList={onSaveVoiceList}
         onSavePriceTable={onSavePriceTable}
       />
     </div>
@@ -289,16 +296,20 @@ function SlotEditor({
 function RunSettingsPanel({
   screeningFrame,
   characterLimit,
+  voiceList,
   priceTable,
   onToggleScreening,
   onSetCharacterLimit,
+  onSaveVoiceList,
   onSavePriceTable,
 }: {
   screeningFrame: boolean;
   characterLimit: number;
+  voiceList: string[];
   priceTable: PriceTable;
   onToggleScreening: (enabled: boolean) => void;
   onSetCharacterLimit: (limit: number) => void;
+  onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
 }) {
   return (
@@ -322,6 +333,15 @@ function RunSettingsPanel({
         </label>
         <CharacterLimitField value={characterLimit} onCommit={onSetCharacterLimit} />
       </div>
+
+      <details className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600" open>
+        <summary className="cursor-pointer select-none">Voice list</summary>
+        <p className="mt-1 text-stone-500">
+          Words and phrases you have declared yours. A rule pass drops them, and a model pass is
+          told not to flag them. A model Finding that still does is marked, never hidden.
+        </p>
+        <VoiceListField value={voiceList} onCommit={onSaveVoiceList} />
+      </details>
 
       <details className="px-4 py-2 text-xs text-stone-600">
         <summary className="cursor-pointer select-none">Price table</summary>
@@ -376,6 +396,38 @@ function CharacterLimitField({
         if (event.key === "Enter") event.currentTarget.blur();
       }}
       className="w-28 rounded border border-stone-300 bg-white px-2 py-1 text-right tabular-nums"
+    />
+  );
+}
+
+/**
+ * The Voice list is edited as one entry per line and committed on blur, exactly
+ * like the price table: a half-typed line never briefly silences a word. Blank
+ * lines are ignored and the stored value round-trips through normalisation, so
+ * the field snaps back to what was actually saved.
+ */
+function VoiceListField({
+  value,
+  onCommit,
+}: {
+  value: string[];
+  onCommit: (voiceList: string[]) => void;
+}) {
+  const [draft, setDraft] = useState(() => value.join("\n"));
+
+  useEffect(() => {
+    setDraft(value.join("\n"));
+  }, [value]);
+
+  return (
+    <textarea
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => onCommit(draft.split("\n"))}
+      rows={4}
+      spellCheck={false}
+      placeholder={"leverage\nat its core"}
+      className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1 font-mono text-xs"
     />
   );
 }

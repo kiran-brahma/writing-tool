@@ -1,8 +1,9 @@
 import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Provenance } from "./finding";
-import { passAcceptsFrame, type Pass } from "./pass";
+import { isFindingsPass, passAcceptsFrame, type Pass } from "./pass";
 import { SCREENING_FRAME } from "./screeningFrame";
+import { voiceListClause } from "./voiceList";
 
 /**
  * The pieces every model Pass builds the same way, so `critique` and
@@ -22,16 +23,31 @@ export interface PassRequestOptions {
   /** The JSON Schema for this output shape. */
   schema: object;
   screeningFrame: boolean;
+  /**
+   * Story 151: the Writer's Voice list. A Findings pass is told not to report
+   * these words; the Reader and the Audit are not, because the Voice list is
+   * about the copyedit queue and their output is not a Finding.
+   */
+  voiceList?: string[];
   maxOutputTokens?: number;
 }
 
 /**
- * The provider-agnostic request for one Pass call. The Screening frame is the
- * Critic's and is applied here, so a new output shape cannot forget it or apply
- * it to a Pass that is not a Critic.
+ * The provider-agnostic request for one Pass call. The Screening frame and the
+ * Voice list are the Critic's and are applied here, so a new output shape cannot
+ * forget them or apply them to a Pass that does not take them. The two share one
+ * system message when both are present, so a Provider sees a single standing
+ * instruction rather than several.
  */
 export function buildPassRequest(options: PassRequestOptions): ModelRequest {
-  const { pass, connection, prompt, schema, screeningFrame, maxOutputTokens } = options;
+  const { pass, connection, prompt, schema, screeningFrame, voiceList, maxOutputTokens } = options;
+  const system: string[] = [];
+  if (screeningFrame && pass.slot === "critic" && passAcceptsFrame(pass)) {
+    system.push(SCREENING_FRAME);
+  }
+  if (isFindingsPass(pass) && voiceList !== undefined && voiceList.length > 0) {
+    system.push(voiceListClause(voiceList));
+  }
   return {
     connection,
     model: connection.model,
@@ -39,9 +55,7 @@ export function buildPassRequest(options: PassRequestOptions): ModelRequest {
     maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: 0,
     jsonSchema: schema,
-    ...(screeningFrame && pass.slot === "critic" && passAcceptsFrame(pass)
-      ? { system: SCREENING_FRAME }
-      : {}),
+    ...(system.length === 0 ? {} : { system: system.join("\n\n") }),
   };
 }
 

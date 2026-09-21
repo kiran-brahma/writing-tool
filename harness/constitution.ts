@@ -90,6 +90,11 @@ export interface HarnessOptions {
    * applies and a short fixture Document is never split.
    */
   characterLimit?: number;
+  /**
+   * Story 151: the Voice list for a Findings case, so the harness exercises the
+   * new system clause. Omitted, no Voice list is sent.
+   */
+  voiceList?: string[];
   /** One Transport per case, so each case can carry its own recorded response. */
   transportFor: (testCase: HarnessCase) => Transport;
   /** Fixed for a reproducible result; defaults to now. */
@@ -145,6 +150,7 @@ async function runCase(
       revisionId: "harness-revision",
       now: ranAt,
       ...(options.characterLimit === undefined ? {} : { characterLimit: options.characterLimit }),
+      ...(options.voiceList === undefined ? {} : { voiceList: options.voiceList }),
     });
   } catch (error) {
     // A response the parser cannot read is a failed case, not a thrown harness:

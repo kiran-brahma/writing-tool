@@ -82,7 +82,7 @@ import {
   listAuditAccounts,
   runAuditPass as runAuditPassRecord,
 } from "./storage/auditAccounts";
-import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit } from "./storage/settings";
+import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit, loadVoiceList, saveVoiceList } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
 import { useDurability } from "./durability/useDurability";
 import { createCustomConnection, type Connection } from "./wire/connection";
@@ -157,6 +157,14 @@ export interface DocumentHandle {
    */
   characterLimit: number;
   setCharacterLimit: (limit: number) => Promise<void>;
+  /**
+   * Stories 149–152: the Voice list, the words and phrases the Writer has
+   * declared theirs. Rule passes drop a match inside an entry; a Findings model
+   * pass is told about the list; a surviving model match is annotated rather
+   * than hidden.
+   */
+  voiceList: string[];
+  setVoiceList: (entries: string[]) => Promise<void>;
   /**
    * Story 50: how many chunks a document-scope Run of the current Document
    * would make at the current limit. `1` when it fits in a single call, so the
@@ -283,6 +291,8 @@ export function useDocument(): DocumentHandle {
   /** Canonical strings of the provenance Revisions the stored Findings name. */
   const canonicalsRef = useRef<Map<string, string>>(new Map());
   const passesRef = useRef<Pass[]>(STARTER_PASSES);
+  /** Story 149: the Writer's Voice list, read by every rule and model Run. */
+  const voiceListRef = useRef<string[]>([]);
   const transportRef = useRef<Transport | null>(null);
   /**
    * The canonical string last saved or last read. Reader accounts describe a
@@ -314,6 +324,8 @@ export function useDocument(): DocumentHandle {
   const [sessionCost, setSessionCost] = useState(0);
   const [screeningFrame, setScreeningFrameState] = useState(true);
   const [characterLimit, setCharacterLimitState] = useState(DEFAULT_CHARACTER_LIMIT);
+  /** Stories 149–152: the words and phrases the Writer has declared theirs. */
+  const [voiceList, setVoiceListState] = useState<string[]>([]);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   /** Story 102: a Pass set save, import or restore failure. */
@@ -415,6 +427,9 @@ export function useDocument(): DocumentHandle {
     setSlots(await loadSlots(database));
     setScreeningFrameState(await loadScreeningFrame(database));
     setCharacterLimitState(await loadCharacterLimit(database));
+    const loadedVoiceList = await loadVoiceList(database);
+    voiceListRef.current = loadedVoiceList;
+    setVoiceListState(loadedVoiceList);
     setPriceTableState(await loadPriceTable(database));
     setLastBackedUp(await loadLastBackedUp(database));
   }, []);
@@ -452,7 +467,10 @@ export function useDocument(): DocumentHandle {
     const database = databaseRef.current;
     const current = documentRef.current;
     if (database === null || current === null) return;
-    await runRulePasses(database, current, { passes: passesRef.current });
+    await runRulePasses(database, current, {
+      passes: passesRef.current,
+      voiceList: voiceListRef.current,
+    });
     await refreshFindings(current);
     await refreshRevisions();
   }, [refreshFindings, refreshRevisions]);
@@ -475,7 +493,10 @@ export function useDocument(): DocumentHandle {
       setReaderAccounts(await listReaderAccounts(database, opened.id));
       setAuditAccounts(await listAuditAccounts(database, opened.id));
       setAuditReport(null);
-      await runRulePasses(database, opened, { passes: passesRef.current });
+      await runRulePasses(database, opened, {
+        passes: passesRef.current,
+        voiceList: voiceListRef.current,
+      });
       await refreshFindings(opened);
       await refreshRevisions();
     },
@@ -514,7 +535,10 @@ export function useDocument(): DocumentHandle {
             // idempotent, non-blocking and never fails the save that triggers it.
             void requestPersistentStorage();
             setSaveError(null);
-            await runRulePasses(database, current, { passes: passesRef.current });
+            await runRulePasses(database, current, {
+              passes: passesRef.current,
+              voiceList: voiceListRef.current,
+            });
             await refreshFindings(current);
             await refreshRevisions();
             // The prose changed, so any Reader account describes text that is
@@ -681,7 +705,10 @@ export function useDocument(): DocumentHandle {
       setAuditAccounts([]);
       setAuditReport(null);
 
-      await runRulePasses(database, updated, { passes: passesRef.current });
+      await runRulePasses(database, updated, {
+        passes: passesRef.current,
+        voiceList: voiceListRef.current,
+      });
       await refreshFindings(updated);
       await refreshRevisions();
     },
@@ -1096,6 +1123,7 @@ export function useDocument(): DocumentHandle {
           target,
           screeningFrame,
           characterLimit,
+          voiceList: voiceListRef.current,
           signal: controller.signal,
         });
         // Story 52: the session total uses the Provider's usage when there is
@@ -1361,6 +1389,22 @@ export function useDocument(): DocumentHandle {
     }
   }, []);
 
+  /** Stories 149–152: the Writer's Voice list, settable and persisted. */
+  const setVoiceList = useCallback(async (entries: string[]) => {
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      const saved = await saveVoiceList(database, entries);
+      voiceListRef.current = saved;
+      setVoiceListState(saved);
+      // Rule passes run on save, so a change to the Voice list must re-run them
+      // for the declared words to leave (or rejoin) the queue immediately.
+      await rerunRules();
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, [rerunRules]);
+
   const saveConnection = useCallback(async (connection: Connection) => {
     const database = databaseRef.current;
     if (database === null) return;
@@ -1441,6 +1485,8 @@ export function useDocument(): DocumentHandle {
     setScreeningFrame,
     characterLimit,
     setCharacterLimit,
+    voiceList,
+    setVoiceList,
     documentChunks,
     rawResponses,
     readerAccounts,

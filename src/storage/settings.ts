@@ -1,4 +1,5 @@
 import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
+import { normalizeVoiceList } from "../core/voiceList";
 import type { ObelusDatabase } from "./obelusDatabase";
 
 /**
@@ -50,4 +51,29 @@ export async function saveCharacterLimit(
 function normalizeCharacterLimit(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_CHARACTER_LIMIT;
   return Math.max(MIN_CHARACTER_LIMIT, Math.round(value));
+}
+
+/**
+ * Stories 149–152: the Voice list, the words and phrases the Writer has
+ * declared theirs. It is a JSON array of strings in the settings store beside
+ * the Screening frame and the character limit. Stored as structured data rather
+ * than a serialised string: the setting is read back by Core, not by a parser,
+ * and normalisation is `normalizeVoiceList`, so a bad value degrades to the
+ * empty list rather than throwing.
+ */
+export const VOICE_LIST_SETTING_KEY = "voiceList";
+
+export async function loadVoiceList(database: ObelusDatabase): Promise<string[]> {
+  const record = await database.settings.get(VOICE_LIST_SETTING_KEY);
+  return normalizeVoiceList(record?.value);
+}
+
+/** Stores the Voice list and returns the normalised value that was written. */
+export async function saveVoiceList(
+  database: ObelusDatabase,
+  voiceList: string[],
+): Promise<string[]> {
+  const normalized = normalizeVoiceList(voiceList);
+  await database.settings.put({ key: VOICE_LIST_SETTING_KEY, value: normalized });
+  return normalized;
 }

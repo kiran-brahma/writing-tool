@@ -55,6 +55,13 @@ export interface Finding {
   declineReason?: DeclineReason;
   provenance: Provenance;
   violations?: Violation[];
+  /**
+   * Story 152: true when a model Finding duplicates a Voice-list entry. The
+   * post-filter annotates rather than hides it, so a model that ignored the
+   * Voice list stays visible. It is local analysis, never sent to a model and
+   * absent from the findings schema.
+   */
+  inVoiceList?: true;
 }
 
 /** A half-open interval `[start, end)` over the canonical string. */

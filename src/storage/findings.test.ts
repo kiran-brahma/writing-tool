@@ -71,6 +71,29 @@ describe("runRulePasses", () => {
     expect(Object.keys(stored[0])).not.toContain("documentId");
   });
 
+  it("drops a rule match inside a Voice-list entry (story 150)", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("This is very good."), 1_100);
+
+    const silenced = await runRulePasses(database, saved, {
+      passes: [HEDGES_PASS],
+      voiceList: ["very good"],
+      now: 1_200,
+    });
+
+    expect(silenced).toEqual([]);
+    await expect(listFindings(database, document.id)).resolves.toEqual([]);
+
+    // Declaring a different entry leaves the intensifier in the queue.
+    const kept = await runRulePasses(database, saved, {
+      passes: [HEDGES_PASS],
+      voiceList: ["good"],
+      now: 1_300,
+    });
+    expect(kept.map((finding) => finding.anchor.quote)).toEqual(["very"]);
+  });
+
   it("takes a baseline Revision so a Finding can name one", async () => {
     const database = await openTestDatabase();
     const document = await loadOrCreateDocument(database, 1_000);

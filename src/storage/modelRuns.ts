@@ -73,6 +73,13 @@ export interface ModelRunOptions {
   screeningFrame: boolean;
   /** Story 50: the character limit above which a document Run is chunked. */
   characterLimit: number;
+  /**
+   * Story 151: the Writer's Voice list, attached to the Findings request and
+   * used by the post-filter that annotates a surviving match. Omitted reads as
+   * the empty list, so a caller that does not have the setting yet is not an
+   * error.
+   */
+  voiceList?: string[];
   /** Story 54: cancels the Run; an aborted Run stores no Findings. */
   signal?: AbortSignal;
   now?: number;
@@ -115,6 +122,7 @@ async function runModelPassNow(
     model: options.connection.model,
     screeningFrame: options.screeningFrame,
     characterLimit: options.characterLimit,
+    voiceList: options.voiceList ?? [],
     // A local Pass's input depends on the cursor, so the Target interval joins
     // the key: the same Pass over the same Document in another Paragraph is a
     // different request and must not be served from this Run's entry.
@@ -129,6 +137,7 @@ async function runModelPassNow(
           screeningFrame: options.screeningFrame,
           revisionId: revision.id,
           characterLimit: options.characterLimit,
+          voiceList: options.voiceList ?? [],
           ...(options.signal === undefined ? {} : { signal: options.signal }),
           now,
         })
