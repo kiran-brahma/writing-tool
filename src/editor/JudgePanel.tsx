@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { AnchorDraft } from "../core/finding";
-import type { JudgeResult, JudgeVerdict } from "../core/judge";
+import type { JudgeResult, JudgeSide, JudgeVerdict } from "../core/judge";
+import {
+  clearPrediction,
+  getPrediction,
+  predictionAgreement,
+  setPrediction,
+  subscribePrediction,
+  type JudgePrediction,
+  type PredictionAgreement,
+} from "../core/judgeCalibration";
 import { extractPassages, type ExtractedPassages } from "../core/judgeSelection";
 import { lardFactor } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
@@ -61,6 +70,10 @@ export function JudgePanel({
   const [afterId, setAfterId] = useState<string | null>(revisions[0]?.id ?? null);
   /** The passages the shown Verdict was produced from, so it is never misattributed. */
   const [judged, setJudged] = useState<{ before: string; after: string } | null>(null);
+  // Stories 156–157: the Writer's own prediction, held in memory for the session
+  // and never persisted. The store is subscribed rather than mirrored, so it is
+  // the one source of truth.
+  const prediction = useSyncExternalStore(subscribePrediction, getPrediction);
 
   // Revisions load just after the panel mounts, so the initial choice settles
   // the first time two are available rather than staying unset forever.
@@ -105,12 +118,25 @@ export function JudgePanel({
       ? result
       : null;
 
+  // A prediction is shown only for the pair it was recorded against, so a
+  // Verdict for a different pair is never paired with a stale prediction.
+  const predictionForPair =
+    prediction !== null && prediction.before === beforeText && prediction.after === afterText
+      ? prediction
+      : null;
+
   const canJudge =
     beforeText !== null &&
     afterText !== null &&
     judge !== null &&
     !running &&
     beforeId !== afterId;
+
+  /** Records the Writer's prediction for the current pair. Never a gate. */
+  const recordPrediction = (side: JudgeSide) => {
+    if (beforeText === null || afterText === null) return;
+    setPrediction({ before: beforeText, after: afterText, side });
+  };
 
   const hasTwoRevisions = revisions.length >= 2;
 
@@ -214,6 +240,41 @@ export function JudgePanel({
           </div>
         )}
 
+        {beforeText !== null && afterText !== null && (
+          <div className="rounded border border-stone-200 bg-stone-50 p-2">
+            <h3 className="mb-1 text-xs font-semibold text-stone-600">
+              Your prediction (optional)
+            </h3>
+            <p className="mb-2 text-xs text-stone-500">
+              Which version do you think is clearer? Kept in this session only, never sent to
+              the Judge, and never required to run it.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <PredictionButton
+                active={predictionForPair?.side === "before"}
+                onClick={() => recordPrediction("before")}
+              >
+                Version 1 is clearer
+              </PredictionButton>
+              <PredictionButton
+                active={predictionForPair?.side === "after"}
+                onClick={() => recordPrediction("after")}
+              >
+                Version 2 is clearer
+              </PredictionButton>
+              {predictionForPair !== null && (
+                <button
+                  type="button"
+                  onClick={clearPrediction}
+                  className="text-xs text-stone-500 underline hover:text-stone-700"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => {
@@ -234,7 +295,14 @@ export function JudgePanel({
           </p>
         )}
 
-        {shownResult !== null && <Verdict result={shownResult} />}
+        {shownResult !== null && (
+          <div className="space-y-2">
+            {predictionForPair !== null && (
+              <PredictionNote prediction={predictionForPair} verdict={shownResult.verdict} />
+            )}
+            <Verdict result={shownResult} />
+          </div>
+        )}
       </div>
     </section>
   );
@@ -270,6 +338,32 @@ function RevisionSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+function PredictionButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={[
+        "rounded border px-2 py-1 text-xs font-medium",
+        active
+          ? "border-stone-900 bg-stone-900 text-stone-50"
+          : "border-stone-300 bg-white text-stone-700 hover:bg-stone-100",
+      ].join(" ")}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -325,6 +419,47 @@ function DiffSegmentView({ segment }: { segment: WordDiffSegment }) {
       {segment.value}
     </span>
   );
+}
+
+function PredictionNote({
+  prediction,
+  verdict,
+}: {
+  prediction: JudgePrediction;
+  verdict: JudgeVerdict | null;
+}) {
+  const agreement = predictionAgreement(prediction, verdict);
+  if (agreement === null) return null;
+  return (
+    <div className={`rounded border p-2 text-xs ${AGREEMENT_CLASS[agreement]}`}>
+      <span className="font-semibold">Your prediction:</span>{" "}
+      {preferenceLabel(prediction.side)}. {agreementText(agreement, verdict)}
+    </div>
+  );
+}
+
+const AGREEMENT_CLASS: Record<PredictionAgreement, string> = {
+  agrees: "border-green-200 bg-green-50 text-green-900",
+  disagrees: "border-amber-200 bg-amber-50 text-amber-900",
+  tie: "border-stone-300 bg-stone-50 text-stone-700",
+  unstable: "border-stone-300 bg-stone-50 text-stone-700",
+};
+
+function agreementText(agreement: PredictionAgreement, verdict: JudgeVerdict | null): string {
+  switch (agreement) {
+    case "agrees":
+      return "The Judge agreed.";
+    case "disagrees": {
+      const preference = verdict?.preference;
+      return preference === "before" || preference === "after"
+        ? `The Judge preferred ${preferenceLabel(preference)}.`
+        : "The Judge preferred the other version.";
+    }
+    case "tie":
+      return "The Judge called it a tie.";
+    case "unstable":
+      return "The Judge was unstable, so there is no verdict to compare.";
+  }
 }
 
 function Verdict({ result }: { result: JudgeResult }) {

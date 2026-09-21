@@ -222,6 +222,12 @@ The condition of a Verdict that changes when the passage labels are swapped. Rep
 rather than as a preference.
 _Avoid_: flaky, inconsistent, tie
 
+**Prediction**:
+The Writer's own call, recorded before a Judge run, of which passage is clearer. Held in memory for
+the session only, never persisted, never sent to a model, and never a gate on the run; shown beside
+the Verdict so the Writer can see whether their judgment agrees with the Judge's.
+_Avoid_: guess, bet, expectation
+
 ## Status
 
 **Finding status**:
