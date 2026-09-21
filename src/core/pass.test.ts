@@ -41,8 +41,12 @@ describe("structuralPasses", () => {
       PARAGRAPH_REORDER_PASS,
     ];
 
-    // Story 41's pass ships on, story 42's off, so the set is the topic pass.
-    expect(structuralPasses(passes).map((pass) => pass.id)).toEqual(["topic-strings"]);
+    // Stories 41 and 42 both ship on in v1.1, so both document-scope passes are
+    // in the structural set, in pack order.
+    expect(structuralPasses(passes).map((pass) => pass.id)).toEqual([
+      "topic-strings",
+      "paragraph-reorder",
+    ]);
   });
 
   it("excludes a document-scope rule Pass, which is free and runs on save", () => {

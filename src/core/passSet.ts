@@ -23,7 +23,13 @@ import { findUnknownPlaceholders } from "./prompt";
  */
 
 export const PASS_SET_FORMAT = "obelus.pass-set";
-export const PASS_SET_FORMAT_VERSION = 1;
+/**
+ * Version 2 adds the v1.1 Rule config fields (`passiveVoiceAuxiliaries`,
+ * `aiTells`, `aiTellOpeners`). A v1 build would recognise the pass ids but drop
+ * the new lists and run the passes as no-ops, so the version is bumped to make
+ * that build refuse the file rather than half-read it.
+ */
+export const PASS_SET_FORMAT_VERSION = 2;
 
 interface PassSetFile {
   format: typeof PASS_SET_FORMAT;
@@ -239,11 +245,19 @@ function readRuleConfig(value: unknown): RuleConfig | null {
     "cuttableWords",
     "passiveAuxiliaries",
     "jargonWords",
+    "passiveVoiceAuxiliaries",
+    "aiTells",
+    "aiTellOpeners",
   ] as const) {
     if (value[field] === undefined) continue;
     const terms = stringArray(value[field]);
     if (terms === null) return null;
     config[field] = terms;
+  }
+  // The two passive auxiliary lists feed the same matcher and differ only in
+  // how they report, so a config carrying both would double-report every span.
+  if (config.passiveAuxiliaries !== undefined && config.passiveVoiceAuxiliaries !== undefined) {
+    return null;
   }
   return config;
 }

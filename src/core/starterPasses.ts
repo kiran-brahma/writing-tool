@@ -1,486 +1,33 @@
 import type { Pass, PassScope } from "./pass";
+import {
+  AI_TELLS_PASS,
+  BANNED_WORDS_PASS,
+  HEDGES_PASS,
+  NOMINALIZATIONS_PASS,
+  OPENERS_PASS,
+  ORWELL_RULES_PASS,
+  PASSIVE_PASS,
+  REPETITION_PASS,
+  WORDINESS_PASS,
+  WORN_PHRASES_PASS,
+} from "./starterRulePasses";
 
-/**
- * The rule Passes that ship with Obelus. Each carries one `RuleConfig` field,
- * and that field is the whole rule: the engine runs the rules a pass configures,
- * so adding a pass here is adding data, not code. The Starter pack is the
- * read-only default; the Writer edits these lists and patterns in the app, and
- * the edits are persisted, so #10's restore action has a known-good pack to
- * restore to.
- *
- * ADR-0003 makes the mechanical tier free and offline, and the Writer's
- * overused words are the Writer's to name.
- */
-export const HEDGES_PASS: Pass = {
-  id: "hedges",
-  name: "Hedges and intensifiers",
-  description: "Flags words that soften a claim instead of making it.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    hedges: [
-      "very",
-      "really",
-      "actually",
-      "quite",
-      "rather",
-      "somewhat",
-      "basically",
-      "literally",
-      "simply",
-      "just",
-      "of course",
-      "unfortunately",
-      "arguably",
-      "I think",
-    ],
-  },
-};
-
-const NOMINALIZATIONS_PASS: Pass = {
-  id: "nominalizations",
-  name: "Nominalizations",
-  description: "Flags actions buried inside nouns.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    nominalizationSuffixes: [
-      "tion",
-      "sion",
-      "ment",
-      "ance",
-      "ence",
-      "ency",
-      "ancy",
-      "ity",
-      "ness",
-    ],
-  },
-};
-
-const OPENERS_PASS: Pass = {
-  id: "openers",
-  name: "Expletive and throat-clearing openers",
-  description: "Flags sentences that clear their throat before they start.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    openers: [
-      "there is",
-      "there are",
-      "there was",
-      "there were",
-      "it is",
-      "it was",
-      "it is worth noting",
-      "it's worth noting",
-      "as i mentioned",
-      "as a matter of fact",
-      "needless to say",
-      "to be honest",
-      "in my opinion",
-    ],
-  },
-};
-
-export const WORDINESS_PASS: Pass = {
-  id: "wordiness",
-  name: "Wordy constructions",
-  description: "Flags phrases with a shorter equivalent.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    wordiness: [
-      // Constructions the starter pack has always carried.
-      ["in order to", "to"],
-      ["due to the fact that", "because"],
-      ["at this point in time", "now"],
-      ["in the event that", "if"],
-      ["for the purpose of", "to"],
-      ["with regard to", "about"],
-      ["a large number of", "many"],
-      ["in spite of the fact that", "although"],
-      ["the fact that", "that"],
-      ["in the near future", "soon"],
-      // The Economist guide's Reduction List: a long phrase and the short one it
-      // replaces. The replacement is the Writer's own config data, never model
-      // output, and it appears in the diagnosis only (DESIGN §4).
-      ["absolute certainty", "certainty"],
-      ["pilotless drone", "drone"],
-      ["razed to the ground", "razed"],
-      ["track record", "record"],
-      ["wilderness area", "wilderness"],
-      ["policymaking process", "policymaking"],
-      ["large-scale", "large"],
-      ["weather conditions", "weather"],
-      ["bought up", "bought"],
-      ["sold off", "sold"],
-      ["headed up by", "headed by"],
-      ["cut back", "cut"],
-      ["cutbacks", "cuts"],
-      ["end result", "result"],
-      ["for free", "free"],
-      ["from whence", "whence"],
-      ["final outcome", "outcome"],
-      ["nod your head", "nod"],
-      ["shrug your shoulders", "shrug"],
-      ["top priority", "priority"],
-      ["major speech", "a speech"],
-      ["role model", "model"],
-      ["past experience", "experience"],
-      ["lived experience", "experience"],
-      ["personal experience", "experience"],
-      ["empirical research", "research"],
-      ["safe haven", "haven"],
-      ["located in", "in"],
-      ["pre-prepared", "prepared"],
-      ["pre-planned", "planned"],
-      ["in close proximity to", "close to"],
-      // The guide's "prefer an Anglo-Saxon word" list, kept to the substitutions
-      // that do not need a part-of-speech judgment to apply.
-      ["purchase", "buy"],
-      ["approximately", "about"],
-      ["sufficient", "enough"],
-      ["donate", "give"],
-      ["obtain", "get"],
-      ["establish", "set up"],
-      ["demonstrate", "show"],
-      ["expenditure", "spending"],
-      ["relinquish", "give up"],
-      ["violate", "break"],
-      ["distribute", "hand out"],
-      ["wealthy", "rich"],
-      ["persons", "people"],
-      ["workforce", "workers"],
-      ["compensation", "pay"],
-      ["revenue", "sales"],
-      ["mortality", "death"],
-      ["redundancies", "lay-offs"],
-      ["kinetic action", "battle"],
-      ["demonstrates an unwillingness to", "refuses to"],
-      ["manifests avoidance behaviour", "avoids"],
-    ],
-  },
-};
-
-const REPETITION_PASS: Pass = {
-  id: "repetition",
-  name: "Repeated words and openers",
-  description: "Flags words and sentence openings that keep coming back.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    repetitionWindow: 3,
-  },
+export {
+  AI_TELLS_PASS,
+  BANNED_WORDS_PASS,
+  HEDGES_PASS,
+  ORWELL_RULES_PASS,
+  PASSIVE_PASS,
+  WORDINESS_PASS,
+  WORN_PHRASES_PASS,
 };
 
 /**
- * The house avoid list: the Prose Linter's deduplicated banned-words list and
- * the Economist guide's jargon. It is the list the Writer edits, not a
- * judgment a rule cannot make; anything whose meaning depends on the part of
- * speech (the guide's "address" as a transitive verb, "key" as an adjective)
- * is left out, because a literal sweep would flag the innocent use too. The
- * Prose Linter's own "Still mine to decide" note concedes that ensure, obtain,
- * demonstrate, regarding, additionally, drive and solutions are ordinary words
- * whose zero-tolerance flagging invites circumlocution, so they are left off a
- * pass that runs on every save; the Writer may add them back. "Obtain" and
- * "demonstrate" are also paired with a shorter word by the wordiness pass. The
- * diagnosis reports and never supplies a replacement, so the pass is
- * constitution-safe by construction (ADR-0003). "Leverage" and "platform"
- * stay on the list; a sense the source carves out (financial leverage, a named
- * product) is a judgment for the Writer to decline, not for a regex to make.
+ * The model Passes and the pack assembly. The rule Passes and their word
+ * lists live in `starterRulePasses.ts`, so this file stays about prompts
+ * and the pack order. The rule Passes are re-exported here because the pack
+ * is the one place callers import Passes from.
  */
-export const BANNED_WORDS_PASS: Pass = {
-  id: "banned-words",
-  name: "Banned words and jargon",
-  description: "Flags words on the house avoid list.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    bannedWords: [
-      // Prose Linter W1, deduplicated there, minus the ordinary words its own
-      // "Still mine to decide" note pulls back from.
-      "align",
-      "catalyst",
-      "crushing it",
-      "deep dive",
-      "delve",
-      "democratize",
-      "disruptive",
-      "ecosystem",
-      "elevate",
-      "empower",
-      "facilitate",
-      "flywheel",
-      "foster",
-      "furthermore",
-      "game-changer",
-      "garner",
-      "guru",
-      "growth hack",
-      "harness",
-      "human capital",
-      "hustle",
-      "innovative",
-      "journey",
-      "landscape",
-      "leverage",
-      "moreover",
-      "ninja",
-      "north star",
-      "optimize",
-      "paradigm",
-      "platform",
-      "prior to",
-      "realm",
-      "reimagine",
-      "robust",
-      "rockstar",
-      "scalable",
-      "seamless",
-      "strategic",
-      "streamline",
-      "subsequent to",
-      "synergy",
-      "tapestry",
-      "testament",
-      "10x",
-      "unlock",
-      "unleash",
-      "unparalleled",
-      "utilize",
-      "world-class",
-      // The Economist guide's "Words to Avoid", minus the parts of speech a
-      // literal sweep cannot tell apart. "Obtain" and "demonstrate" are absent
-      // because the wordiness pass already pairs them with a shorter word.
-      "aspirational",
-      "famously",
-      "high-profile",
-      "iconic",
-      "implode",
-      "participate in",
-      "passionate",
-      "proactive",
-      "prestigious",
-      "reputational",
-      "savvy",
-      "segue",
-      "stakeholders",
-      "supportive",
-      "surreal",
-      "trajectory",
-      "transformative",
-    ],
-  },
-};
-
-/**
- * Worn phrases: the guide's replace list, its jargon metaphors, and the Prose
- * Linter's banned openers and analytical phrases. Like the banned-word pass it
- * marks and does not rewrite, and it is shipped enabled because a cliché is the
- * one thing a rule can name with as much confidence as a model can.
- */
-export const WORN_PHRASES_PASS: Pass = {
-  id: "worn-phrases",
-  name: "Worn phrases and clichés",
-  description: "Flags clichés and jargon metaphors.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  ruleConfig: {
-    wornPhrases: [
-      // The guide's "Replace" list.
-      "accident waiting to happen",
-      "chattering classes",
-      "deer in the headlights",
-      "eye-watering sums",
-      "fit for purpose",
-      "going forward",
-      "the green light",
-      "grinding to a halt",
-      "heavy lifting",
-      "honeymoon period",
-      "level playing-field",
-      "perfect storm",
-      "poster child",
-      "pulling teeth",
-      "rack up",
-      "ramping up",
-      "tipping point",
-      "too close to call",
-      "wake-up call",
-      "whopping bills",
-      "quantum leap",
-      "begging the question",
-      "exponential growth",
-      "inflection point",
-      // The guide's jargon metaphors.
-      "blue-sky thinking",
-      "thinking out of the box",
-      "at the end of the day",
-      "elephant in the room",
-      "800-pound gorilla",
-      "big beast",
-      "low-hanging fruit",
-      "quick wins",
-      "take this offline",
-      "put a pin in it",
-      "circle back",
-      "reach out",
-      "limited bandwidth",
-      "joining the dots",
-      "walking the walk",
-      "from soup to nuts",
-      "suck it and see",
-      "let a thousand flowers bloom",
-      "strategic shoots",
-      "early innings",
-      "sea change",
-      "flesh wound",
-      "constantly evolving palates",
-      "bubbling under the radar",
-      "hit some turbulence",
-      // Prose Linter W2 and W3: banned openers and analytical phrases.
-      "in a world where",
-      "in today's fast-paced",
-      "it remains to be seen",
-      "time will tell",
-      "there are many factors",
-      "best practices suggest",
-      "industry benchmarks indicate",
-      "experts believe",
-    ],
-  },
-};
-
-/**
- * Orwell rule 2: long words to flag where a short one may do. The list is the
- * Writer's; the diagnosis never supplies the short one.
- */
-const ORWELL_LONG_WORDS: string[] = [
-  "utilize",
-  "utilise",
-  "commence",
-  "commencement",
-  "terminate",
-  "endeavour",
-  "endeavor",
-  "facilitate",
-  "approximately",
-  "sufficient",
-  "demonstrate",
-  "manufacture",
-  "expenditure",
-  "relinquish",
-  "compensation",
-  "redundancies",
-  "assistance",
-  "necessitate",
-  "subsequently",
-  "previously",
-  "additionally",
-  "consequently",
-  "nevertheless",
-  "notwithstanding",
-  "aforementioned",
-  "ascertain",
-  "magnitude",
-  "proximity",
-  "utilization",
-  "individuals",
-];
-
-/** Orwell rule 3: words and phrases that add length but no meaning. */
-const ORWELL_CUTTABLE_WORDS: string[] = [
-  "very",
-  "really",
-  "quite",
-  "rather",
-  "actually",
-  "basically",
-  "literally",
-  "simply",
-  "just",
-  "somewhat",
-  "sort of",
-  "kind of",
-  "in fact",
-  "of course",
-  "to be honest",
-  "I think",
-  "in my opinion",
-  "needless to say",
-  "as a matter of fact",
-  "at the end of the day",
-  "it is worth noting",
-  "it should be noted",
-];
-
-/** Orwell rule 4: the auxiliaries a passive construction is built on. */
-const ORWELL_PASSIVE_AUXILIARIES: string[] = [
-  "am",
-  "is",
-  "are",
-  "was",
-  "were",
-  "be",
-  "been",
-  "being",
-];
-
-/**
- * George Orwell's five rules, from "Politics and the English Language". A rule
- * cannot judge a metaphor, but it can mark the printed figures, long words,
- * cuttable words, passive constructions and jargon the rules name — and it
- * reports each failure without supplying the replacement, which is the rules'
- * own demand.
- *
- * Shipped disabled and exclusive: turning it on runs it alone, holding the other
- * rule Passes so its report is not buried under the Passes it overlaps. Turn it
- * off and they return exactly as the Writer left them.
- *
- * The lists for rules 1 and 5 are the same lists the worn-phrase and banned-word
- * passes carry, shared by reference so the two can never drift apart.
- */
-export const ORWELL_RULES_PASS: Pass = {
-  id: "orwell",
-  name: "George Orwell's rules",
-  description:
-    "Flags the five rules in \"Politics and the English Language\", and names what fails without saying what to write. Runs on its own.",
-  kind: "rule",
-  scope: "document",
-  output: "findings",
-  slot: "critic",
-  enabled: false,
-  exclusive: true,
-  ruleConfig: {
-    printedFigures: WORN_PHRASES_PASS.ruleConfig?.wornPhrases ?? [],
-    longWords: ORWELL_LONG_WORDS,
-    cuttableWords: ORWELL_CUTTABLE_WORDS,
-    passiveAuxiliaries: ORWELL_PASSIVE_AUXILIARIES,
-    jargonWords: BANNED_WORDS_PASS.ruleConfig?.bannedWords ?? [],
-  },
-};
 
 /**
  * The prompt shape every paragraph-scope model Pass shares: the task, the
@@ -662,8 +209,8 @@ export function constitutionPromptClauses(scope: PassScope): ConstitutionPromptC
 
 /**
  * Story 40: the actor should be the subject and the action should be the verb.
- * Shipped disabled (DESIGN §4): it is the most opinionated pass in the pack, so
- * the Writer turns it on deliberately rather than meeting it on first Run.
+ * Story 146: it ships enabled in v1.1 — the source method's most satisfying win
+ * is a default, not a gate (ADR 0009). The Writer can still turn it off.
  */
 const CHARACTERS_ACTIONS_PASS: Pass = {
   id: "characters-actions",
@@ -673,7 +220,7 @@ const CHARACTERS_ACTIONS_PASS: Pass = {
   scope: "paragraph",
   output: "findings",
   slot: "critic",
-  enabled: false,
+  enabled: true,
   prompt: paragraphPassPrompt(
     "Check one paragraph of a piece of writing for characters and actions.",
     [
@@ -709,7 +256,12 @@ export const PARAGRAPH_UNITY_PASS: Pass = {
   ),
 };
 
-/** Story 44: the sentences that add nothing. */
+/**
+ * Story 44: the sentences that add nothing. Story 142 folds A4's hollow triad in
+ * here — a list of three whose third item adds nothing. The source's second A4
+ * clause, "four or more triads in one piece", is a whole-piece count that a
+ * paragraph-scope pass cannot see, so it is not adopted rather than misapplied.
+ */
 export const CUT_CANDIDATES_PASS: Pass = {
   id: "cut-candidates",
   name: "Cut candidates",
@@ -723,8 +275,10 @@ export const CUT_CANDIDATES_PASS: Pass = {
     "Check one paragraph of a piece of writing for sentences that add nothing.",
     [
       "Flag sentences in the TARGET PARAGRAPH that could be cut without loss: restatements,",
-      "filler, and sentences that only repeat what another sentence already said. Say in the",
-      "diagnosis what the sentence contributes, or why it contributes nothing.",
+      "filler, and sentences that only repeat what another sentence already said. Also flag a",
+      "triad whose third item adds nothing — a list of three where the third is filler or only",
+      "restates the first two — so the hollow item can go. Say in the diagnosis what the",
+      "sentence or item contributes, or why it contributes nothing.",
       PARAGRAPH_REPORTING_CLAUSE,
     ].join("\n"),
   ),
@@ -813,9 +367,9 @@ export const TOPIC_STRINGS_PASS: Pass = {
 };
 
 /**
- * Story 42: the satisfying structural wins without hunting for them. Shipped
- * disabled (DESIGN §4, pass 9): moving Paragraphs is the most disruptive advice
- * in the pack, so the Writer asks for it deliberately.
+ * Story 42: the satisfying structural wins without hunting for them. Story 146:
+ * it ships enabled in v1.1 — moving Paragraphs is a recommendation, not a gate
+ * (ADR 0009). The Writer can still turn it off.
  */
 export const PARAGRAPH_REORDER_PASS: Pass = {
   id: "paragraph-reorder",
@@ -825,7 +379,7 @@ export const PARAGRAPH_REORDER_PASS: Pass = {
   scope: "document",
   output: "findings",
   slot: "critic",
-  enabled: false,
+  enabled: true,
   prompt: documentPassPrompt(
     "Check the order of paragraphs in a whole piece of writing.",
     [
@@ -926,18 +480,19 @@ export const AUDIT_PASS: Pass = {
 
 /**
  * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
- * the two house-style passes the Prose Linter and the Economist guide supply
- * (banned words, worn phrases) and Orwell's five rules, then the model passes in
- * the same order: characters and actions (off), topic
- * strings and stress position, paragraphs that could move (off), paragraph
- * unity, cut candidates, cliché and headline-ese (the one #4 shipped), claim
- * strength, the Reader pass (#11) and the Audit pass (#27). The document-scope
- * model passes ship with #7; the Reader pass ships with #11; the Audit ships
- * with #27.
+ * the v1.1 rule passes (passive, AI tells), then the house-style passes the
+ * Prose Linter and the Economist guide supply (banned words, worn phrases) and
+ * Orwell's five rules, then the model passes: characters and actions, topic
+ * strings and stress position, paragraphs that could move, paragraph unity, cut
+ * candidates, cliché and headline-ese (the one #4 shipped), claim strength, the
+ * Reader pass (#11) and the Audit pass (#27). The document-scope model passes
+ * ship with #7; the Reader pass ships with #11; the Audit ships with #27.
  *
  * `enabled` here is only the default: the Writer's toggle is persisted, and
  * `loadOrCreatePasses` seeds a Starter pass only when its id is missing, so an
- * edit survives a later Obelus.
+ * edit survives a later Obelus. In v1.1 the two model passes the source method
+ * treats as its most satisfying wins — characters and actions and paragraphs
+ * that could move — ship on; `orwell` stays off.
  */
 export const STARTER_PASSES: Pass[] = [
   HEDGES_PASS,
@@ -945,6 +500,8 @@ export const STARTER_PASSES: Pass[] = [
   OPENERS_PASS,
   WORDINESS_PASS,
   REPETITION_PASS,
+  PASSIVE_PASS,
+  AI_TELLS_PASS,
   BANNED_WORDS_PASS,
   WORN_PHRASES_PASS,
   ORWELL_RULES_PASS,

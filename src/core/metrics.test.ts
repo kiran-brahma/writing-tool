@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { documentMetrics, isAdverb } from "./metrics";
+import { documentMetrics, isAdverb, paragraphShapeMetrics } from "./metrics";
+import { parseCanonical } from "./parseCanonical";
 import { countWords } from "./tokens";
 
 describe("documentMetrics", () => {
@@ -51,6 +52,33 @@ describe("documentMetrics", () => {
       adverbCount: 0,
       adverbDensity: 0,
     });
+  });
+});
+
+describe("paragraphShapeMetrics (A3)", () => {
+  it("reports each Paragraph's sentence count and the longest uniform run", () => {
+    // Three Paragraphs of two sentences each in a row, then a heading, then a
+    // single-sentence Paragraph.
+    const canonical =
+      "One. Two.\n\nThree. Four.\n\nFive. Six.\n\n# Heading\n\nSeven.\n";
+    const shape = paragraphShapeMetrics(parseCanonical(canonical));
+
+    expect(shape.paragraphSentenceCounts).toEqual([2, 2, 2, 1]);
+    expect(shape.longestUniformParagraphRun).toBe(3);
+  });
+
+  it("breaks a uniform run at a non-Paragraph block", () => {
+    const canonical = "One.\n\nTwo.\n\n> A quote.\n\nThree.\n";
+    const shape = paragraphShapeMetrics(parseCanonical(canonical));
+
+    expect(shape.paragraphSentenceCounts).toEqual([1, 1, 1]);
+    expect(shape.longestUniformParagraphRun).toBe(2);
+  });
+
+  it("is deterministic", () => {
+    const tree = parseCanonical("One. Two.\n\nThree. Four.\n");
+
+    expect(paragraphShapeMetrics(tree)).toEqual(paragraphShapeMetrics(tree));
   });
 });
 

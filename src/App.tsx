@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import type { Interval } from "./core/finding";
+import { emptyDocTree } from "./core/docTree";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { isAuditPass, isReaderPass } from "./core/pass";
 import { sectionAt, sections } from "./core/sections";
@@ -599,7 +600,10 @@ export default function App() {
             onJump={jumpToSection}
           />
 
-          <MetricsPanel canonical={document?.canonical ?? ""} />
+          <MetricsPanel
+            canonical={document?.canonical ?? ""}
+            tree={document?.tree ?? emptyDocTree()}
+          />
 
           <section className="border-b border-stone-300 bg-stone-100/60">
             <div className="flex items-center justify-between border-b border-stone-200 pr-4">

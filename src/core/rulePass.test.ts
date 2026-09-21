@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Finding } from "./finding";
 import type { Pass, RuleConfig } from "./pass";
 import { ruleMatches, runRulePass } from "./rulePass";
-import { HEDGES_PASS, STARTER_PASSES, WORDINESS_PASS, BANNED_WORDS_PASS, WORN_PHRASES_PASS, ORWELL_RULES_PASS } from "./starterPasses";
+import { HEDGES_PASS, STARTER_PASSES, WORDINESS_PASS, BANNED_WORDS_PASS, WORN_PHRASES_PASS, ORWELL_RULES_PASS, PASSIVE_PASS, AI_TELLS_PASS } from "./starterPasses";
 
 /** A rule Pass carrying only the config under test. */
 function passWith(ruleConfig: RuleConfig): Pass {
@@ -249,6 +249,93 @@ describe("ruleMatches", () => {
     expect(ORWELL_RULES_PASS.enabled).toBe(false);
     expect(ORWELL_RULES_PASS.exclusive).toBe(true);
     expect(ruleMatches("It was a perfect storm.\n", ORWELL_RULES_PASS).length).toBeGreaterThan(0);
+  });
+
+  it("flags a passive construction and states the Williams exception as a note", () => {
+    const matches = ruleMatches(
+      "The report was completed. The keys were taken.\n",
+      PASSIVE_PASS,
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["was completed", "were taken"]);
+    expect(matches[0].issue).toBe('Passive construction: "was completed"');
+    expect(matches[0].diagnosis).toMatch(/note, not an error/i);
+    expect(matches[0].diagnosis).toMatch(/agent is unknown or irrelevant/i);
+    expect(matches[0].diagnosis).toMatch(/patient is the topic/i);
+    // Its own rule, not Orwell 4: the two passes report the same span differently.
+    expect(matches[0].issue).not.toMatch(/Orwell/);
+  });
+
+  it("reports the same passive span through Orwell's pass at its own severity", () => {
+    const orwell = ruleMatches("The report was completed.\n", ORWELL_RULES_PASS);
+    const passive = ruleMatches("The report was completed.\n", PASSIVE_PASS);
+
+    expect(orwell[0].quote).toBe(passive[0].quote);
+    expect(orwell[0].diagnosis).not.toBe(passive[0].diagnosis);
+  });
+
+  it("takes the passive auxiliaries from editable Rule config", () => {
+    const matches = ruleMatches(
+      "The report got completed.\n",
+      passWith({ passiveVoiceAuxiliaries: ["got"] }),
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["got completed"]);
+    expect(ruleMatches("The report was completed.\n", passWith({ passiveVoiceAuxiliaries: ["got"] }))).toEqual(
+      [],
+    );
+  });
+
+  it("does not read a passive across a sentence or block boundary", () => {
+    expect(ruleMatches("The report was. Completed.\n", PASSIVE_PASS)).toEqual([]);
+    expect(ruleMatches("The report was.\n\nCompleted.\n", PASSIVE_PASS)).toEqual([]);
+    // A tab still joins the two words in one running line.
+    expect(ruleMatches("The report was\tcompleted.\n", PASSIVE_PASS).map((match) => match.quote)).toEqual(
+      ["was\tcompleted"],
+    );
+  });
+
+  it("flags each lexical AI tell from the editable list", () => {
+    const matches = ruleMatches(
+      "It is pivotal. Experts say so. At its core it is deep. Time will tell. Great question.\n",
+      AI_TELLS_PASS,
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual([
+      "pivotal",
+      "Experts say",
+      "At its core",
+      "Time will tell",
+      "Great question",
+    ]);
+    expect(matches[0].issue).toBe('AI tell: "pivotal"');
+    expect(matches[0].diagnosis).not.toMatch(/instead|replace|rewrite/i);
+  });
+
+  it("flags a crowd opening and a sentence-initial conjunction as AI tells", () => {
+    const matches = ruleMatches(
+      "Many of us ship. Most operators wait. And so it goes. But not today.\n",
+      AI_TELLS_PASS,
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["Many of us", "Most operators", "And", "But"]);
+    expect(matches[2].issue).toBe('AI tell opener: "And"');
+  });
+
+  it("does not flag a conjunction or a category word inside a sentence", () => {
+    expect(
+      ruleMatches("Cats and dogs, however friendly, are a handful.\n", AI_TELLS_PASS),
+    ).toEqual([]);
+  });
+
+  it("takes the AI tells from the editable word list", () => {
+    const matches = ruleMatches(
+      "This is bespoke.\n",
+      passWith({ aiTells: ["bespoke"] }),
+    );
+
+    expect(matches.map((match) => match.quote)).toEqual(["bespoke"]);
+    expect(ruleMatches("This is bespoke.\n", AI_TELLS_PASS)).toEqual([]);
   });
 });
 

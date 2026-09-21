@@ -134,6 +134,24 @@ describe("passProblem", () => {
     ).toMatch(/unreadable Rule config/i);
   });
 
+  it("names an unreadable v1.1 list", () => {
+    for (const field of ["aiTells", "aiTellOpeners", "passiveVoiceAuxiliaries"] as const) {
+      expect(
+        passProblem({ ...HEDGES_PASS, ruleConfig: { [field]: ["a", 2] } }),
+        field,
+      ).toMatch(/unreadable Rule config/i);
+    }
+  });
+
+  it("refuses a Rule config carrying both passive auxiliary lists", () => {
+    expect(
+      passProblem({
+        ...HEDGES_PASS,
+        ruleConfig: { passiveAuxiliaries: ["was"], passiveVoiceAuxiliaries: ["was"] },
+      }),
+    ).toMatch(/unreadable Rule config/i);
+  });
+
   it("names an unreadable Orwell list", () => {
     for (const field of [
       "printedFigures",

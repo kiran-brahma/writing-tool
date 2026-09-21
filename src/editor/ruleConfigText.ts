@@ -31,6 +31,14 @@ const FIELDS: RuleField[] = [
     help: "One suffix per line.",
   },
   {
+    key: "passiveVoiceAuxiliaries",
+    label: "Passive auxiliaries",
+    kind: "list",
+    help:
+      "One auxiliary per line. A passive is read as one of these before a past participle, and " +
+      "reported as a note.",
+  },
+  {
     key: "openers",
     label: "Throat-clearing openers",
     kind: "list",
@@ -59,6 +67,18 @@ const FIELDS: RuleField[] = [
     label: "Worn phrases",
     kind: "list",
     help: "One cliché or jargon metaphor per line. Reported, never replaced.",
+  },
+  {
+    key: "aiTells",
+    label: "AI tell words and phrases",
+    kind: "list",
+    help: "One word or phrase per line. Reported, never replaced.",
+  },
+  {
+    key: "aiTellOpeners",
+    label: "AI tell sentence openers",
+    kind: "list",
+    help: "One phrase per line, matched only at the start of a sentence.",
   },
   {
     key: "printedFigures",
@@ -110,9 +130,12 @@ export function fieldText(config: RuleConfig, key: RuleFieldKey): string {
     }
     case "hedges":
     case "nominalizationSuffixes":
+    case "passiveVoiceAuxiliaries":
     case "openers":
     case "bannedWords":
     case "wornPhrases":
+    case "aiTells":
+    case "aiTellOpeners":
     case "printedFigures":
     case "longWords":
     case "cuttableWords":

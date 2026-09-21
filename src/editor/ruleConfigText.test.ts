@@ -30,20 +30,26 @@ describe("fieldText and applyFieldText", () => {
     const config: RuleConfig = {
       bannedWords: ["leverage", "deep dive"],
       wornPhrases: ["perfect storm", "wake-up call"],
+      aiTells: ["pivotal", "time will tell"],
+      aiTellOpeners: ["and", "however"],
       printedFigures: ["silver bullet"],
       longWords: ["utilize"],
       cuttableWords: ["very"],
       passiveAuxiliaries: ["was"],
+      passiveVoiceAuxiliaries: ["were"],
       jargonWords: ["synergy"],
     };
 
     for (const key of [
       "bannedWords",
       "wornPhrases",
+      "aiTells",
+      "aiTellOpeners",
       "printedFigures",
       "longWords",
       "cuttableWords",
       "passiveAuxiliaries",
+      "passiveVoiceAuxiliaries",
       "jargonWords",
     ] as const) {
       expect(applyFieldText(config, key, fieldText(config, key)), key).toEqual(config);

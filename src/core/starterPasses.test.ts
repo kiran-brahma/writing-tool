@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { blankModelPass, constitutionPromptClauses, STARTER_PASSES } from "./starterPasses";
+import type { RuleConfig } from "./pass";
+import { AI_TELLS_PASS, blankModelPass, constitutionPromptClauses, STARTER_PASSES } from "./starterPasses";
 
 /**
  * The Starter pack is data, but which data ships — its scope, its output shape,
@@ -22,9 +23,9 @@ const EXPECTED_MODEL_PASSES: {
   enabled: boolean;
   looksFor: RegExp;
 }[] = [
-  { id: "characters-actions", scope: "paragraph", output: "findings", enabled: false, looksFor: /actor/i },
+  { id: "characters-actions", scope: "paragraph", output: "findings", enabled: true, looksFor: /actor/i },
   { id: "topic-strings", scope: "document", output: "findings", enabled: true, looksFor: /cohere|stress position/i },
-  { id: "paragraph-reorder", scope: "document", output: "findings", enabled: false, looksFor: /could change/i },
+  { id: "paragraph-reorder", scope: "document", output: "findings", enabled: true, looksFor: /could change/i },
   { id: "paragraph-unity", scope: "paragraph", output: "findings", enabled: true, looksFor: /more than one idea/i },
   { id: "cut-candidates", scope: "paragraph", output: "findings", enabled: true, looksFor: /cut without loss/i },
   { id: "cliche", scope: "paragraph", output: "findings", enabled: true, looksFor: /cliché/i },
@@ -41,6 +42,8 @@ describe("Starter model passes", () => {
       "openers",
       "wordiness",
       "repetition",
+      "passive",
+      "ai-tells",
       "banned-words",
       "worn-phrases",
       "orwell",
@@ -54,6 +57,85 @@ describe("Starter model passes", () => {
       "reader",
       "audit",
     ]);
+  });
+
+  it("ships the v1.1 rule passes enabled and with editable config", () => {
+    const passive = STARTER_PASSES.find((pass) => pass.id === "passive");
+    expect(passive).toMatchObject({
+      kind: "rule",
+      scope: "document",
+      output: "findings",
+      enabled: true,
+    });
+    expect(passive?.ruleConfig?.passiveVoiceAuxiliaries).toEqual(
+      expect.arrayContaining(["is", "was", "were", "be"]),
+    );
+
+    const aiTells = STARTER_PASSES.find((pass) => pass.id === "ai-tells");
+    expect(aiTells).toMatchObject({
+      kind: "rule",
+      scope: "document",
+      output: "findings",
+      enabled: true,
+    });
+    expect(aiTells?.ruleConfig?.aiTells).toEqual(expect.arrayContaining(["pivotal", "time will tell"]));
+    expect(aiTells?.ruleConfig?.aiTellOpeners).toEqual(
+      expect.arrayContaining(["and", "however"]),
+    );
+  });
+
+  it("flips the v1.1 defaults and leaves Orwell off", () => {
+    const enabled = (id: string) => STARTER_PASSES.find((pass) => pass.id === id)?.enabled;
+
+    expect(enabled("characters-actions")).toBe(true);
+    expect(enabled("paragraph-reorder")).toBe(true);
+    expect(enabled("passive")).toBe(true);
+    expect(enabled("ai-tells")).toBe(true);
+    expect(enabled("orwell")).toBe(false);
+  });
+
+  it("folds A4 into cut candidates rather than adding a pass for it", () => {
+    const cutCandidates = STARTER_PASSES.find((pass) => pass.id === "cut-candidates");
+    expect(cutCandidates?.prompt).toMatch(/triad whose third item adds nothing/i);
+    expect(STARTER_PASSES.some((pass) => /triad|hollow/.test(pass.id))).toBe(false);
+  });
+
+  it("gives the argumentative AI tells and honesty checks no rule pass", () => {
+    // A8, A9, A12, A14 and H1-H5 belong to the Audit; an ai-tells config that
+    // grew a field for them, or a pass named for them, would be the breach.
+    const ruleConfigKeys = STARTER_PASSES.flatMap((pass) =>
+      Object.keys(pass.ruleConfig ?? {}),
+    );
+    for (const field of ["fallacies", "honesty", "enthymemes", "persuasion"]) {
+      expect(ruleConfigKeys).not.toContain(field);
+    }
+    for (const id of ["a8", "a9", "a12", "a14", "h1", "h2", "h3", "h4", "h5"]) {
+      expect(STARTER_PASSES.some((pass) => pass.id === id)).toBe(false);
+    }
+  });
+
+  it("gives every AI-tell term exactly one owner among the enabled rule passes", () => {
+    // One span, one Finding: a term already flagged by another enabled, non-
+    // exclusive rule pass must not also be seeded into the ai-tells pass, or the
+    // Writer is handed two Findings for the same words. A term matched anywhere
+    // can collide with any other list; a sentence-opening term can only collide
+    // with another sentence-opening list.
+    const others = STARTER_PASSES.filter(
+      (pass) =>
+        pass.kind === "rule" &&
+        pass.enabled &&
+        pass.exclusive !== true &&
+        pass.id !== "ai-tells",
+    );
+    const anywhere = others.flatMap((pass) => literalTerms(pass.ruleConfig ?? {}));
+    const anchored = others.flatMap((pass) => pass.ruleConfig?.openers ?? []);
+
+    for (const term of AI_TELLS_PASS.ruleConfig?.aiTells ?? []) {
+      for (const candidate of anywhere) expectNoOverlap(term, candidate);
+    }
+    for (const term of AI_TELLS_PASS.ruleConfig?.aiTellOpeners ?? []) {
+      for (const candidate of anchored) expectNoOverlap(term, candidate);
+    }
   });
 
   it("gives every registered model Pass a unique id, its scope and its output shape", () => {
@@ -145,3 +227,26 @@ describe("blankModelPass", () => {
     expect(pass.prompt).toContain("{{context_above}}");
   });
 });
+
+/** Every literal word or phrase one rule Pass's config carries. */
+function literalTerms(config: RuleConfig): string[] {
+  return [
+    ...(config.hedges ?? []),
+    ...(config.openers ?? []),
+    ...(config.wordiness ?? []).map(([wordy]) => wordy),
+    ...(config.bannedWords ?? []),
+    ...(config.wornPhrases ?? []),
+    ...(config.aiTells ?? []),
+    ...(config.aiTellOpeners ?? []),
+    ...(config.passiveVoiceAuxiliaries ?? []),
+  ];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function expectNoOverlap(term: string, candidate: string): void {
+  const pattern = new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
+  expect(pattern.test(candidate), `"${term}" is also owned by "${candidate}"`).toBe(false);
+}

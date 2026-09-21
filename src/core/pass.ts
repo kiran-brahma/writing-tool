@@ -80,6 +80,25 @@ export interface RuleConfig {
   passiveAuxiliaries?: string[];
   /** Orwell rule 5: foreign, scientific or jargon words with an everyday equivalent. */
   jargonWords?: string[];
+  /**
+   * The first-class `passive` pass: the auxiliaries a passive construction is
+   * built on. Separate from Orwell's `passiveAuxiliaries` because the two passes
+   * report the same span at different severities and diagnoses — Orwell names a
+   * rule failure, the `passive` pass states the Williams exception and leaves
+   * the call to the Writer.
+   */
+  passiveVoiceAuxiliaries?: string[];
+  /**
+   * The `ai-tells` pass: the lexical AI tells (A1, A2, A5, A6, A7, A11) as an
+   * editable word list. Reported, never replaced.
+   */
+  aiTells?: string[];
+  /**
+   * The `ai-tells` pass: the A tells that are only tells at a sentence opening
+   * (A10 crowd openers, A13 conjunctions used where a full stop works). Matching
+   * these anywhere would flag ordinary prose, so they are anchored to a start.
+   */
+  aiTellOpeners?: string[];
 }
 
 export interface Pass {

@@ -79,10 +79,21 @@ export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
     matches.push(...matchCuttableWords(canonical, config.cuttableWords));
   }
   if (config.passiveAuxiliaries !== undefined) {
-    matches.push(...matchPassive(canonical, config.passiveAuxiliaries));
+    matches.push(...matchOrwellPassive(canonical, config.passiveAuxiliaries));
+  } else if (config.passiveVoiceAuxiliaries !== undefined) {
+    // The two fields report the same span differently, so a Pass carrying both
+    // would double-report it. The rule config validator refuses that state; the
+    // `else` here keeps the engine from depending on that refusal.
+    matches.push(...matchPassiveVoice(canonical, config.passiveVoiceAuxiliaries));
   }
   if (config.jargonWords !== undefined) {
     matches.push(...matchJargonWords(canonical, config.jargonWords));
+  }
+  if (config.aiTells !== undefined) {
+    matches.push(...matchAiTells(canonical, config.aiTells));
+  }
+  if (config.aiTellOpeners !== undefined) {
+    matches.push(...matchAiTellOpeners(canonical, config.aiTellOpeners));
   }
 
   return matches.sort((a, b) => a.offset - b.offset);
@@ -250,6 +261,37 @@ function matchWornPhrases(canonical: string, wornPhrases: string[]): RuleMatch[]
   }));
 }
 
+/**
+ * The lexical AI tells (A1, A2, A5, A6, A7, A11): the words and phrases readers
+ * have learned to read as machine-written. The list is editable data, and the
+ * diagnosis names the problem without supplying replacement prose.
+ */
+function matchAiTells(canonical: string, aiTells: string[]): RuleMatch[] {
+  return matchLiteralTerms(canonical, aiTells, (quote, term) => ({
+    issue: `AI tell: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis:
+      "A phrase readers recognise as machine-written: pumped-up significance, vague authority, " +
+      "false depth, a generic ending, chatbot residue, or a category label where a specific " +
+      "belongs. Say the specific thing plainly.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/**
+ * The AI tells that are only tells at a sentence opening (A10 crowd openers,
+ * A13 conjunctions doing a full stop's work). Anchoring them to a sentence
+ * start is the point: "and" mid-sentence is grammar, not a tell.
+ */
+function matchAiTellOpeners(canonical: string, aiTellOpeners: string[]): RuleMatch[] {
+  return matchSentenceOpeners(canonical, aiTellOpeners, (quote, term) => ({
+    issue: `AI tell opener: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis:
+      "An AI tell at the sentence opening — a crowd standing where a specific person belongs, " +
+      "or a conjunction doing a full stop's work. Name the specific, or start a new sentence.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // George Orwell's five rules
 // ---------------------------------------------------------------------------
@@ -315,36 +357,84 @@ function isPastParticiple(word: string): boolean {
 }
 
 /**
- * Orwell rule 4: a passive construction, read as a configured auxiliary followed
- * by a past participle. The participle is approximated by an -ed/-en ending or a
- * known irregular, so an adjective after "is" ("is tired") can be flagged with
- * "was taken" and the Writer declines it. The rule reports the passive and never
- * supplies the active rewrite; whether the active is available is the Writer's
- * judgment.
+ * One passive construction read from the canonical string: the auxiliary, the
+ * participle, and the span they occupy. The two passive passes in the Starter
+ * pack share this reading and differ only in how they report it.
  */
-function matchPassive(canonical: string, auxiliaries: string[]): RuleMatch[] {
+interface PassiveSpan {
+  quote: string;
+  offset: number;
+  auxiliary: string;
+  participle: string;
+}
+
+/**
+ * Every passive construction, read as a configured auxiliary followed by a past
+ * participle. The participle is approximated by an -ed/-en ending or a known
+ * irregular, so an adjective after "is" ("is tired") can be flagged with "was
+ * taken" and the Writer declines it. The rule never supplies the active rewrite;
+ * whether the active is available is the Writer's judgment.
+ */
+function findPassiveSpans(canonical: string, auxiliaries: string[]): PassiveSpan[] {
   const cleaned = new Set(uniqueTerms(auxiliaries.map((auxiliary) => auxiliary.toLowerCase())));
   if (cleaned.size === 0) return [];
 
   const words = tokenizeWords(canonical);
-  const matches: RuleMatch[] = [];
+  const spans: PassiveSpan[] = [];
   for (let index = 0; index < words.length - 1; index += 1) {
     const auxiliary = words[index];
     if (!cleaned.has(auxiliary.value.toLowerCase())) continue;
     const participle = words[index + 1];
     if (!isPastParticiple(participle.value.toLowerCase())) continue;
+    // The two words must be adjacent in the same running text. An auxiliary at
+    // the end of a sentence followed by a participle at the start of the next —
+    // "The report was. Completed." — is not a construction, and the quote would
+    // otherwise span the sentence or block boundary.
+    const between = canonical.slice(auxiliary.offset + auxiliary.value.length, participle.offset);
+    if (!/^[ \t]*$/.test(between)) continue;
     const quote = canonical.slice(auxiliary.offset, participle.offset + participle.value.length);
-    matches.push({
+    spans.push({
       quote,
       offset: auxiliary.offset,
-      issue: `Orwell 4: passive construction: "${quote.replace(/\s+/g, " ")}"`,
-      diagnosis: "A passive construction; the actor may not be in the sentence.",
-      pattern: `${auxiliary.value.toLowerCase()} ${participle.value.toLowerCase()}`,
+      auxiliary: auxiliary.value.toLowerCase(),
+      participle: participle.value.toLowerCase(),
     });
     index += 1;
   }
 
-  return matches;
+  return spans;
+}
+
+/** Orwell rule 4: a passive construction, reported as a failure of the rule. */
+function matchOrwellPassive(canonical: string, auxiliaries: string[]): RuleMatch[] {
+  return findPassiveSpans(canonical, auxiliaries).map((span) => ({
+    quote: span.quote,
+    offset: span.offset,
+    issue: `Orwell 4: passive construction: "${span.quote.replace(/\s+/g, " ")}"`,
+    diagnosis: "A passive construction; the actor may not be in the sentence.",
+    pattern: `${span.auxiliary} ${span.participle}`,
+  }));
+}
+
+/**
+ * The Williams exception, stated rather than detected. Regex cannot tell whether
+ * the agent is unknown or irrelevant and the patient is the topic, so the rule
+ * reports the passive as a note and leaves the judgment to the Writer.
+ */
+const WILLIAMS_EXCEPTION =
+  "A note, not an error: a passive is right when the agent is unknown or irrelevant and the " +
+  "patient is the topic (Williams). Check whether this sentence's topic needs it; if not, the " +
+  "actor may belong in the subject.";
+
+/** The first-class `passive` pass: the same span, reported at note severity. */
+function matchPassiveVoice(canonical: string, auxiliaries: string[]): RuleMatch[] {
+  return findPassiveSpans(canonical, auxiliaries).map((span) => ({
+    quote: span.quote,
+    offset: span.offset,
+    issue: `Passive construction: "${span.quote.replace(/\s+/g, " ")}"`,
+    diagnosis: WILLIAMS_EXCEPTION,
+    pattern: `${span.auxiliary} ${span.participle}`,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -395,6 +485,25 @@ const LEADING_INLINE_SYNTAX = /^[\s*_`~]+/;
  * configured terms are tried as prefixes, longest first. One opener per sentence.
  */
 function matchOpeners(canonical: string, openers: string[]): RuleMatch[] {
+  return matchSentenceOpeners(canonical, openers, (quote, term) => ({
+    issue: `Throat-clearing opener: "${quote.replace(/\s+/g, " ")}"`,
+    diagnosis: "The sentence clears its throat before it starts. Begin where the content begins.",
+    pattern: term.toLowerCase(),
+  }));
+}
+
+/**
+ * A configured term found at a sentence start, described by the caller. The
+ * throat-clearing and AI-tell opener rules share the segmentation; only the
+ * reporting differs. Sentences are segmented first so a mid-sentence match never
+ * fires, configured terms are tried longest first, and one opener per sentence
+ * is reported.
+ */
+function matchSentenceOpeners(
+  canonical: string,
+  openers: string[],
+  describe: (quote: string, term: string) => TermDescription,
+): RuleMatch[] {
   const cleaned = uniqueTerms(openers);
   if (cleaned.length === 0) return [];
 
@@ -411,9 +520,7 @@ function matchOpeners(canonical: string, openers: string[]): RuleMatch[] {
       matches.push({
         quote,
         offset: sentence.start + leading,
-        issue: `Throat-clearing opener: "${quote}"`,
-        diagnosis: "The sentence clears its throat before it starts. Begin where the content begins.",
-        pattern: term.toLowerCase(),
+        ...describe(quote, term),
       });
       break;
     }

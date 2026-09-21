@@ -40,6 +40,8 @@ describe("loadOrCreatePasses", () => {
       "openers",
       "wordiness",
       "repetition",
+      "passive",
+      "ai-tells",
       "banned-words",
       "worn-phrases",
       "orwell",
@@ -59,6 +61,8 @@ describe("loadOrCreatePasses", () => {
       "openers",
       "wordiness",
       "repetition",
+      "passive",
+      "ai-tells",
       "banned-words",
       "worn-phrases",
       "orwell",
@@ -134,19 +138,19 @@ describe("setPassEnabled", () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
 
-    // Characters and actions ships disabled (DESIGN §4).
+    // Characters and actions ships enabled in v1.1 (ADR 0009).
     await expect(database.passes.get("characters-actions")).resolves.toMatchObject({
-      enabled: false,
+      enabled: true,
     });
-
-    const enabled = await setPassEnabled(database, "characters-actions", true);
-    expect(enabled?.enabled).toBe(true);
-
-    const reloaded = await loadOrCreatePasses(database);
-    expect(reloaded.find((pass) => pass.id === "characters-actions")?.enabled).toBe(true);
 
     const disabled = await setPassEnabled(database, "characters-actions", false);
     expect(disabled?.enabled).toBe(false);
+
+    const reloaded = await loadOrCreatePasses(database);
+    expect(reloaded.find((pass) => pass.id === "characters-actions")?.enabled).toBe(false);
+
+    const reenabled = await setPassEnabled(database, "characters-actions", true);
+    expect(reenabled?.enabled).toBe(true);
   });
 });
 

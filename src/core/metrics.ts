@@ -1,3 +1,5 @@
+import { canonicalBlocks } from "./canonicalText";
+import type { DocTree } from "./docTree";
 import { splitSentences } from "./sentences";
 import { countWords, tokenizeWords } from "./tokens";
 
@@ -28,6 +30,22 @@ export interface DocumentMetrics {
   adverbCount: number;
   /** Adverbs per 100 words. */
   adverbDensity: number;
+}
+
+/**
+ * A3 uniform paragraph shape. It reads the Document's blocks, not the string,
+ * because the block structure is the tree's to know; re-parsing the canonical
+ * string to recover it would be a second walk that can disagree with the first.
+ */
+export interface ParagraphShapeMetrics {
+  /** Each top-level Paragraph's sentence count, in document order. */
+  paragraphSentenceCounts: number[];
+  /**
+   * The longest run of consecutive Paragraphs that share a sentence count. It is
+   * a metric, not a pass, because a run of equal counts is a rhythm to see
+   * rather than a fault to flag.
+   */
+  longestUniformParagraphRun: number;
 }
 
 /** Common adverbs that do not end in `-ly`, so the suffix rule would miss them. */
@@ -81,6 +99,34 @@ export function documentMetrics(canonical: string): DocumentMetrics {
     adverbCount,
     adverbDensity: wordCount === 0 ? 0 : (adverbCount / wordCount) * 100,
   };
+}
+
+/**
+ * A3 uniform paragraph shape. A non-Paragraph block (a heading, a list, a code
+ * fence) breaks a run, because the rhythm A3 names is between adjacent
+ * Paragraphs. The deterministic proxy for "shape" is a Paragraph's sentence
+ * count: counting grammar is not a rule this tier can make.
+ */
+export function paragraphShapeMetrics(tree: DocTree): ParagraphShapeMetrics {
+  const counts: number[] = [];
+  let longestUniformRun = 0;
+  let run = 0;
+  let previous: number | null = null;
+
+  for (const { block, text } of canonicalBlocks(tree)) {
+    if (block.type !== "paragraph") {
+      run = 0;
+      previous = null;
+      continue;
+    }
+    const count = splitSentences(text).length;
+    counts.push(count);
+    run = previous === count ? run + 1 : 1;
+    previous = count;
+    longestUniformRun = Math.max(longestUniformRun, run);
+  }
+
+  return { paragraphSentenceCounts: counts, longestUniformParagraphRun: longestUniformRun };
 }
 
 export function isAdverb(token: string): boolean {
