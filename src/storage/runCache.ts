@@ -42,6 +42,8 @@ export function toRunCacheRecord(
     passId: input.passId,
     promptHash: input.promptHash,
     connectionId: input.connectionId,
+    protocol: input.protocol,
+    baseUrl: input.baseUrl,
     model: input.model,
     screeningFrame: input.screeningFrame,
     characterLimit: input.characterLimit,

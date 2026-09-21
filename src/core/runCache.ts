@@ -17,7 +17,9 @@ import { fnv1a } from "./hash";
  * only ever add misses, never a wrong hit.
  *
  * The Connection belongs in the key because two Connections can serve the same
- * model id. The text hash ties the entry to the exact Document text, so any edit
+ * model id — and a Custom Connection's base URL and Protocol can be edited in
+ * place under the same id, so all three wire-shaping fields are keyed, not just
+ * the id. The text hash ties the entry to the exact Document text, so any edit
  * anywhere misses rather than returning Findings for prose that no longer
  * exists.
  *
@@ -39,6 +41,13 @@ export interface RunCacheKeyInput {
   passId: string;
   promptHash: string;
   connectionId: string;
+  /**
+   * The Connection's Protocol and base URL, because both shape the request and
+   * a Custom Connection can be repointed in place under the same id. Plain
+   * strings rather than the wire `Protocol` type, so Core stays wire-free.
+   */
+  protocol: string;
+  baseUrl: string;
   model: string;
   screeningFrame: boolean;
   characterLimit: number;
@@ -71,6 +80,8 @@ export function runCacheKey(input: RunCacheKeyInput): string {
     input.passId,
     input.promptHash,
     input.connectionId,
+    input.protocol,
+    input.baseUrl,
     input.model,
     input.screeningFrame,
     input.characterLimit,

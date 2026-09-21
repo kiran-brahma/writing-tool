@@ -107,6 +107,11 @@ async function runModelPassNow(
     passId: options.pass.id,
     promptHash: hashPass(options.pass),
     connectionId: options.connection.id,
+    // A Custom Connection's base URL and Protocol can change in place under the
+    // same id, so both join the key: repointing a Connection must not reuse the
+    // previous endpoint's cached answer.
+    protocol: options.connection.protocol,
+    baseUrl: options.connection.baseUrl,
     model: options.connection.model,
     screeningFrame: options.screeningFrame,
     characterLimit: options.characterLimit,

@@ -105,6 +105,8 @@ export interface RunCacheRecord {
   passId: string;
   promptHash: string;
   connectionId: string;
+  protocol: string;
+  baseUrl: string;
   model: string;
   screeningFrame: boolean;
   characterLimit: number;

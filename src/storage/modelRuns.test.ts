@@ -345,6 +345,8 @@ describe("the Run cache (story 53)", () => {
         passId: CLICHE_PASS.id,
         promptHash: hashPass(CLICHE_PASS),
         connectionId: connection().id,
+        protocol: connection().protocol,
+        baseUrl: connection().baseUrl,
         model: connection().model,
         screeningFrame: true,
         characterLimit: DEFAULT_CHARACTER_LIMIT,
@@ -394,6 +396,22 @@ describe("the Run cache (story 53)", () => {
     await runModelPass(database, document, {
       ...optionsWith(document, transport),
       connection: { ...connection(), id: "openai-alt" },
+    });
+
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it("misses when the base URL changes even for the same Connection id and model", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    // A Custom Connection can be repointed in place: same id, same model, a
+    // different endpoint. That is a different request and must not be a hit.
+    const transport = createFixtureTransport({ respond: () => RESPONSE });
+    await runModelPass(database, document, {
+      ...optionsWith(document, transport),
+      connection: { ...connection(), baseUrl: "http://localhost:9999/v1" },
     });
 
     expect(transport.requests).toHaveLength(1);

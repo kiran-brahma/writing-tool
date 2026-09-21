@@ -7,6 +7,8 @@ function key(overrides: Partial<RunCacheKeyInput> = {}): string {
     passId: "cliche",
     promptHash: "abc123",
     connectionId: "openai",
+    protocol: "openai-shaped",
+    baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o",
     screeningFrame: true,
     characterLimit: 20_000,
@@ -44,6 +46,10 @@ describe("runCacheKey", () => {
     expect(key({ passId: "hedges" })).not.toBe(base);
     expect(key({ promptHash: "def456" })).not.toBe(base);
     expect(key({ connectionId: "openrouter" })).not.toBe(base);
+    // A Custom Connection repointed in place is a different endpoint, so its
+    // base URL and Protocol are keyed, not only its id.
+    expect(key({ baseUrl: "http://localhost:8080/v1" })).not.toBe(base);
+    expect(key({ protocol: "anthropic-shaped" })).not.toBe(base);
     expect(key({ model: "gpt-4o-mini" })).not.toBe(base);
     expect(key({ screeningFrame: false })).not.toBe(base);
     expect(key({ characterLimit: 40 })).not.toBe(base);
