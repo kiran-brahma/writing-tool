@@ -6,6 +6,7 @@ import {
   NewerDatabaseError,
   ObelusDatabase,
   openObelusDatabase,
+  type AuditAccountRecord,
   type DocumentRecord,
 } from "./obelusDatabase";
 import { latestRevision, listRevisions, takeRevision } from "./revisions";
@@ -337,6 +338,28 @@ describe("openObelusDatabase", () => {
     expect(database.verno).toBe(8);
     await expect(database.runCache.get("cache-1")).resolves.toMatchObject({ passId: "cliche" });
     expect(database.tables.map((table) => table.name)).toContain("auditAccounts");
+  });
+
+  it("stores an Audit account with its Document, Pass and promptHash (story 133)", async () => {
+    const database = await openTestDatabase();
+    const account: AuditAccountRecord = {
+      id: "audit-1",
+      documentId: "default",
+      passId: "audit",
+      promptHash: "hash",
+      type: "argument",
+      corePayload: "The piece argues that X follows from Y.",
+      fallacies: [{ name: null, passage: "X follows.", why: "Unstated premise.", missing: "Y." }],
+      priority: ["State the missing premise."],
+      provenance: { providerId: "openai", model: "m", at: 1, revisionId: "rev-1" },
+    };
+
+    await database.auditAccounts.put(account);
+
+    await expect(database.auditAccounts.get("audit-1")).resolves.toEqual(account);
+    await expect(
+      database.auditAccounts.where("[documentId+passId]").equals(["default", "audit"]).count(),
+    ).resolves.toBe(1);
   });
 
   it("refuses a database newer than the running code, leaving it intact", async () => {
