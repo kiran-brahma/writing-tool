@@ -181,6 +181,18 @@ describe("exportLibraryBackup", () => {
     expect(backupArrayKeys).toEqual(database.tables.map((table) => table.name).sort());
   });
 
+  it("reads a backup written before the auditAccounts store existed", async () => {
+    const backup = await exportLibraryBackup(await openTestDatabase());
+    const older = JSON.parse(serializeLibraryBackup(backup)) as Record<string, unknown>;
+    delete older.auditAccounts;
+
+    const parsed = parseLibraryBackup(JSON.stringify(older));
+
+    // The store postdates the file, so the file carries no accounts and restores
+    // as empty rather than being refused.
+    expect(parsed.auditAccounts).toEqual([]);
+  });
+
   it("story 112: strips persisted keys by default", async () => {
     const database = await openTestDatabase();
     await database.connections.put(connection());

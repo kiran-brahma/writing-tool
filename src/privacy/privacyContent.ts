@@ -46,6 +46,7 @@ export const PRIVACY_STORES: readonly string[] = [
   "revisions",
   "findings",
   "readerAccounts",
+  "auditAccounts",
   "runResponses",
   "runCache",
   "passes",

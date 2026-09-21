@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { AuditAccount } from "../core/audit";
 import type { DocTree } from "../core/docTree";
 import type { Finding, Interval, Violation } from "../core/finding";
 import type { DocumentStatus } from "../core/library";
@@ -70,6 +71,21 @@ export interface ReaderAccountRecord extends ReaderAccount {
 }
 
 /**
+ * An Audit account as stored, derived from the whole Document. It carries the
+ * `passId`/`promptHash` that produced it, exactly as a Reader account does, so
+ * a re-run replaces its own accounts and a reload can still name the Pass. It
+ * is a separate record kind from a Finding: a whole-piece judgment has no quote
+ * to anchor to, and forcing one into the queue would break the `j`/`k`/`a`/`x`
+ * loop the queue exists for.
+ */
+export interface AuditAccountRecord extends AuditAccount {
+  id: string;
+  documentId: string;
+  passId: string;
+  promptHash: string;
+}
+
+/**
  * The raw provider response behind a model Run, kept so the global
  * "show raw response" toggle can expose it for any Finding — including one
  * loaded after a reload. Keyed by Document, Pass and `promptHash`, so a Finding
@@ -131,7 +147,7 @@ export interface SettingsRecord {
   value: unknown;
 }
 
-const OBELUS_DATABASE_VERSION = 7;
+const OBELUS_DATABASE_VERSION = 8;
 export const DEFAULT_DATABASE_NAME = "obelus";
 
 /** Dexie scales declared versions by ten to form the native IndexedDB version. */
@@ -160,6 +176,7 @@ export class ObelusDatabase extends Dexie {
   settings!: Table<SettingsRecord, string>;
   runResponses!: Table<RunResponseRecord, [string, string, string]>;
   readerAccounts!: Table<ReaderAccountRecord, string>;
+  auditAccounts!: Table<AuditAccountRecord, string>;
   runCache!: Table<RunCacheRecord, string>;
 
   constructor(name: string = DEFAULT_DATABASE_NAME) {
@@ -240,6 +257,23 @@ export class ObelusDatabase extends Dexie {
       runResponses: "[documentId+passId+promptHash], documentId",
       readerAccounts: "id, documentId, [documentId+passId]",
       runCache: "key, documentId",
+    });
+    // Migration 8: Audit accounts, the repository #26 introduces. Additive: a
+    // new store for the Audit pass's own output shape, and nothing existing is
+    // rewritten. It ships in its own commit, ahead of the behaviour that reads
+    // or writes it, as docs/migrations.md requires: deploy this migration alone,
+    // then the Audit behaviour in the next deploy.
+    this.version(8).stores({
+      documents: "id, updatedAt",
+      revisions: "id, documentId, createdAt, [documentId+createdAt]",
+      findings: "id, documentId, [documentId+passId]",
+      passes: "id, kind",
+      connections: "id, builtIn",
+      settings: "key",
+      runResponses: "[documentId+passId+promptHash], documentId",
+      readerAccounts: "id, documentId, [documentId+passId]",
+      runCache: "key, documentId",
+      auditAccounts: "id, documentId, [documentId+passId]",
     });
   }
 }

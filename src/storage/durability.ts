@@ -12,6 +12,7 @@ import type { Pass } from "../core/pass";
 import type { Connection } from "../wire/connection";
 import { enqueueMutation } from "./mutationQueue";
 import type {
+  AuditAccountRecord,
   DocumentRecord,
   FindingRecord,
   ObelusDatabase,
@@ -53,6 +54,7 @@ export interface LibraryBackup {
   settings: SettingsRecord[];
   runResponses: RunResponseRecord[];
   readerAccounts: ReaderAccountRecord[];
+  auditAccounts: AuditAccountRecord[];
   /** The Run cache. Disposable, but a backup is a full snapshot of the stores. */
   runCache: RunCacheRecord[];
 }
@@ -66,6 +68,7 @@ export interface DocumentBundle {
   findings: FindingRecord[];
   runResponses: RunResponseRecord[];
   readerAccounts: ReaderAccountRecord[];
+  auditAccounts: AuditAccountRecord[];
 }
 
 /** A file that is not an Obelus backup or bundle, refused before anything is written. */
@@ -113,6 +116,7 @@ export async function exportLibraryBackup(
     settings,
     runResponses,
     readerAccounts,
+    auditAccounts,
     runCache,
   ] =
     await database.transaction(
@@ -126,6 +130,7 @@ export async function exportLibraryBackup(
         database.settings,
         database.runResponses,
         database.readerAccounts,
+        database.auditAccounts,
         database.runCache,
       ],
       () =>
@@ -138,6 +143,7 @@ export async function exportLibraryBackup(
           database.settings.toArray(),
           database.runResponses.toArray(),
           database.readerAccounts.toArray(),
+          database.auditAccounts.toArray(),
           database.runCache.toArray(),
         ]),
     );
@@ -157,6 +163,7 @@ export async function exportLibraryBackup(
     settings: withSetting(settings, LAST_BACKED_UP_SETTING_KEY, now),
     runResponses,
     readerAccounts,
+    auditAccounts,
     runCache,
   };
 }
@@ -227,6 +234,9 @@ export function parseLibraryBackup(text: string): LibraryBackup {
   }
   // The Run cache is disposable, so a backup written before this store existed
   // is still readable; it restores as an empty cache rather than being refused.
+  // An Audit-account store added after a backup was written is the same: the
+  // file predates the store, so it carries none, and restores as empty.
+  if (!Array.isArray(value.auditAccounts)) value.auditAccounts = [];
   if (!Array.isArray(value.runCache)) value.runCache = [];
   return value as unknown as LibraryBackup;
 }
@@ -240,6 +250,9 @@ export function parseDocumentBundle(text: string): DocumentBundle {
   if (!isDocumentRecord(value.document)) {
     throw new BackupFormatError("That bundle has no readable Document.");
   }
+  // A bundle written before the Audit-account store existed still reads; it
+  // carries no accounts rather than being refused.
+  if (!Array.isArray(value.auditAccounts)) value.auditAccounts = [];
   return value as unknown as DocumentBundle;
 }
 
@@ -336,6 +349,7 @@ export function importLibraryBackup(
         database.settings,
         database.runResponses,
         database.readerAccounts,
+        database.auditAccounts,
         database.runCache,
       ],
       async () => {
@@ -365,6 +379,7 @@ export function importLibraryBackup(
           database.settings.clear(),
           database.runResponses.clear(),
           database.readerAccounts.clear(),
+          database.auditAccounts.clear(),
           database.runCache.clear(),
         ]);
 
@@ -376,6 +391,7 @@ export function importLibraryBackup(
         await database.settings.bulkPut(backup.settings);
         await database.runResponses.bulkPut(backup.runResponses);
         await database.readerAccounts.bulkPut(backup.readerAccounts);
+        await database.auditAccounts.bulkPut(backup.auditAccounts);
         await database.runCache.bulkPut(backup.runCache);
 
         // The restored settings may carry a stale reminder; the file's timestamp
@@ -399,11 +415,12 @@ export async function exportDocumentBundle(
   const document = await database.documents.get(documentId);
   if (document === undefined) return null;
 
-  const [revisions, findings, runResponses, readerAccounts] = await Promise.all([
+  const [revisions, findings, runResponses, readerAccounts, auditAccounts] = await Promise.all([
     database.revisions.where("documentId").equals(documentId).toArray(),
     database.findings.where("documentId").equals(documentId).toArray(),
     database.runResponses.where("documentId").equals(documentId).toArray(),
     database.readerAccounts.where("documentId").equals(documentId).toArray(),
+    database.auditAccounts.where("documentId").equals(documentId).toArray(),
   ]);
 
   return {
@@ -415,6 +432,7 @@ export async function exportDocumentBundle(
     findings,
     runResponses,
     readerAccounts,
+    auditAccounts,
   };
 }
 
@@ -448,6 +466,7 @@ export function importDocumentBundle(
     ),
     ...bundle.findings.map((finding) => finding.provenance.revisionId),
     ...bundle.readerAccounts.map((account) => account.provenance.revisionId),
+    ...bundle.auditAccounts.map((account) => account.provenance.revisionId),
   ];
   const revisionIds = freshIdMap(referencedRevisionIds);
   // Every referenced Revision gets a fresh id, so a join can never point at a
@@ -488,6 +507,15 @@ export function importDocumentBundle(
       revisionId: revisionIdFor(account.provenance.revisionId),
     },
   }));
+  const auditAccounts: AuditAccountRecord[] = bundle.auditAccounts.map((account) => ({
+    ...account,
+    id: crypto.randomUUID(),
+    documentId,
+    provenance: {
+      ...account.provenance,
+      revisionId: revisionIdFor(account.provenance.revisionId),
+    },
+  }));
 
   // Queued with Runs, so importing a copy cannot interleave with a write.
   return enqueueMutation(database, async () => {
@@ -499,6 +527,7 @@ export function importDocumentBundle(
         database.findings,
         database.runResponses,
         database.readerAccounts,
+        database.auditAccounts,
       ],
       async () => {
         await database.documents.put(document);
@@ -506,6 +535,7 @@ export function importDocumentBundle(
         await database.findings.bulkPut(findings);
         await database.runResponses.bulkPut(runResponses);
         await database.readerAccounts.bulkPut(readerAccounts);
+        await database.auditAccounts.bulkPut(auditAccounts);
       },
     );
     return document;
