@@ -1,5 +1,5 @@
 import { diffChars, type Change } from "diff";
-import { canonicalTextWithMap } from "./canonicalText";
+import { canonicalBlocks, canonicalTextWithMap } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import {
   isOpenFinding,
@@ -74,11 +74,21 @@ function resolveWithEdits(
   return matchQuote(quote, currentCanonical, offset);
 }
 
+/** A resolved Anchor interval, tied to the Finding it belongs to. */
+export interface FindingInterval {
+  findingId: string;
+  interval: Interval;
+}
+
 /** The resolved anchors of a Finding set, ready to render. */
 export interface FindingResolution {
   findings: Finding[];
-  /** Canonical intervals of the open Findings, in their relative order. */
-  intervals: Interval[];
+  /**
+   * Canonical intervals of the open Findings, each tied to its Finding so the
+   * Editor can pick out the Current Finding. A Finding that has left the queue
+   * is not here, so it draws no Highlight.
+   */
+  highlights: FindingInterval[];
   /** The Findings whose `anchor.state` changed, for the caller to persist. */
   changed: Finding[];
 }
@@ -97,7 +107,7 @@ export function reResolveFindings(
 ): FindingResolution {
   const resolved: Finding[] = [];
   const changed: Finding[] = [];
-  const intervals: Interval[] = [];
+  const highlights: FindingInterval[] = [];
   const editsByProvenance = new Map<string, Change[]>();
 
   for (const finding of findings) {
@@ -117,10 +127,12 @@ export function reResolveFindings(
       resolved.push(updated);
       changed.push(updated);
     }
-    if (isOpenFinding(finding) && interval !== null) intervals.push(interval);
+    if (isOpenFinding(finding) && interval !== null) {
+      highlights.push({ findingId: finding.id, interval });
+    }
   }
 
-  return { findings: resolved, intervals, changed };
+  return { findings: resolved, highlights, changed };
 }
 
 /**
@@ -236,16 +248,14 @@ export function canonicalIntervalForRange(tree: DocTree, range: EditorRange): In
 
 /**
  * Projects many intervals with one walk of the tree, so drawing H Highlights
- * costs one canonical render rather than H of them.
+ * costs one canonical render rather than H of them. Discards each Finding's
+ * identity; `projectHighlights` keeps the `current` flag for the Editor.
  */
 export function projectIntervals(tree: DocTree, intervals: Interval[]): EditorRange[] {
-  const { positions } = canonicalTextWithMap(tree);
-  const ranges: EditorRange[] = [];
-  for (const interval of intervals) {
-    const range = projectFromPositions(positions, interval);
-    if (range !== null) ranges.push(range);
-  }
-  return ranges;
+  return projectHighlights(
+    tree,
+    intervals.map((interval) => ({ interval, current: false })),
+  ).map(({ from, to }) => ({ from, to }));
 }
 
 function projectFromPositions(
@@ -265,4 +275,49 @@ function projectFromPositions(
 
   if (from === Number.POSITIVE_INFINITY) return null;
   return { from, to };
+}
+
+/**
+ * The top-level block index a canonical interval begins in, for the Editor to
+ * scroll to. When an interval spans a block boundary the start decides, so the
+ * Editor lands on the Paragraph the Finding opens in. `null` when there is no
+ * block to land on — an Orphaned Finding has no interval at all, so selecting it
+ * moves nothing and the prose is never scrolled somewhere misleading.
+ */
+export function blockIndexForInterval(tree: DocTree, interval: Interval | null): number | null {
+  if (interval === null) return null;
+  for (const block of canonicalBlocks(tree)) {
+    if (interval.start < block.end) return block.index;
+  }
+  return null;
+}
+
+/** A canonical interval paired with whether it is the Current Finding. */
+export interface HighlightInterval {
+  interval: Interval;
+  current: boolean;
+}
+
+/** A projected Highlight: the Editor range and whether it is current. */
+export interface ProjectedHighlight extends EditorRange {
+  current: boolean;
+}
+
+/**
+ * Projects resolved Highlight intervals with one walk of the tree, carrying each
+ * one's `current` flag through. The flag travels with its own interval, so a
+ * range that covers no source character can be dropped without the Current
+ * Finding's mark sliding onto a neighbouring Finding.
+ */
+export function projectHighlights(
+  tree: DocTree,
+  highlights: HighlightInterval[],
+): ProjectedHighlight[] {
+  const { positions } = canonicalTextWithMap(tree);
+  const projected: ProjectedHighlight[] = [];
+  for (const highlight of highlights) {
+    const range = projectFromPositions(positions, highlight.interval);
+    if (range !== null) projected.push({ ...range, current: highlight.current });
+  }
+  return projected;
 }

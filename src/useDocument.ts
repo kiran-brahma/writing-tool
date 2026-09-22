@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { reResolveFindings, type FindingResolution } from "./core/anchor";
+import { reResolveFindings, type FindingInterval, type FindingResolution } from "./core/anchor";
 import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
 import { addRunCost, estimateRunCost, type CostEstimate, type PriceTable } from "./core/cost";
 import type { DocTree } from "./core/docTree";
-import { type DeclineReason, type Finding, type Interval, type Violation } from "./core/finding";
+import { type DeclineReason, type Finding, type Violation } from "./core/finding";
 import type { DocumentStatus, LibraryEntry } from "./core/library";
 import {
   judge as judgeCore,
@@ -119,8 +119,8 @@ export interface DocumentHandle {
   findings: Finding[];
   /** The Pass set: the Starter pack as edited by the Writer. */
   passes: Pass[];
-  /** Canonical intervals of open Findings, for the Editor to draw. */
-  highlights: Interval[];
+  /** Canonical intervals of open Findings, each tied to its Finding, for the Editor to draw. */
+  highlights: FindingInterval[];
   /** The top-level block the Writer's cursor is in, the paragraph-scope Target. */
   targetBlockIndex: number;
   setTargetBlockIndex: (index: number) => void;
@@ -328,7 +328,7 @@ export function useDocument(): DocumentHandle {
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [passes, setPasses] = useState<Pass[]>(STARTER_PASSES);
-  const [highlights, setHighlights] = useState<Interval[]>([]);
+  const [highlights, setHighlights] = useState<FindingInterval[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [slots, setSlots] = useState<SlotAssignment>({ critic: null, judge: null });
   const [targetBlockIndex, setTargetBlockIndex] = useState(0);
@@ -393,7 +393,7 @@ export function useDocument(): DocumentHandle {
   const applyResolution = useCallback((resolution: FindingResolution) => {
     findingsRef.current = resolution.findings;
     setFindings(resolution.findings);
-    setHighlights(resolution.intervals);
+    setHighlights(resolution.highlights);
   }, []);
 
   /**
@@ -513,7 +513,7 @@ export function useDocument(): DocumentHandle {
       savedCanonicalRef.current = opened.canonical;
       canonicalsRef.current = new Map();
       setDocumentRecord(opened);
-      applyResolution({ findings: [], intervals: [], changed: [] });
+      applyResolution({ findings: [], highlights: [], changed: [] });
       setRawResponses(await listRunResponses(database, opened.id));
       setReaderAccounts(await listReaderAccounts(database, opened.id));
       setAuditAccounts(await listAuditAccounts(database, opened.id));

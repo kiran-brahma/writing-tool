@@ -1,7 +1,7 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useReducer, useRef, type ReactNode } from "react";
-import { canonicalIntervalForRange, projectIntervals } from "../core/anchor";
+import { canonicalIntervalForRange, projectHighlights, type HighlightInterval } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
 import type { Interval } from "../core/finding";
 import { HighlightExtension, setHighlightRanges } from "./highlight";
@@ -9,8 +9,8 @@ import { HighlightExtension, setHighlightRanges } from "./highlight";
 export interface DocumentEditorProps {
   initialContent: DocTree;
   onChange: (tree: DocTree) => void;
-  /** Canonical intervals Core resolved; the Editor only draws them. */
-  highlights: Interval[];
+  /** Canonical intervals Core resolved, each with whether it is the Current Finding. */
+  highlights: HighlightInterval[];
   /**
    * The top-level block the cursor moved into. A paragraph-scope Pass targets
    * that Paragraph; the shell turns it into the Target and its context.
@@ -23,10 +23,13 @@ export interface DocumentEditorProps {
    */
   onSelectionChange?: (interval: Interval | null) => void;
   /**
-   * A Section heading the Writer asked to jump to. The `nonce` changes on every
-   * click, so clicking the same heading twice still moves the cursor.
+   * A Section heading the Writer asked to jump to, or the text a selected
+   * Finding concerns. The `nonce` changes on every selection, so re-selecting
+   * the same target still moves the cursor. `focus` is false when the rail sent
+   * the request, so working the queue does not move the keyboard into the prose
+   * and swallow the next `j`/`k` as a typed letter.
    */
-  jumpRequest?: { blockIndex: number; nonce: number } | null;
+  jumpRequest?: { blockIndex: number; nonce: number; focus?: boolean } | null;
 }
 
 /**
@@ -92,13 +95,13 @@ export function DocumentEditor({
 
   useEffect(() => {
     if (editor === null) return;
-    const ranges = projectIntervals(editor.getJSON() as unknown as DocTree, highlights);
+    const ranges = projectHighlights(editor.getJSON() as unknown as DocTree, highlights);
     setHighlightRanges(editor, ranges);
   }, [editor, highlights]);
 
   useEffect(() => {
     if (editor === null || jumpRequest == null) return;
-    const { blockIndex } = jumpRequest;
+    const { blockIndex, focus = true } = jumpRequest;
     if (blockIndex < 0 || blockIndex >= editor.state.doc.childCount) return;
 
     // The Editor counts positions the way ProseMirror does: a top-level block's
@@ -108,7 +111,23 @@ export function DocumentEditor({
     for (let index = 0; index < blockIndex; index += 1) {
       position += editor.state.doc.child(index).nodeSize;
     }
-    editor.chain().focus().setTextSelection(position).scrollIntoView().run();
+    if (focus) {
+      editor.chain().focus().setTextSelection(position).scrollIntoView().run();
+      return;
+    }
+
+    // The rail sent this: scroll the block into view without taking focus. The
+    // DOM selection only follows ProseMirror's when the Editor has focus, so
+    // ProseMirror's own scrollIntoView cannot help here, and focusing would let
+    // the next `j`/`k` land in the prose as a typed letter instead of stepping
+    // the queue. The caret moves only for a textblock: a list or block quote has
+    // no inline content at its start, and a text selection there would be invalid.
+    if (editor.state.doc.resolve(position).parent.inlineContent) {
+      editor.commands.setTextSelection(position);
+    }
+    const { node } = editor.view.domAtPos(position);
+    const element = node instanceof HTMLElement ? node : node.parentElement;
+    element?.scrollIntoView({ block: "center" });
   }, [editor, jumpRequest]);
 
   return (

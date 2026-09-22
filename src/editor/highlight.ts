@@ -2,7 +2,7 @@ import { Extension, type Editor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node } from "@tiptap/pm/model";
-import type { EditorRange } from "../core/finding";
+import type { ProjectedHighlight } from "../core/anchor";
 
 /**
  * The Highlight layer. It draws ranges Core resolved and projected; it never
@@ -22,7 +22,9 @@ export const HighlightExtension = Extension.create({
         state: {
           init: () => DecorationSet.empty,
           apply(transaction, current) {
-            const ranges = transaction.getMeta(HIGHLIGHT_PLUGIN_KEY) as EditorRange[] | undefined;
+            const ranges = transaction.getMeta(HIGHLIGHT_PLUGIN_KEY) as
+              | ProjectedHighlight[]
+              | undefined;
             if (ranges !== undefined) return buildDecorations(transaction.doc, ranges);
             return current.map(transaction.mapping, transaction.doc);
           },
@@ -38,13 +40,19 @@ export const HighlightExtension = Extension.create({
 });
 
 /** Replaces the drawn Highlight ranges with a fresh projection. */
-export function setHighlightRanges(editor: Editor, ranges: EditorRange[]): void {
+export function setHighlightRanges(editor: Editor, ranges: ProjectedHighlight[]): void {
   editor.view.dispatch(editor.state.tr.setMeta(HIGHLIGHT_PLUGIN_KEY, ranges));
 }
 
-function buildDecorations(doc: Node, ranges: EditorRange[]): DecorationSet {
-  const decorations = ranges
-    .filter((range) => range.from < range.to)
-    .map((range) => Decoration.inline(range.from, range.to, { class: "obelus-highlight" }));
+function buildDecorations(doc: Node, ranges: ProjectedHighlight[]): DecorationSet {
+  const decorations = ranges.map((range) =>
+    Decoration.inline(range.from, range.to, {
+      // The Current Finding's Highlight is a second class beside the shared
+      // one, not a replacement, so it keeps the Highlight's own look.
+      class: range.current
+        ? "obelus-highlight obelus-highlight-current"
+        : "obelus-highlight",
+    }),
+  );
   return DecorationSet.create(doc, decorations);
 }

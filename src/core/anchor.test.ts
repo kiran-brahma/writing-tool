@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { projectInterval, reResolveFindings, resolveAnchor } from "./anchor";
-import { canonicalTextWithMap } from "./canonicalText";
+import {
+  blockIndexForInterval,
+  projectHighlights,
+  projectInterval,
+  reResolveFindings,
+  resolveAnchor,
+} from "./anchor";
+import { canonicalText, canonicalTextWithMap } from "./canonicalText";
 import type { BlockNode, DocTree, ParagraphNode } from "./docTree";
 import type { Finding } from "./finding";
 
@@ -129,7 +135,9 @@ describe("reResolveFindings", () => {
     const resolution = reResolveFindings([finding("very good", 4)], current, () => provenance);
 
     expect(resolution.findings[0].anchor.state).toBe("attached");
-    expect(resolution.intervals).toEqual([{ start: 4, end: 14 }]);
+    expect(resolution.highlights).toEqual([
+      { findingId: "finding-1", interval: { start: 4, end: 14 } },
+    ]);
   });
 
   it("orphans a Finding whose quote is gone and gives it no interval", () => {
@@ -140,7 +148,7 @@ describe("reResolveFindings", () => {
 
     expect(resolution.findings[0].anchor.state).toBe("orphaned");
     expect(resolution.findings[0].status).toBe("open");
-    expect(resolution.intervals).toEqual([]);
+    expect(resolution.highlights).toEqual([]);
   });
 
   it("resolves by quote match when the provenance Revision is missing", () => {
@@ -149,7 +157,9 @@ describe("reResolveFindings", () => {
     const resolution = reResolveFindings([finding("very good", 0)], current, () => undefined);
 
     expect(resolution.findings[0].anchor.state).toBe("attached");
-    expect(resolution.intervals).toEqual([{ start: 2, end: 11 }]);
+    expect(resolution.highlights).toEqual([
+      { findingId: "finding-1", interval: { start: 2, end: 11 } },
+    ]);
   });
 
   it("returns the same Finding object when state is unchanged", () => {
@@ -159,6 +169,19 @@ describe("reResolveFindings", () => {
     const resolution = reResolveFindings([original], current, () => current);
 
     expect(resolution.findings[0]).toBe(original);
+  });
+
+  it("ties each Highlight interval to its own Finding", () => {
+    const current = "A very good line and a very bad line.\n";
+    const first = { ...finding("very good", 2), id: "finding-a" };
+    const second = { ...finding("very bad", 20), id: "finding-b" };
+
+    const resolution = reResolveFindings([first, second], current, () => current);
+
+    expect(resolution.highlights).toEqual([
+      { findingId: "finding-a", interval: { start: 2, end: 11 } },
+      { findingId: "finding-b", interval: { start: 23, end: 31 } },
+    ]);
   });
 });
 
@@ -235,5 +258,63 @@ describe("projectInterval", () => {
   it("returns null when the interval covers no source character", () => {
     const tree = doc(paragraph("x"));
     expect(projectInterval(tree, { start: 1, end: 2 })).toBeNull();
+  });
+});
+
+/**
+ * The Current Finding's Highlight and the Editor's scroll both need the
+ * top-level block an interval begins in. The start decides, so an interval that
+ * spans a Paragraph boundary still lands in the Paragraph it opens in.
+ */
+describe("blockIndexForInterval", () => {
+  it("finds the top-level block an interval begins in", () => {
+    const tree = doc(paragraph("One."), paragraph("Two."), paragraph("Three."));
+    const canonical = canonicalText(tree);
+    const start = canonical.indexOf("Three");
+    expect(blockIndexForInterval(tree, { start, end: start + 5 })).toBe(2);
+  });
+
+  it("lands on the block it begins in when the interval spans a block boundary", () => {
+    const tree = doc(paragraph("Alpha beta."), paragraph("Gamma delta."));
+    const canonical = canonicalText(tree);
+    const start = canonical.indexOf("beta");
+    const end = canonical.indexOf("delta") + 5;
+    expect(blockIndexForInterval(tree, { start, end })).toBe(0);
+  });
+
+  it("returns null for an Orphaned Finding, whose interval is missing", () => {
+    expect(blockIndexForInterval(doc(paragraph("One.")), null)).toBeNull();
+  });
+});
+
+/**
+ * The Editor draws every open Finding's Highlight and distinguishes the Current
+ * Finding's. A range that covers no source character is dropped, and the flag
+ * must stay with its own interval rather than slide onto a neighbour.
+ */
+describe("projectHighlights", () => {
+  it("keeps each Highlight's current flag through projection", () => {
+    const tree = doc(paragraph("alpha"), paragraph("beta"));
+    const projected = projectHighlights(tree, [
+      { interval: { start: 0, end: 5 }, current: false },
+      { interval: { start: 7, end: 11 }, current: true },
+    ]);
+
+    expect(projected).toEqual([
+      { from: 1, to: 6, current: false },
+      { from: 8, to: 12, current: true },
+    ]);
+  });
+
+  it("drops a range with no source character without moving the current flag", () => {
+    const tree = doc(paragraph("alpha"), paragraph("beta"));
+    const projected = projectHighlights(tree, [
+      // The blank-line separator between the two Paragraphs carries no source
+      // character, so this range projects to nothing.
+      { interval: { start: 5, end: 6 }, current: false },
+      { interval: { start: 7, end: 11 }, current: true },
+    ]);
+
+    expect(projected).toEqual([{ from: 8, to: 12, current: true }]);
   });
 });

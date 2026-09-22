@@ -371,7 +371,9 @@ describe("resolveDocumentFindings", () => {
 
     expect(resolution.findings).toHaveLength(1);
     expect(resolution.findings[0].anchor.state).toBe("attached");
-    expect(resolution.intervals).toEqual([{ start: 4, end: 14 }]);
+    expect(resolution.highlights).toEqual([
+      { findingId: resolution.findings[0].id, interval: { start: 4, end: 14 } },
+    ]);
     expect((await listFindings(database, documentId))[0].anchor.state).toBe("attached");
   });
 
@@ -382,7 +384,7 @@ describe("resolveDocumentFindings", () => {
     const resolution = await resolveDocumentFindings(database, rewritten);
 
     expect(resolution.findings[0]).toMatchObject({ status: "open", anchor: { state: "orphaned" } });
-    expect(resolution.intervals).toEqual([]);
+    expect(resolution.highlights).toEqual([]);
     expect((await listFindings(database, documentId))[0].anchor.state).toBe("orphaned");
   });
 

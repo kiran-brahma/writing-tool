@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { blockIndexForInterval, type HighlightInterval } from "./core/anchor";
 import type { Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
@@ -107,9 +108,11 @@ export default function App() {
   /** The Writer's current text selection, as a canonical interval. */
   const [selectionInterval, setSelectionInterval] = useState<Interval | null>(null);
   /** A heading the Writer asked to jump to; the nonce lets a repeat click move again. */
-  const [jumpRequest, setJumpRequest] = useState<{ blockIndex: number; nonce: number } | null>(
-    null,
-  );
+  const [jumpRequest, setJumpRequest] = useState<{
+    blockIndex: number;
+    nonce: number;
+    focus?: boolean;
+  } | null>(null);
 
   /** Story 25: the outline, derived from the Document's headings. */
   const outlineSections = useMemo(
@@ -124,6 +127,42 @@ export default function App() {
   const jumpToSection = useCallback((blockIndex: number) => {
     setJumpRequest((current) => ({ blockIndex, nonce: (current?.nonce ?? 0) + 1 }));
   }, []);
+
+  /** Every open Finding's interval, with the Current Finding's flagged for the Editor. */
+  const editorHighlights = useMemo<HighlightInterval[]>(
+    () =>
+      highlights.map((highlight) => ({
+        interval: highlight.interval,
+        current: highlight.findingId === currentFindingId,
+      })),
+    [highlights, currentFindingId],
+  );
+
+  /**
+   * Selects the Current Finding and moves the Editor to the prose it concerns.
+   * The jump request's nonce changes on every selection, so re-selecting the
+   * Finding already current moves the Editor again. An Orphaned Finding has no
+   * interval and so no block to move to; selecting it changes the row and leaves
+   * the prose where it is, which is never misleading.
+   */
+  const selectFinding = useCallback(
+    (findingId: string | null) => {
+      setCurrentFindingId(findingId);
+      if (findingId === null || document === null) return;
+      const interval =
+        highlights.find((highlight) => highlight.findingId === findingId)?.interval ?? null;
+      const blockIndex = blockIndexForInterval(document.tree, interval);
+      if (blockIndex === null) return;
+      setJumpRequest((current) => ({
+        blockIndex,
+        nonce: (current?.nonce ?? 0) + 1,
+        // Working the queue must not move the keyboard into the prose, or the
+        // next `j`/`k` would be typed into the Document instead of stepping.
+        focus: false,
+      }));
+    },
+    [document, highlights],
+  );
 
   /**
    * Opens the Library, flushing pending edits first so its rows show stored word
@@ -513,7 +552,7 @@ export default function App() {
                   key={`${document.id}:${editorGeneration}`}
                   initialContent={document.tree}
                   onChange={handleChange}
-                  highlights={highlights}
+                  highlights={editorHighlights}
                   onTargetChange={setTargetBlockIndex}
                   onSelectionChange={setSelectionInterval}
                   jumpRequest={jumpRequest}
@@ -528,7 +567,7 @@ export default function App() {
             activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
             onJumpToSection={jumpToSection}
             currentFindingId={currentFindingId}
-            onSelectFinding={setCurrentFindingId}
+            onSelectFinding={selectFinding}
             showRawResponse={showRawResponse}
             onToggleRawResponse={setShowRawResponse}
             selection={selection}
