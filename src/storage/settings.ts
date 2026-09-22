@@ -124,3 +124,26 @@ export async function saveRailCollapsed(
   await database.settings.put({ key: RAIL_COLLAPSED_SETTING_KEY, value: collapsed });
   return collapsed;
 }
+
+/**
+ * Story 169: whether the Writer has dismissed the first-run note in the Editor
+ * body. Off by default, so a new Writer meets the note once; only an explicit
+ * `true` dismisses it. It lives in the existing key-value store, so no Dexie
+ * migration is needed, and because it travels in a Backup a Restore carries the
+ * dismissal onto a fresh browser. That is correct: a Writer restoring is not
+ * new.
+ */
+export const FIRST_RUN_NOTE_SETTING_KEY = "firstRunNoteDismissed";
+
+export async function loadFirstRunNoteDismissed(database: ObelusDatabase): Promise<boolean> {
+  const record = await database.settings.get(FIRST_RUN_NOTE_SETTING_KEY);
+  return record === undefined ? false : record.value === true;
+}
+
+export async function saveFirstRunNoteDismissed(
+  database: ObelusDatabase,
+  dismissed: boolean,
+): Promise<boolean> {
+  await database.settings.put({ key: FIRST_RUN_NOTE_SETTING_KEY, value: dismissed });
+  return dismissed;
+}

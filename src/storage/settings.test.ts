@@ -3,15 +3,18 @@ import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
   CHARACTER_LIMIT_SETTING_KEY,
+  FIRST_RUN_NOTE_SETTING_KEY,
   RAIL_BAND_SETTING_KEY,
   RAIL_COLLAPSED_SETTING_KEY,
   VOICE_LIST_SETTING_KEY,
   loadCharacterLimit,
+  loadFirstRunNoteDismissed,
   loadRailBand,
   loadRailCollapsed,
   loadScreeningFrame,
   loadVoiceList,
   saveCharacterLimit,
+  saveFirstRunNoteDismissed,
   saveRailBand,
   saveRailCollapsed,
   saveScreeningFrame,
@@ -148,5 +151,30 @@ describe("the rail collapsed setting", () => {
     await database.settings.put({ key: RAIL_COLLAPSED_SETTING_KEY, value: "yes" });
 
     await expect(loadRailCollapsed(database)).resolves.toBe(false);
+  });
+});
+
+describe("the first-run note setting", () => {
+  it("shows the note by default, so a new Writer meets it once", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadFirstRunNoteDismissed(database)).resolves.toBe(false);
+  });
+
+  it("round-trips the Writer's dismissal", async () => {
+    const database = await openTestDatabase();
+
+    await expect(saveFirstRunNoteDismissed(database, true)).resolves.toBe(true);
+    await expect(loadFirstRunNoteDismissed(database)).resolves.toBe(true);
+
+    await expect(saveFirstRunNoteDismissed(database, false)).resolves.toBe(false);
+    await expect(loadFirstRunNoteDismissed(database)).resolves.toBe(false);
+  });
+
+  it("treats a stored value that is not true as not yet dismissed", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: FIRST_RUN_NOTE_SETTING_KEY, value: "yes" });
+
+    await expect(loadFirstRunNoteDismissed(database)).resolves.toBe(false);
   });
 });

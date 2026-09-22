@@ -82,7 +82,7 @@ import {
   listAuditAccounts,
   runAuditPass as runAuditPassRecord,
 } from "./storage/auditAccounts";
-import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit, loadVoiceList, saveVoiceList, loadRailBand, saveRailBand, loadRailCollapsed, saveRailCollapsed } from "./storage/settings";
+import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit, loadVoiceList, saveVoiceList, loadRailBand, saveRailBand, loadRailCollapsed, saveRailCollapsed, loadFirstRunNoteDismissed, saveFirstRunNoteDismissed } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
 import { useDurability } from "./durability/useDurability";
 import { createCustomConnection, type Connection } from "./wire/connection";
@@ -174,6 +174,14 @@ export interface DocumentHandle {
   /** ADR 0010, story 166: whether the rail is collapsed entirely. */
   railCollapsed: boolean;
   setRailCollapsed: (collapsed: boolean) => Promise<void>;
+  /**
+   * Story 169: whether the Writer has dismissed the first-run note in the
+   * Editor body. It is remembered in the settings store, so a reload does not
+   * bring the note back, and a Backup carries the dismissal.
+   */
+  firstRunNoteDismissed: boolean;
+  /** Story 169: dismisses the first-run note, storing the choice. */
+  dismissFirstRunNote: () => Promise<void>;
   /**
    * Story 50: how many chunks a document-scope Run of the current Document
    * would make at the current limit. `1` when it fits in a single call, so the
@@ -338,6 +346,8 @@ export function useDocument(): DocumentHandle {
   /** ADR 0010: the rail's last Band and whether it is collapsed. */
   const [railBand, setRailBandState] = useState<WorkingOrderBand>("structure");
   const [railCollapsed, setRailCollapsedState] = useState(false);
+  /** Story 169: the first-run note shows until the Writer dismisses it. */
+  const [firstRunNoteDismissed, setFirstRunNoteDismissedState] = useState(false);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   /** Story 102: a Pass set save, import or restore failure. */
@@ -444,6 +454,7 @@ export function useDocument(): DocumentHandle {
     setVoiceListState(loadedVoiceList);
     setRailBandState(await loadRailBand(database));
     setRailCollapsedState(await loadRailCollapsed(database));
+    setFirstRunNoteDismissedState(await loadFirstRunNoteDismissed(database));
     setPriceTableState(await loadPriceTable(database));
     setLastBackedUp(await loadLastBackedUp(database));
   }, []);
@@ -1447,6 +1458,20 @@ export function useDocument(): DocumentHandle {
     }
   }, []);
 
+  /** Story 169: dismiss the first-run note, stored so a reload does not show it again. */
+  const dismissFirstRunNote = useCallback(async () => {
+    // The note leaves the writing surface before the write resolves, so the
+    // dismissal does not wait on IndexedDB.
+    setFirstRunNoteDismissedState(true);
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setFirstRunNoteDismissedState(await saveFirstRunNoteDismissed(database, true));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
   const saveConnection = useCallback(async (connection: Connection) => {
     const database = databaseRef.current;
     if (database === null) return;
@@ -1533,6 +1558,8 @@ export function useDocument(): DocumentHandle {
     setRailBand,
     railCollapsed,
     setRailCollapsed,
+    firstRunNoteDismissed,
+    dismissFirstRunNote,
     documentChunks,
     rawResponses,
     readerAccounts,

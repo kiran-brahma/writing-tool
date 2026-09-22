@@ -4,8 +4,11 @@ import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor } from "./editor/DocumentEditor";
 import { WorkingOrderRail } from "./editor/WorkingOrderRail";
+import { HowThisWorksView } from "./help/HowThisWorksView";
+import { FIRST_RUN_NOTE, SCRATCHPAD_EMPTY_STATE } from "./help/helpContent";
 import { LibraryView } from "./library/LibraryView";
 import { PrivacyView } from "./privacy/PrivacyView";
+import { SCRATCHPAD_DOCUMENT_ID } from "./storage/documents";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 import { AiSettingsView } from "./settings/AiSettingsView";
@@ -78,19 +81,23 @@ export default function App() {
     criticConnection,
     judgeConnection,
     judgeIsDefault,
+    firstRunNoteDismissed,
+    dismissFirstRunNote,
   } = handle;
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20: the Library is a view of its own; the Editor is the default. */
-  const [view, setView] = useState<"editor" | "library" | "privacy" | "workbench" | "settings">(
-    "editor",
-  );
+  const [view, setView] = useState<
+    "editor" | "library" | "privacy" | "workbench" | "settings" | "help"
+  >("editor");
   /** Which view the Privacy page returns to when the Writer leaves it. */
   const [privacyReturn, setPrivacyReturn] = useState<"editor" | "library">("editor");
   /** Which view the Pass workbench returns to when the Writer leaves it. */
   const [workbenchReturn, setWorkbenchReturn] = useState<"editor" | "library">("editor");
   /** Which view AI Settings returns to when the Writer leaves it. */
   const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
+  /** Which view How this works returns to when the Writer leaves it. */
+  const [helpReturn, setHelpReturn] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -146,6 +153,15 @@ export default function App() {
   const openSettings = useCallback(() => {
     setSettingsReturn(view === "library" ? "library" : "editor");
     setView("settings");
+  }, [view]);
+
+  /**
+   * How this works: the method, reachable from the Editor and the Library, and
+   * the destination the first-run note and a panel's gloss link to.
+   */
+  const openHelp = useCallback(() => {
+    setHelpReturn(view === "library" ? "library" : "editor");
+    setView("help");
   }, [view]);
 
   /** Clears the Editor's view state that belongs to the Document being left. */
@@ -341,6 +357,15 @@ export default function App() {
                   Back to the {workbenchReturn === "library" ? "Library" : "Editor"}
                 </button>
               )}
+              {view === "help" && (
+                <button
+                  type="button"
+                  onClick={() => setView(helpReturn)}
+                  className={HEADER_BUTTON_CLASS}
+                >
+                  Back to the {helpReturn === "library" ? "Library" : "Editor"}
+                </button>
+              )}
               {view === "editor" && (
                 <>
                   <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
@@ -364,6 +389,11 @@ export default function App() {
               {view !== "workbench" && (
                 <button type="button" onClick={openWorkbench} className={HEADER_BUTTON_CLASS}>
                   Pass workbench
+                </button>
+              )}
+              {view !== "help" && (
+                <button type="button" onClick={openHelp} className={HEADER_BUTTON_CLASS}>
+                  How this works
                 </button>
               )}
               <button type="button" onClick={openSettings} className={HEADER_BUTTON_CLASS}>
@@ -408,6 +438,8 @@ export default function App() {
       )}
 
       {view === "privacy" && <PrivacyView />}
+
+      {view === "help" && <HowThisWorksView />}
 
       {view === "settings" && (
         <AiSettingsView
@@ -459,6 +491,24 @@ export default function App() {
                   title={document.title}
                   onCommit={(title) => void renameDocument(document.id, title)}
                 />
+                {!firstRunNoteDismissed && (
+                  <EditorNote
+                    heading={FIRST_RUN_NOTE.heading}
+                    body={FIRST_RUN_NOTE.body}
+                    actionLabel={FIRST_RUN_NOTE.helpLabel}
+                    onAction={openHelp}
+                    dismissLabel={FIRST_RUN_NOTE.dismissLabel}
+                    onDismiss={() => void dismissFirstRunNote()}
+                  />
+                )}
+                {document.id === SCRATCHPAD_DOCUMENT_ID && document.canonical.trim() === "" && (
+                  <EditorNote
+                    heading={SCRATCHPAD_EMPTY_STATE.heading}
+                    body={SCRATCHPAD_EMPTY_STATE.body}
+                    actionLabel={SCRATCHPAD_EMPTY_STATE.libraryLabel}
+                    onAction={goToLibrary}
+                  />
+                )}
                 <DocumentEditor
                   key={`${document.id}:${editorGeneration}`}
                   initialContent={document.tree}
@@ -527,6 +577,59 @@ function DocumentTitleField({
       placeholder="Untitled"
       className="border-b border-stone-200 bg-white px-8 py-3 text-xl font-semibold tracking-tight text-stone-900 focus:outline-none"
     />
+  );
+}
+
+/**
+ * A note in the Editor body. Story 168's first-run note and story 170's empty
+ * Scratchpad are one shape: a heading, a short body, one action, and optionally
+ * a dismissal. It is not a modal; it sits in the writing surface, and it carries
+ * no model text.
+ */
+function EditorNote({
+  heading,
+  body,
+  actionLabel,
+  onAction,
+  dismissLabel,
+  onDismiss,
+}: {
+  heading: string;
+  body: readonly string[];
+  actionLabel: string;
+  onAction: () => void;
+  dismissLabel?: string;
+  onDismiss?: () => void;
+}) {
+  return (
+    <aside className="border-b border-stone-200 bg-stone-50 px-8 py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-stone-900">{heading}</h2>
+          {body.map((paragraph) => (
+            <p key={paragraph} className="mt-1 text-sm leading-relaxed text-stone-600">
+              {paragraph}
+            </p>
+          ))}
+          <button
+            type="button"
+            onClick={onAction}
+            className="mt-2 text-sm font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+          >
+            {actionLabel}
+          </button>
+        </div>
+        {onDismiss !== undefined && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+          >
+            {dismissLabel}
+          </button>
+        )}
+      </div>
+    </aside>
   );
 }
 
