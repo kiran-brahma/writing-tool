@@ -10,7 +10,7 @@ import {
   type JudgePrediction,
   type PredictionAgreement,
 } from "../core/judgeCalibration";
-import { extractPassages, type ExtractedPassages } from "../core/judgeSelection";
+import { defaultJudgePair, extractPassages, type ExtractedPassages } from "../core/judgeSelection";
 import { lardFactor } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
@@ -66,8 +66,10 @@ export function JudgePanel({
   onJudge,
 }: JudgePanelProps) {
   const [mode, setMode] = useState<SelectionMode>("span");
-  const [beforeId, setBeforeId] = useState<string | null>(revisions[1]?.id ?? null);
-  const [afterId, setAfterId] = useState<string | null>(revisions[0]?.id ?? null);
+  /** Stories 171–172: the pair the panel opens on, recomputed only when the Revisions change. */
+  const defaultPair = useMemo(() => defaultJudgePair(revisions), [revisions]);
+  const [beforeId, setBeforeId] = useState<string | null>(() => defaultPair.before);
+  const [afterId, setAfterId] = useState<string | null>(() => defaultPair.after);
   /** The passages the shown Verdict was produced from, so it is never misattributed. */
   const [judged, setJudged] = useState<{ before: string; after: string } | null>(null);
   // Stories 156–157: the Writer's own prediction, held in memory for the session
@@ -75,12 +77,14 @@ export function JudgePanel({
   // the one source of truth.
   const prediction = useSyncExternalStore(subscribePrediction, getPrediction);
 
-  // Revisions load just after the panel mounts, so the initial choice settles
-  // the first time two are available rather than staying unset forever.
+  // Stories 171–172: Revisions load just after the panel mounts, so the default
+  // pair settles once they are available — the last flagged Revision against
+  // now, or the oldest against now — rather than staying unset forever. A side
+  // the Writer has chosen is left alone.
   useEffect(() => {
-    if (beforeId === null && revisions.length >= 2) setBeforeId(revisions[1].id);
-    if (afterId === null && revisions.length >= 1) setAfterId(revisions[0].id);
-  }, [revisions, beforeId, afterId]);
+    if (beforeId === null && defaultPair.before !== null) setBeforeId(defaultPair.before);
+    if (afterId === null && defaultPair.after !== null) setAfterId(defaultPair.after);
+  }, [defaultPair, beforeId, afterId]);
 
   const anchor = mode === "span" ? selection : section;
   const beforeRevision = revisions.find((revision) => revision.id === beforeId) ?? null;

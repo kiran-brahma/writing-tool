@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Interval } from "./finding";
-import { extractPassages, passageText, projectSelection, selectionAnchor } from "./judgeSelection";
+import {
+  defaultJudgePair,
+  extractPassages,
+  passageText,
+  projectSelection,
+  selectionAnchor,
+  type JudgePairRevision,
+} from "./judgeSelection";
 
 describe("selectionAnchor", () => {
   it("turns a canonical interval into a quote and an offset", () => {
@@ -60,6 +67,80 @@ describe("passageText", () => {
   it("slices a canonical string", () => {
     const interval: Interval = { start: 0, end: 3 };
     expect(passageText("abcdef\n", interval)).toBe("abc");
+  });
+});
+
+describe("defaultJudgePair", () => {
+  // `revisions` is newest-first, so the first element is "now".
+  const revision = (id: string, flagged = false): JudgePairRevision => ({ id, flagged });
+
+  it("defaults to the most recent flagged Revision against now", () => {
+    const now = revision("now");
+    const recentMilestone = revision("recent", true);
+    const olderMilestone = revision("older", true);
+    const oldest = revision("oldest");
+
+    // Two flagged Revisions, newest-first: the most recent wins, not the oldest.
+    expect(defaultJudgePair([now, recentMilestone, olderMilestone, oldest])).toEqual({
+      before: "recent",
+      after: "now",
+    });
+  });
+
+  it("defaults to the oldest Revision against now when none is flagged", () => {
+    const now = revision("now");
+    const middle = revision("middle");
+    const oldest = revision("oldest");
+
+    expect(defaultJudgePair([now, middle, oldest])).toEqual({
+      before: "oldest",
+      after: "now",
+    });
+  });
+
+  it("returns no before when there is only one Revision", () => {
+    const now = revision("now");
+
+    expect(defaultJudgePair([now])).toEqual({ before: null, after: "now" });
+  });
+
+  it("returns no pair when there are no Revisions", () => {
+    expect(defaultJudgePair([])).toEqual({ before: null, after: null });
+  });
+
+  it("never pairs a Revision with itself when the flagged Revision is now", () => {
+    const now = revision("now", true);
+    const older = revision("older", true);
+    const oldest = revision("oldest");
+
+    // The milestone just flagged is now; the rewrite worth judging is the
+    // flagged Revision before it.
+    expect(defaultJudgePair([now, older, oldest])).toEqual({
+      before: "older",
+      after: "now",
+    });
+
+    // With no earlier flagged Revision, fall back to the oldest.
+    expect(defaultJudgePair([now, revision("auto"), oldest])).toEqual({
+      before: "oldest",
+      after: "now",
+    });
+  });
+
+  it("is pure: same input gives the same output and does not mutate it", () => {
+    const revisions = [revision("now"), revision("milestone", true), revision("oldest")];
+
+    // Calling twice cannot disagree with itself, so the load-bearing assertion
+    // is that neither call mutates the input.
+    expect(defaultJudgePair(revisions)).toEqual({
+      before: "milestone",
+      after: "now",
+    });
+    expect(defaultJudgePair(revisions)).toEqual({
+      before: "milestone",
+      after: "now",
+    });
+    expect(revisions.map((entry) => entry.id)).toEqual(["now", "milestone", "oldest"]);
   });
 });
 

@@ -9,6 +9,44 @@ import type { AnchorDraft, Interval } from "./finding";
  * be a second way to locate prose, and the two could disagree.
  */
 
+/**
+ * The Revision fields the default-pair choice needs, so Core does not depend on
+ * the Editor's `JudgeRevision` or on storage records.
+ */
+export interface JudgePairRevision {
+  id: string;
+  flagged: boolean;
+}
+
+/** The two Revision ids the Judge opens on; `null` means that side is unset. */
+export interface JudgePair {
+  before: string | null;
+  after: string | null;
+}
+
+/**
+ * Stories 171–172: the pair the Judge offers before the Writer picks one.
+ *
+ * `revisions` is newest-first, so the first element is "now". The pair is the
+ * Writer's most recent flagged Revision against now — a milestone is the rewrite
+ * worth judging — and, with none flagged, the oldest Revision against now, which
+ * is still a real comparison. A Revision is never paired with itself: when the
+ * flagged Revision *is* now, the choice falls back to the flagged Revision
+ * before it, then to the oldest. Fewer than two Revisions means no before, so
+ * the panel shows a single side rather than a pair.
+ */
+export function defaultJudgePair(revisions: JudgePairRevision[]): JudgePair {
+  const now = revisions[0];
+  if (now === undefined) return { before: null, after: null };
+  if (revisions.length < 2) return { before: null, after: now.id };
+
+  const flagged = revisions.find(
+    (revision) => revision.flagged && revision.id !== now.id,
+  );
+  const before = flagged ?? revisions[revisions.length - 1];
+  return { before: before.id, after: now.id };
+}
+
 /** The selection as an Anchor: the quote, with its current offset as a hint. */
 export function selectionAnchor(canonical: string, interval: Interval): AnchorDraft | null {
   const quote = canonical.slice(interval.start, interval.end);
