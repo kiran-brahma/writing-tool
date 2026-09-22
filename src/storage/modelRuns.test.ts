@@ -229,7 +229,8 @@ describe("runModelPass", () => {
     const transport = createFixtureTransport({
       respond: (request) => {
         const prompt = request.messages[0].content;
-        const chunk = prompt.slice(prompt.indexOf("DOC[") + 4, prompt.lastIndexOf("]"));
+        const start = prompt.indexOf("DOC[") + 4;
+        const chunk = prompt.slice(start, prompt.indexOf("]", start));
         const line = chunk.split("\n").filter((entry) => entry.trim() !== "").pop() ?? chunk;
         return JSON.stringify({
           findings: [{ issue: "Problem", diagnosis: "D", quote: line, offset: chunk.indexOf(line) }],

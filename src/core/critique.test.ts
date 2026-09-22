@@ -3,6 +3,8 @@ import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../
 import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTransport";
 import { critique, type RunConfig, type Target } from "./critique";
 import type { BlockNode, DocTree } from "./docTree";
+import { FINDINGS_SCHEMA } from "./findingsSchema";
+import { jsonShapeInstruction } from "./modelCall";
 import { hashPass, isFindingsPass, type Pass } from "./pass";
 import { passContext, documentContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
@@ -140,6 +142,43 @@ describe("critique", () => {
     expect(serialized).not.toContain("rewrite");
   });
 
+  it("sends a reasoning effort only when the Connection sets one", async () => {
+    // A thinking model otherwise spends the whole output budget on its trace,
+    // but OpenAI answers 400 to the field on a model that does not reason, so
+    // it travels with the Connection rather than with every request.
+    const { transport, config } = fixture(RESPONSE);
+    await critique(target(), CLICHE_PASS, connection(), config);
+    expect((transport.requests[0].body as { reasoning_effort?: unknown }).reasoning_effort).toBe(
+      undefined,
+    );
+
+    const thinking = fixture(RESPONSE);
+    await critique(
+      target(),
+      CLICHE_PASS,
+      { ...connection(), reasoningEffort: "low" },
+      thinking.config,
+    );
+    const sent = thinking.transport.requests[0].body as { reasoning_effort?: unknown };
+    expect(sent.reasoning_effort).toBe("low");
+  });
+
+  it("carries the Connection's own output ceiling", async () => {
+    const { transport, config } = fixture(RESPONSE);
+    await critique(target(), CLICHE_PASS, { ...connection(), maxOutputTokens: 16_384 }, config);
+
+    expect((transport.requests[0].body as { max_tokens?: unknown }).max_tokens).toBe(16_384);
+  });
+
+  it("names the JSON shape in the prompt for a Provider that ignores jsonSchema", async () => {
+    const { transport, config } = fixture(RESPONSE);
+    await critique(target(), CLICHE_PASS, connection(), config);
+
+    expect(userMessage(transport.requests[0].body)).toContain(
+      jsonShapeInstruction(FINDINGS_SCHEMA),
+    );
+  });
+
   it("drops a rewrite field a model smuggles into a Finding", async () => {
     const smuggled = JSON.stringify({
       findings: [
@@ -259,7 +298,7 @@ describe("critique", () => {
 
     await critique(target(), pass, connection(), config);
 
-    expect(userMessage(transport.requests[0].body)).toBe(
+    expect(userMessage(transport.requests[0].body)).toContain(
       "DOCCONTENT[] TARGET[Bravo target paragraph.]",
     );
   });
@@ -411,7 +450,8 @@ describe("critique over a Document past the character limit", () => {
     return createFixtureTransport({
       respond: (request) => {
         const prompt = request.messages[0].content;
-        const chunk = prompt.slice(prompt.indexOf("DOC[") + 4, prompt.lastIndexOf("]"));
+        const start = prompt.indexOf("DOC[") + 4;
+        const chunk = prompt.slice(start, prompt.indexOf("]", start));
         const line = chunk.split("\n").filter((entry) => entry.trim() !== "").pop() ?? chunk;
         return JSON.stringify({
           findings: [

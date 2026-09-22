@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCustomConnection, type Connection } from "../wire/connection";
+import {
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  OLLAMA_MAX_OUTPUT_TOKENS,
+  createCustomConnection,
+  type Connection,
+} from "../wire/connection";
 import {
   assignSlot,
   defaultJudgeConnection,
   loadOrCreateConnections,
   loadSlots,
+  normalizeConnection,
   removeConnection,
   saveConnection,
   slotConnection,
@@ -272,5 +278,37 @@ describe("defaultJudgeConnection (story 90)", () => {
 
     expect(defaultJudgeConnection([critic], critic)).toBeNull();
     expect(defaultJudgeConnection([critic], null)).toBeNull();
+  });
+});
+
+describe("a Connection record written before the output limits existed", () => {
+  it("takes the ceiling from its own prefill rather than the generic default", () => {
+    // Story: the two fields are new, so an existing Library has records
+    // without them. migrations.md says read a new field through a normalizer
+    // with a default instead of migrating, and the default that matters here
+    // is Ollama's own 16384, not the generic one.
+    const stored = { id: "ollama", name: "Ollama (local)" } as unknown as Connection;
+    const normalized = normalizeConnection(stored);
+    expect(normalized.maxOutputTokens).toBe(OLLAMA_MAX_OUTPUT_TOKENS);
+    expect(normalized.reasoningEffort).toBe("low");
+  });
+
+  it("falls back to the generic default for a Connection with no prefill", () => {
+    const stored = { id: "custom-1", name: "Custom" } as unknown as Connection;
+    const normalized = normalizeConnection(stored);
+    expect(normalized.maxOutputTokens).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+    expect(normalized.reasoningEffort).toBe("");
+  });
+
+  it("keeps what the Writer set and refuses a nonsense stored value", () => {
+    const set = { id: "custom-1", maxOutputTokens: 4096, reasoningEffort: "high" };
+    expect(normalizeConnection(set as unknown as Connection).maxOutputTokens).toBe(4096);
+    expect(normalizeConnection(set as unknown as Connection).reasoningEffort).toBe("high");
+
+    const junk = { id: "custom-1", maxOutputTokens: -1, reasoningEffort: "banana" };
+    expect(normalizeConnection(junk as unknown as Connection).maxOutputTokens).toBe(
+      DEFAULT_MAX_OUTPUT_TOKENS,
+    );
+    expect(normalizeConnection(junk as unknown as Connection).reasoningEffort).toBe("");
   });
 });

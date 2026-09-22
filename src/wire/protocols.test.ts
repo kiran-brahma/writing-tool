@@ -93,6 +93,17 @@ describe("the openai-shaped adapter", () => {
     });
   });
 
+  it("carries a reasoning effort only when the request sets one", () => {
+    const withEffort = protocolFor("openai-shaped").buildRequest({
+      ...request(connectionFor("openai")),
+      reasoningEffort: "low",
+    });
+    expect((bodyOf(withEffort) as { reasoning_effort?: unknown }).reasoning_effort).toBe("low");
+
+    const without = protocolFor("openai-shaped").buildRequest(request(connectionFor("openai")));
+    expect((bodyOf(without) as { reasoning_effort?: unknown }).reasoning_effort).toBeUndefined();
+  });
+
   it("sends no auth header for a keyless local Ollama Connection", () => {
     const built = protocolFor("openai-shaped").buildRequest(
       request(connectionFor("ollama", { apiKey: "" })),
@@ -110,6 +121,40 @@ describe("the openai-shaped adapter", () => {
 
   it("fails loudly rather than returning empty text when the shape is wrong", () => {
     expect(() => protocolFor("openai-shaped").parseResponse({ choices: [] })).toThrow(/no text/i);
+  });
+
+  it("refuses a blank completion rather than passing it to the parser as an answer", () => {
+    expect(() =>
+      protocolFor("openai-shaped").parseResponse({
+        choices: [{ message: { role: "assistant", content: "   " }, finish_reason: "stop" }],
+      }),
+    ).toThrow(/no text/i);
+  });
+
+  it("names the reasoning trace when that is all a thinking model returned", () => {
+    expect(() =>
+      protocolFor("openai-shaped").parseResponse({
+        choices: [
+          {
+            message: { role: "assistant", content: "", reasoning_content: "Let me think..." },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+    ).toThrow(/reasoning trace/i);
+  });
+
+  it("refuses a completion the Provider cut off at the output ceiling", () => {
+    expect(() =>
+      protocolFor("openai-shaped").parseResponse({
+        choices: [
+          {
+            message: { role: "assistant", content: '{"findings": [{"iss' },
+            finish_reason: "length",
+          },
+        ],
+      }),
+    ).toThrow(/output ceiling/i);
   });
 
   it("lists model ids from an OpenAI-shaped response", () => {
@@ -193,6 +238,24 @@ describe("the anthropic-shaped adapter", () => {
   it("fails loudly rather than returning empty text when the shape is wrong", () => {
     expect(() => protocolFor("anthropic-shaped").parseResponse({ content: [] })).toThrow(/no text/i);
     expect(() => protocolFor("anthropic-shaped").parseResponse({})).toThrow(/no text/i);
+  });
+
+  it("refuses a completion the Provider cut off at the output ceiling", () => {
+    expect(() =>
+      protocolFor("anthropic-shaped").parseResponse({
+        content: [{ type: "text", text: '{"findings": [{"iss' }],
+        stop_reason: "max_tokens",
+      }),
+    ).toThrow(/output ceiling/i);
+  });
+
+  it("names the reasoning trace when thinking blocks were all that came back", () => {
+    expect(() =>
+      protocolFor("anthropic-shaped").parseResponse({
+        content: [{ type: "thinking", thinking: "Let me think..." }],
+        stop_reason: "end_turn",
+      }),
+    ).toThrow(/reasoning trace/i);
   });
 
   it("lists model ids from an Anthropic-shaped response, with the key out of the URL", () => {
@@ -310,6 +373,32 @@ describe("the gemini-native adapter", () => {
   it("fails loudly rather than returning empty text when the shape is wrong", () => {
     expect(() => protocolFor("gemini-native").parseResponse({ candidates: [] })).toThrow(/no text/i);
     expect(() => protocolFor("gemini-native").parseResponse({ candidates: [{}] })).toThrow(/no text/i);
+  });
+
+  it("refuses a completion the Provider cut off at the output ceiling", () => {
+    expect(() =>
+      protocolFor("gemini-native").parseResponse({
+        candidates: [
+          {
+            content: { parts: [{ text: '{"findings": [{"iss' }] },
+            finishReason: "MAX_TOKENS",
+          },
+        ],
+      }),
+    ).toThrow(/output ceiling/i);
+  });
+
+  it("names the reasoning trace when thought parts were all that came back", () => {
+    expect(() =>
+      protocolFor("gemini-native").parseResponse({
+        candidates: [
+          {
+            content: { parts: [{ text: "Let me think...", thought: true }] },
+            finishReason: "STOP",
+          },
+        ],
+      }),
+    ).toThrow(/reasoning trace/i);
   });
 
   it("strips the models/ prefix from a Gemini listing and keeps the key out of the URL", () => {

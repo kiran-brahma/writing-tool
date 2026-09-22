@@ -34,12 +34,52 @@ export interface Connection {
   extraHeaders: Record<string, string>;
   /** The per-Connection concurrency cap; the Transport enforces it. */
   concurrency: number;
+  /**
+   * The output ceiling every request on this Connection carries. It belongs to
+   * the Connection because Providers disagree: Ollama Cloud caps a response at
+   * 16384 tokens whatever the model's context window, while others allow far
+   * more, and a single global number is either too small for a thinking model
+   * or larger than a Provider will accept.
+   */
+  maxOutputTokens: number;
+  /**
+   * How much of that ceiling the model may spend thinking before it answers.
+   * Empty means the field is not sent at all, which is the only safe default:
+   * OpenAI rejects `reasoning_effort` with a 400 on its non-reasoning models,
+   * so it is opt-in per Connection rather than attached to every request.
+   */
+  reasoningEffort: ReasoningEffort;
   /** Prefilled Connections ship with the app and cannot be removed. */
   builtIn: boolean;
 }
 
+/**
+ * The reasoning budgets Obelus offers. Empty is "send nothing"; the rest are
+ * the values the OpenAI-shaped surfaces share. A pass wants a short trace and a
+ * complete JSON answer, so the useful settings are the low end.
+ */
+export const REASONING_EFFORTS = ["", "none", "low", "medium", "high"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 /** Story 57: no more than a small number of requests in flight per Connection. */
 export const DEFAULT_CONCURRENCY = 3;
+
+/**
+ * The output ceiling a Connection starts with. It has to hold a reasoning
+ * trace and a full set of Findings: 1024 held neither, and a thinking model
+ * that overruns returns an empty or half-finished answer. 8192 is within every
+ * mainstream Provider's limit, so it is the default a Connection with no
+ * Provider-specific knowledge gets.
+ */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+
+/**
+ * Ollama caps a response at 16384 tokens on its cloud models, independent of
+ * the 256k-plus context those models advertise, so the ceiling and the context
+ * window are not the same number. Local models served through the same
+ * endpoint accept it too, so the prefill can carry it unconditionally.
+ */
+export const OLLAMA_MAX_OUTPUT_TOKENS = 16_384;
 
 export interface ConnectionPrefill {
   id: string;
@@ -47,6 +87,12 @@ export interface ConnectionPrefill {
   protocol: Protocol;
   baseUrl: string;
   extraHeaders: Record<string, string>;
+  /**
+   * Provider-specific limits, where they are known and differ from the
+   * defaults. Absent means the default applies.
+   */
+  maxOutputTokens?: number;
+  reasoningEffort?: ReasoningEffort;
 }
 
 /**
@@ -98,6 +144,11 @@ export const CONNECTION_PREFILLS: readonly ConnectionPrefill[] = [
     protocol: "openai-shaped",
     baseUrl: "http://localhost:11434/v1",
     extraHeaders: {},
+    // A cloud model reached through the local endpoint is still capped at
+    // Ollama's 16384, and the thinking models served here are the ones that
+    // spend a whole budget on the trace, so the effort is pinned low.
+    maxOutputTokens: OLLAMA_MAX_OUTPUT_TOKENS,
+    reasoningEffort: "low",
   },
 ];
 
@@ -113,6 +164,8 @@ export function connectionFromPrefill(prefill: ConnectionPrefill): Connection {
     keyMode: "persisted",
     extraHeaders: { ...prefill.extraHeaders },
     concurrency: DEFAULT_CONCURRENCY,
+    maxOutputTokens: prefill.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+    reasoningEffort: prefill.reasoningEffort ?? "",
     builtIn: true,
   };
 }
@@ -129,6 +182,8 @@ export function createCustomConnection(id: string): Connection {
     keyMode: "persisted",
     extraHeaders: {},
     concurrency: DEFAULT_CONCURRENCY,
+    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+    reasoningEffort: "",
     builtIn: false,
   };
 }

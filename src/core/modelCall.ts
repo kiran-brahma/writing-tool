@@ -13,7 +13,23 @@ import { voiceListClause } from "./voiceList";
  * similarity the spec denies.
  */
 
-export const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
+/**
+ * The machine-readable shape instruction appended to every pass prompt. Some
+ * Providers honour the request's `jsonSchema` and some silently ignore it —
+ * Ollama Cloud does not support structured outputs at all — so a model that
+ * never sees the schema answers in prose and the Run fails as unreadable JSON.
+ * Naming the exact shape in the prompt makes the request self-contained. It is
+ * an output-format instruction only: the closed schema still carries no field
+ * for rewritten prose, and the parser still tolerates a model that wraps the
+ * object in prose.
+ */
+export function jsonShapeInstruction(schema: object): string {
+  return [
+    "Reply with only a JSON object matching this JSON Schema exactly.",
+    "Do not write prose around it and do not wrap it in a code fence.",
+    JSON.stringify(schema),
+  ].join("\n");
+}
 
 export interface PassRequestOptions {
   pass: Pass;
@@ -54,9 +70,13 @@ export function buildPassRequest(options: PassRequestOptions): ModelRequest {
   return {
     connection,
     model: connection.model,
-    messages: [{ role: "user", content: prompt }],
-    maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+    messages: [{ role: "user", content: `${prompt}\n\n${jsonShapeInstruction(schema)}` }],
+    maxOutputTokens: maxOutputTokens ?? connection.maxOutputTokens,
     temperature: 0,
+    // Only sent when the Writer's Connection asks for it: OpenAI answers 400
+    // to `reasoning_effort` on a model that does not reason, so attaching it
+    // to every request would break the Connections that never needed it.
+    ...(connection.reasoningEffort === "" ? {} : { reasoningEffort: connection.reasoningEffort }),
     jsonSchema: schema,
     ...(system.length === 0 ? {} : { system: system.join("\n\n") }),
   };

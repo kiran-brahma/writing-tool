@@ -56,6 +56,51 @@ describe("parseRetryAfter", () => {
 });
 
 describe("send", () => {
+  it("reports the output ceiling, not unreadable JSON, when a thinker runs out", async () => {
+    // The whole budget went to the reasoning trace, so `content` came back
+    // empty and `finish_reason` was "length". Before, this reached the Writer
+    // as "no JSON Obelus could read" and pointed at the prompt.
+    const body = JSON.stringify({
+      choices: [
+        {
+          message: { role: "assistant", content: "", reasoning_content: "Thinking..." },
+          finish_reason: "length",
+        },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, { status: 200, headers: { "content-type": "application/json" } }),
+      ),
+    );
+
+    await expect(createFetchTransport().send(request(connection("openai")))).rejects.toThrow(
+      /output ceiling.*reasoning trace/is,
+    );
+  });
+
+  it("reports no text, not unreadable JSON, when only a reasoning trace comes back", async () => {
+    const body = JSON.stringify({
+      choices: [
+        {
+          message: { role: "assistant", content: "", reasoning_content: "Thinking..." },
+          finish_reason: "stop",
+        },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, { status: 200, headers: { "content-type": "application/json" } }),
+      ),
+    );
+
+    await expect(createFetchTransport().send(request(connection("openai")))).rejects.toThrow(
+      /no text.*reasoning trace/is,
+    );
+  });
+
   it("returns the parsed text from a successful response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse("the text")));
     const transport = createFetchTransport();

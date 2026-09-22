@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import type { Connection, KeyMode } from "./connection";
+import {
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  REASONING_EFFORTS,
+  type Connection,
+  type KeyMode,
+  type ReasoningEffort,
+} from "./connection";
 import { concurrencyGate, transport } from "./productionTransport";
 import { testConnection } from "./transport";
 
@@ -17,8 +23,9 @@ interface Feedback {
 
 /**
  * Story 2–14: the Writer's Connections. A Connection is a route: a Protocol, a
- * base URL, a key and a concurrency cap. The model is chosen per Slot in the
- * AI Settings view's Slots section, so it is not edited here. "Test connection"
+ * base URL, a key, a concurrency cap and the two output limits. The model is
+ * chosen per Slot in the AI Settings view's Slots section, so it is not edited
+ * here. "Test connection"
  * runs through the one Transport, so the visible queue below the header tells
  * the truth about what is in flight.
  */
@@ -185,6 +192,48 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
           Session key not set — re-enter it to run model passes this session.
         </p>
       )}
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <label className="block text-xs text-stone-500">
+          Max output tokens
+          <input
+            type="number"
+            min={256}
+            step={256}
+            value={connection.maxOutputTokens}
+            onChange={(event) =>
+              commit({
+                maxOutputTokens:
+                  Number.parseInt(event.target.value, 10) || DEFAULT_MAX_OUTPUT_TOKENS,
+              })
+            }
+            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+          />
+        </label>
+        <label className="block text-xs text-stone-500">
+          Reasoning effort
+          <select
+            value={connection.reasoningEffort}
+            onChange={(event) =>
+              commit({ reasoningEffort: event.target.value as ReasoningEffort })
+            }
+            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+          >
+            {REASONING_EFFORTS.map((effort) => (
+              <option key={effort} value={effort}>
+                {effort === "" ? "Don't send" : effort}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <p className="mt-1 text-[11px] text-stone-500">
+        A thinking model spends the output budget on its reasoning before it answers. If a Run
+        stops at the ceiling, raise the tokens or lower the effort. Ollama caps a response at
+        16384 whatever the model's context window. Leave the effort unsent on Providers whose
+        models do not reason: OpenAI rejects the field on those.
+      </p>
 
       <div className="mt-2 flex items-end gap-2">
         <label className="w-24 block text-xs text-stone-500">

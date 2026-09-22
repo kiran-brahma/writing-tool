@@ -98,6 +98,8 @@ function connection(overrides: Partial<Connection> = {}): Connection {
     keyMode: "persisted",
     extraHeaders: {},
     concurrency: 3,
+    maxOutputTokens: 8192,
+    reasoningEffort: "",
     builtIn: true,
     ...overrides,
   };

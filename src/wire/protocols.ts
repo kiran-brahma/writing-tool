@@ -87,6 +87,7 @@ const openAIAdapter: ProtocolAdapter = {
       max_tokens: request.maxOutputTokens,
     };
     if (request.temperature !== undefined) body.temperature = request.temperature;
+    if (request.reasoningEffort !== undefined) body.reasoning_effort = request.reasoningEffort;
     if (request.jsonSchema !== undefined) {
       body.response_format = {
         type: "json_schema",
@@ -104,7 +105,9 @@ const openAIAdapter: ProtocolAdapter = {
     };
   },
   parseResponse(body) {
-    return requireText(openAIText(body), "choices[0].message.content");
+    const message = choicesMessage(body);
+    const text = message !== null && typeof message.content === "string" ? message.content : null;
+    return requireText(text, "choices[0].message.content", openAIStop(body, message));
   },
   parseUsage(body) {
     // OpenAI-shaped: `usage.prompt_tokens` / `usage.completion_tokens`.
@@ -148,7 +151,7 @@ const anthropicAdapter: ProtocolAdapter = {
     };
   },
   parseResponse(body) {
-    return requireText(anthropicText(body), "content[].text");
+    return requireText(anthropicText(body), "content[].text", anthropicStop(body));
   },
   parseUsage(body) {
     // Anthropic-shaped: `usage.input_tokens` / `usage.output_tokens`.
@@ -201,7 +204,7 @@ const geminiAdapter: ProtocolAdapter = {
     };
   },
   parseResponse(body) {
-    return requireText(geminiText(body), "candidates[0].content.parts[].text");
+    return requireText(geminiText(body), "candidates[0].content.parts[].text", geminiStop(body));
   },
   parseUsage(body) {
     // Gemini-native: `usageMetadata.promptTokenCount` / `candidatesTokenCount`.
@@ -238,18 +241,100 @@ function modelsRequest(connection: Connection): BuiltRequest {
 }
 
 /**
- * Turn a Protocol's possibly-absent text into the seam's string, naming where
- * the text was expected when it is missing.
+ * Why a Provider stopped, in the only two forms that matter above the wire:
+ * whether the answer was cut off at the output ceiling, and whether a
+ * reasoning trace came back in place of one. Each Protocol names both
+ * differently, so each adapter reads them and the reporting below stays
+ * Protocol-agnostic.
  */
-function requireText(text: string | null, where: string): string {
-  if (text === null) throw new Error(`The Provider returned no text in ${where}.`);
+interface StopState {
+  truncated: boolean;
+  reasoned: boolean;
+}
+
+/**
+ * Turn a Protocol's possibly-absent text into the seam's string, refusing the
+ * two responses that cannot carry an answer and naming which one arrived.
+ *
+ * A completion the Provider cut off at the output ceiling is refused whole.
+ * Every pass request carries a strict JSON schema, so a completion that
+ * stopped mid-object is not a partial answer but no answer; letting it through
+ * reached the Writer as "the model response contained no JSON Obelus could
+ * read", which points at the prompt when the cause is the token limit.
+ *
+ * Blank text is refused for the same reason. A thinking model that spends its
+ * whole budget on the trace returns `""`, and an empty string is a string, so
+ * it used to survive the seam and fail as unreadable JSON several layers away
+ * from the fact that explains it.
+ */
+function requireText(text: string | null, where: string, stop: StopState): string {
+  if (stop.truncated) {
+    const spent = stop.reasoned ? ", after spending the budget on its reasoning trace" : "";
+    throw new Error(
+      `The Provider stopped at the output ceiling before finishing its answer${spent}. ` +
+        `Raise the output limit or lower the reasoning effort, then run again.`,
+    );
+  }
+  if (text === null || text.trim() === "") {
+    const only = stop.reasoned ? " Only a reasoning trace came back." : "";
+    throw new Error(`The Provider returned no text in ${where}.${only}`);
+  }
   return text;
 }
 
-/** The `choices[0].message.content` string from an OpenAI-shaped response. */
-function openAIText(body: unknown): string | null {
-  const message = choicesMessage(body);
-  return message !== null && typeof message.content === "string" ? message.content : null;
+/**
+ * True when a non-empty reasoning trace came back under any of `keys`. The
+ * OpenAI-compatible surfaces disagree on the name — `reasoning` on OpenRouter,
+ * `reasoning_content` on DeepSeek-style servers, `thinking` on Ollama — so all
+ * three are checked rather than guessing which Provider is answering.
+ */
+function hasTrace(message: Record<string, unknown> | null, keys: readonly string[]): boolean {
+  if (message === null) return false;
+  return keys.some((key) => {
+    const value = message[key];
+    return typeof value === "string" && value.trim() !== "";
+  });
+}
+
+/** `choices[0].finish_reason` is `"length"` when the ceiling cut the answer off. */
+function openAIStop(body: unknown, message: Record<string, unknown> | null): StopState {
+  const first = firstEntry(body, "choices");
+  const reason =
+    isRecord(first) && typeof first.finish_reason === "string" ? first.finish_reason : "";
+  return {
+    truncated: reason === "length",
+    reasoned: hasTrace(message, ["reasoning", "reasoning_content", "thinking"]),
+  };
+}
+
+/** Anthropic names the same stop `stop_reason: "max_tokens"`. */
+function anthropicStop(body: unknown): StopState {
+  const reason = isRecord(body) && typeof body.stop_reason === "string" ? body.stop_reason : "";
+  const content = recordAt(body, "content");
+  const thinking =
+    content !== null && content.some((block) => isRecord(block) && block.type === "thinking");
+  return { truncated: reason === "max_tokens", reasoned: thinking };
+}
+
+/** Gemini names it `candidates[0].finishReason: "MAX_TOKENS"`. */
+function geminiStop(body: unknown): StopState {
+  const first = firstEntry(body, "candidates");
+  const reason =
+    isRecord(first) && typeof first.finishReason === "string" ? first.finishReason : "";
+  return { truncated: reason === "MAX_TOKENS", reasoned: geminiHasThought(first) };
+}
+
+function geminiHasThought(first: unknown): boolean {
+  if (!isRecord(first) || !isRecord(first.content)) return false;
+  const parts = first.content.parts;
+  if (!Array.isArray(parts)) return false;
+  return parts.some((part) => isRecord(part) && part.thought === true);
+}
+
+/** The first entry of a named array on the body, or null when there is none. */
+function firstEntry(body: unknown, key: string): unknown {
+  const entries = recordAt(body, key);
+  return entries !== null && entries.length > 0 ? entries[0] : null;
 }
 
 /** The `choices[0].message` object from an OpenAI-shaped response. */

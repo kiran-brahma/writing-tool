@@ -630,6 +630,23 @@ On `/api/generate` the text field is `response` instead.
   web search through `/v1/responses`, or custom/freeform tool-call replay."
   — <https://docs.ollama.com/api/openai-compatibility>.
 
+### Output ceiling (not the context window)
+
+- **Cloud models cap a single response at 16384 tokens**, independent of the 256k-plus context those
+  models advertise. The two numbers are unrelated, and the ceiling is the one that ends a Run.
+  Reported and confirmed against the cloud service in
+  <https://github.com/ollama/ollama/issues/13089>; a parallel report for the larger models shows the
+  cap enforced at the API rather than by the model
+  (<https://github.com/ollama/ollama/issues/16890>). Not in the prose docs, so re-verify.
+- `max_tokens` on the OpenAI-compat surface maps to the native `num_predict`, which counts output
+  tokens only; the prompt is never charged against it.
+- A **thinking** model spends this ceiling on its reasoning trace before it writes any answer, so a
+  budget that looks generous can still return an empty or half-finished `content`. Ollama's control
+  is native `think` (bool or level); the OpenAI-compat surface takes `reasoning_effort`, and its
+  accepted values vary by model — `gpt-oss` rejects `minimal` and a boolean
+  (<https://github.com/ollama/ollama/issues/12004>). Obelus therefore treats the effort as a
+  per-Connection setting that is sent only when set.
+
 ### Model ID conventions / examples
 Cloud requests use the identifiers returned by `GET https://ollama.com/api/tags`, e.g.
 `gemma4:31b`, `gpt-oss:120b`, `qwen3.5:397b`, `glm-5.2`, `deepseek-v4.1-flash`, `kimi-k3`.

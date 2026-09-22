@@ -1,7 +1,10 @@
 import {
   CONNECTION_PREFILLS,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  REASONING_EFFORTS,
   connectionFromPrefill,
   type Connection,
+  type ReasoningEffort,
 } from "../wire/connection";
 import type { ObelusDatabase } from "./obelusDatabase";
 import {
@@ -32,8 +35,35 @@ export async function loadOrCreateConnections(database: ObelusDatabase): Promise
       for (const connection of missing) byId.set(connection.id, connection);
     }
 
-    return orderConnections(stored, byId).map(withEffectiveKey);
+    return orderConnections(stored, byId).map(normalizeConnection).map(withEffectiveKey);
   });
+}
+
+/**
+ * Fills in fields a record written by an older build does not have. The output
+ * ceiling and the reasoning effort are new, and per migrations.md a new field
+ * on an existing record is read through a normalizer with a default rather
+ * than migrated. The default comes from the Connection's own prefill where
+ * there is one, so an existing Ollama Connection picks up Ollama's ceiling
+ * instead of the generic one.
+ */
+export function normalizeConnection(record: Connection): Connection {
+  const prefill = CONNECTION_PREFILLS.find((entry) => entry.id === record.id);
+  const ceiling = record.maxOutputTokens;
+  return {
+    ...record,
+    maxOutputTokens:
+      typeof ceiling === "number" && Number.isFinite(ceiling) && ceiling > 0
+        ? Math.floor(ceiling)
+        : (prefill?.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS),
+    reasoningEffort: readEffort(record.reasoningEffort, prefill?.reasoningEffort),
+  };
+}
+
+/** An unrecognised stored value falls back rather than reaching a Provider. */
+function readEffort(value: unknown, fallback: ReasoningEffort | undefined): ReasoningEffort {
+  if (REASONING_EFFORTS.includes(value as ReasoningEffort)) return value as ReasoningEffort;
+  return fallback ?? "";
 }
 
 /** Prefill order first, then any Custom Connection the Writer added, both stable. */

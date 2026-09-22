@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   CONNECTION_PREFILLS,
   DEFAULT_CONCURRENCY,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  OLLAMA_MAX_OUTPUT_TOKENS,
   connectionFromPrefill,
   createCustomConnection,
 } from "./connection";
@@ -50,6 +52,20 @@ describe("prefilled Connections (stories 2–6)", () => {
     expect(connection.keyMode).toBe("persisted");
     expect(connection.concurrency).toBe(DEFAULT_CONCURRENCY);
     expect(connection.builtIn).toBe(true);
+  });
+
+  it("gives a prefilled Connection the default ceiling and no reasoning effort", () => {
+    const connection = connectionFromPrefill(prefill("openai"));
+    expect(connection.maxOutputTokens).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+    // OpenAI answers 400 to `reasoning_effort` on a model that does not
+    // reason, so the field is opt-in rather than sent by default.
+    expect(connection.reasoningEffort).toBe("");
+  });
+
+  it("gives Ollama its own 16384 ceiling and a low reasoning effort", () => {
+    const connection = connectionFromPrefill(prefill("ollama"));
+    expect(connection.maxOutputTokens).toBe(OLLAMA_MAX_OUTPUT_TOKENS);
+    expect(connection.reasoningEffort).toBe("low");
   });
 
   it("configures a Custom Connection with an editable base URL (story 7)", () => {

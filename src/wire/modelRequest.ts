@@ -30,6 +30,16 @@ export interface ModelRequest {
   temperature?: number;
   jsonSchema?: object;
   /**
+   * How much of `maxOutputTokens` the model may spend thinking before it
+   * answers, for the Providers that expose the control (Ollama's
+   * OpenAI-compatible surface, OpenAI's reasoning models). A thinking model
+   * otherwise spends the whole ceiling on its trace and returns empty or
+   * half-finished `content`. It comes from the Writer's Connection and is sent
+   * only when set, because OpenAI answers 400 to the field on a model that
+   * does not reason.
+   */
+  reasoningEffort?: string;
+  /**
    * Story 54: the Run's cancellation signal. The Transport passes it to `fetch`
    * and stops retrying when it aborts, so a cancelled Run stops costing money.
    */

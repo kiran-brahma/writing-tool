@@ -1,7 +1,6 @@
 import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
-import { DEFAULT_MAX_OUTPUT_TOKENS } from "./modelCall";
 import { placeholderTokens } from "./prompt";
 import { CONSTITUTION_CLAUSES } from "./starterPasses";
 
@@ -90,7 +89,7 @@ export async function assistPassPrompt(
     model: connection.model,
     system: PROMPT_ASSISTANT_SYSTEM,
     messages: [{ role: "user", content: assistantUserMessage(input) }],
-    maxOutputTokens: config.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+    maxOutputTokens: config.maxOutputTokens ?? connection.maxOutputTokens,
     temperature: 0,
   };
 
