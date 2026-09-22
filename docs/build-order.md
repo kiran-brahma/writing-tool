@@ -73,7 +73,11 @@ commit first, then the behaviour that uses the store.
 
 **v1.2 is the open frontier.** The spec is #34 and the sequence is the v1.2 table below. Its subject
 is the surface rather than the analysis: v1.1 made the tool recommend, and v1.2 makes the
-recommendation reachable. #35 is the only ticket with no blocker that the rest wait on.
+recommendation reachable. #35 (The Working order rail) has landed: the rail's top-level control is
+the Band — Structure, Paragraph, Word — plus All, a Band shows its Passes together with the Findings
+those Passes produced, the Judge is its own destination, the three-tab strip is gone, and the rail
+remembers its Band and collapses. #36 and #37 are now the tickets with no blocker; #38–#44 wait on
+#35, which is closed.
 
 ## How to work a ticket
 
@@ -131,7 +135,7 @@ parallel.
 
 | Step | # | Ticket | Blocked by | What it makes work |
 |---|---|---|---|---|
-| 23 | **#35** | The Working order rail | — | The Band is the navigation: Structure, Paragraph, Word, All; a Band shows its Passes and their Findings in one view; the Judge is its own destination; the three-tab strip is gone; the rail remembers its Band and collapses |
+| 23 | **#35** | The Working order rail | — | The Band is the navigation: Structure, Paragraph, Word, All; a Band shows its Passes and their Findings in one view; the Judge is its own destination; the three-tab strip is gone; the rail remembers its Band and collapses | - Completed
 | 24 | **#36** | How this works, and first run | — | A permanent page carrying Rule 1, Rule 2, the loop, the terms and the shortcuts; a dismissible first-run note; an empty Scratchpad that says what to do |
 | 25 | **#37** | The Judge's default pair | — | The default comparison is the last flagged Revision against now, not two autosaves |
 | 26 | **#38** | The Current Finding | #35 | Selecting a Finding scrolls the prose to it and distinguishes its Highlight |

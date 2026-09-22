@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { Pass, RuleConfig } from "../core/pass";
-import { applyFieldText, fieldText, ruleFields, type RuleField } from "./ruleConfigText";
+import { soloRulePass, type Pass, type RuleConfig } from "../core/pass";
+import { RuleConfigEditor } from "./RuleConfigEditor";
 
 /**
  * Stories 34 and 35: the Writer edits the word lists and patterns behind each
@@ -9,9 +9,8 @@ import { applyFieldText, fieldText, ruleFields, type RuleField } from "./ruleCon
  * Pass, when it is on, holds the others, and the panel says so and tags each
  * held Pass rather than pretending they are off.
  *
- * Stories 146–148: the rule Passes are the word band of the working order, so
- * the heading names it and the panel sits after the model Passes in the sidebar.
- * The order is a label, not a gate: every Pass here stays togglable in any order.
+ * This is the Workbench's rule-Pass editor. The rail's word Band renders the same
+ * Passes per Pass through `BandPanel`, and both use the shared `RuleConfigEditor`.
  */
 export interface RulePassesPanelProps {
   passes: Pass[];
@@ -22,7 +21,7 @@ export interface RulePassesPanelProps {
 export function RulePassesPanel({ passes, onToggle, onSaveConfig }: RulePassesPanelProps) {
   const rulePasses = passes.filter((pass) => pass.kind === "rule");
   /** The exclusive rule Pass that is on, whose fellows are held while it runs. */
-  const solo = rulePasses.find((pass) => pass.exclusive === true && pass.enabled) ?? null;
+  const solo = soloRulePass(passes);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
@@ -53,12 +52,12 @@ export function RulePassesPanel({ passes, onToggle, onSaveConfig }: RulePassesPa
                 <div className="min-w-0 flex-1">
                   <p
                     className={
-                      pass.enabled && !held ? "text-sm text-stone-800" : "text-sm text-stone-400"
+                      pass.enabled && !held ? "text-sm text-stone-800" : "text-sm text-stone-500"
                     }
                   >
                     {pass.name}
                     {held && (
-                      <span className="ml-1.5 rounded bg-stone-200 px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-500">
+                      <span className="ml-1.5 rounded bg-stone-200 px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-600">
                         held
                       </span>
                     )}
@@ -89,88 +88,5 @@ export function RulePassesPanel({ passes, onToggle, onSaveConfig }: RulePassesPa
         })}
       </ul>
     </section>
-  );
-}
-
-interface RuleConfigEditorProps {
-  pass: Pass;
-  onSave: (ruleConfig: RuleConfig) => void;
-  onCancel: () => void;
-}
-
-function RuleConfigEditor({ pass, onSave, onCancel }: RuleConfigEditorProps) {
-  const config = pass.ruleConfig ?? {};
-  const fields = ruleFields(config);
-  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(fields.map((field) => [field.key, fieldText(config, field.key)])),
-  );
-
-  const save = () => {
-    let next = config;
-    for (const field of fields) {
-      next = applyFieldText(next, field.key, drafts[field.key] ?? "");
-    }
-    onSave(next);
-  };
-
-  return (
-    <div className="space-y-3 bg-stone-100/70 px-4 py-3">
-      {fields.map((field) => (
-        <FieldEditor
-          key={field.key}
-          field={field}
-          value={drafts[field.key] ?? ""}
-          onChange={(value) => setDrafts((current) => ({ ...current, [field.key]: value }))}
-        />
-      ))}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="rounded bg-stone-900 px-3 py-1 text-xs font-medium text-stone-50 hover:bg-stone-700"
-          onClick={save}
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          className="rounded border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-interface FieldEditorProps {
-  field: RuleField;
-  value: string;
-  onChange: (value: string) => void;
-}
-
-function FieldEditor({ field, value, onChange }: FieldEditorProps) {
-  return (
-    <label className="block">
-      <span className="text-xs font-medium text-stone-700">{field.label}</span>
-      {field.kind === "number" ? (
-        <input
-          type="number"
-          min={1}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="mt-1 w-24 rounded border border-stone-300 bg-white px-2 py-1 text-sm focus:border-stone-500 focus:outline-none"
-        />
-      ) : (
-        <textarea
-          rows={field.kind === "pairs" ? 6 : 5}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          spellCheck={false}
-          className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1.5 font-mono text-xs focus:border-stone-500 focus:outline-none"
-        />
-      )}
-      <span className="mt-0.5 block text-xs text-stone-500">{field.help}</span>
-    </label>
   );
 }

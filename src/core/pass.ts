@@ -1,4 +1,5 @@
 import { fnv1a } from "./hash";
+import type { Finding } from "./finding";
 import type { ScreeningFrame } from "./screeningFrame";
 
 /**
@@ -182,6 +183,17 @@ export function rulePassesToRun(passes: Pass[]): Pass[] {
 }
 
 /**
+ * The enabled exclusive rule Pass, or null when none is on. Core owns this
+ * predicate so the Run selector and the rail's "runs on its own" note cannot
+ * disagree about which Pass is holding the others.
+ */
+export function soloRulePass(passes: Pass[]): Pass | null {
+  return (
+    passes.find((pass) => pass.kind === "rule" && pass.enabled && pass.exclusive === true) ?? null
+  );
+}
+
+/**
  * Stories 146–148: the three bands of the working order — structure, then
  * paragraph, then word. The names are the recommendation's terms; the Writer's
  * vocabulary in `CONTEXT.md` calls a document-scope Pass *structural* and a
@@ -195,6 +207,13 @@ export interface WorkingOrderGroup {
   label: string;
   /** Every Pass in the band, in the order it was given. */
   passes: Pass[];
+  /**
+   * Every Finding produced by this band's Passes, in the order it was given.
+   * The partition is the second job of this derivation (ADR 0010): a Band shows
+   * its Passes together with the Findings those Passes produced, so a Run and
+   * its result are one view.
+   */
+  findings: Finding[];
 }
 
 /**
@@ -203,10 +222,15 @@ export interface WorkingOrderGroup {
  * nothing to keep in sync (story 148). `next` is the first enabled Pass in the
  * sequence, or `null` when every Pass is off — a recommendation, never a gate
  * (story 147): nothing here refuses a Run or holds a Pass back.
+ *
+ * Story 162: `all` is every Finding that exists, across every band, in the same
+ * global order the bands present them. It is what the rail's **All** selection
+ * shows; it is never empty of a Finding whose Pass exists.
  */
 export interface WorkingOrder {
   groups: WorkingOrderGroup[];
   next: Pass | null;
+  all: Finding[];
 }
 
 /** The bands in the order they are recommended. */
@@ -215,6 +239,17 @@ const WORKING_ORDER_BANDS: readonly { band: WorkingOrderBand; label: string }[] 
   { band: "paragraph", label: "Paragraph" },
   { band: "word", label: "Word" },
 ];
+
+/**
+ * True for a value that is one of the three Bands. Core owns the membership so
+ * the rail setting validator cannot drift from the derivation that defines the
+ * Bands.
+ */
+export function isWorkingOrderBand(value: unknown): value is WorkingOrderBand {
+  return (
+    typeof value === "string" && WORKING_ORDER_BANDS.some((entry) => entry.band === value)
+  );
+}
 
 /**
  * Story 148: the band a single Pass belongs to, derived from its kind and its
@@ -235,15 +270,27 @@ function workingOrderBand(pass: Pass): WorkingOrderBand {
  * then paragraph, then word — with the recommended next run. The same input
  * always produces the same order: the bands are fixed and a band keeps the
  * order it was handed, so no clock, store or random source enters in.
+ *
+ * ADR 0010: the function also partitions the Findings queue by the band of the
+ * Pass that produced each Finding. A Finding whose Pass is not in the given set
+ * has nowhere to sit in a band, but it is not lost: `all` carries it after the
+ * bands, so **All** is never empty of a Finding that exists (story 162).
  */
-export function workingOrder(passes: Pass[]): WorkingOrder {
-  const groups = WORKING_ORDER_BANDS.map(({ band, label }) => ({
-    band,
-    label,
-    passes: passes.filter((pass) => workingOrderBand(pass) === band),
-  }));
+export function workingOrder(passes: Pass[], findings: Finding[] = []): WorkingOrder {
+  const groups = WORKING_ORDER_BANDS.map(({ band, label }) => {
+    const bandPasses = passes.filter((pass) => workingOrderBand(pass) === band);
+    // Keep the Pass order, and document order within each Pass, so a Band's
+    // Findings are already the per-Pass partition the rail renders.
+    const bandFindings = bandPasses.flatMap((pass) =>
+      findings.filter((finding) => finding.passId === pass.id),
+    );
+    return { band, label, passes: bandPasses, findings: bandFindings };
+  });
   const next = groups.flatMap((group) => group.passes).find((pass) => pass.enabled) ?? null;
-  return { groups, next };
+  const grouped = groups.flatMap((group) => group.findings);
+  const placed = new Set(grouped.map((finding) => finding.id));
+  const all = [...grouped, ...findings.filter((finding) => !placed.has(finding.id))];
+  return { groups, next, all };
 }
 
 /** True for a Pass whose output is a Reader account rather than Findings. */

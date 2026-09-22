@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { Finding } from "./finding";
 import {
   rulePassesToRun,
+  soloRulePass,
   structuralPasses,
   workingOrder,
   type Pass,
@@ -112,6 +114,19 @@ describe("rulePassesToRun", () => {
   });
 });
 
+describe("soloRulePass", () => {
+  it("names the enabled exclusive Pass holding the others", () => {
+    const passes = [rulePass("a", true), rulePass("orwell", true, true), rulePass("c", true)];
+
+    expect(soloRulePass(passes)?.id).toBe("orwell");
+  });
+
+  it("is null when no exclusive Pass is on", () => {
+    expect(soloRulePass([rulePass("a", true), rulePass("orwell", false, true)])).toBeNull();
+    expect(soloRulePass([])).toBeNull();
+  });
+});
+
 describe("workingOrder", () => {
   it("returns the bands structure, paragraph, word", () => {
     const order = workingOrder([]);
@@ -183,5 +198,125 @@ describe("workingOrder", () => {
     expect(
       workingOrder([...passes]).groups.map((group) => group.passes.map((pass) => pass.id)),
     ).toEqual([["structure"], ["local"], ["word"]]);
+  });
+});
+
+/** A Finding with just enough shape to sit in a band. */
+function finding(id: string, passId: string): Finding {
+  return {
+    id,
+    passId,
+    promptHash: "hash",
+    anchor: { quote: "very", offset: 0, state: "attached" },
+    issue: "issue",
+    diagnosis: "diagnosis",
+    status: "open",
+    provenance: { providerId: "local", model: "rule", at: 1, revisionId: "r1" },
+  };
+}
+
+describe("workingOrder and the Findings queue (ADR 0010)", () => {
+  const PASSES: Pass[] = [
+    modelPass("structure", "document", true),
+    modelPass("local", "paragraph", true),
+    rulePass("word", true),
+  ];
+
+  it("partitions the Findings queue by the band of the Pass that produced each", () => {
+    const order = workingOrder(PASSES, [
+      finding("w", "word"),
+      finding("s", "structure"),
+      finding("p", "local"),
+    ]);
+
+    const byBand = Object.fromEntries(
+      order.groups.map((group) => [group.band, group.findings.map((entry) => entry.id)]),
+    );
+    expect(byBand).toEqual({
+      structure: ["s"],
+      paragraph: ["p"],
+      word: ["w"],
+    });
+  });
+
+  it("keeps a rule Pass in the word band whatever its stored scope", () => {
+    const documentRule: Pass = { ...rulePass("rule-doc", true), scope: "document" };
+
+    const order = workingOrder([documentRule], [finding("r", "rule-doc")]);
+
+    expect(order.groups.find((group) => group.band === "word")?.findings.map((f) => f.id)).toEqual(
+      ["r"],
+    );
+  });
+
+  it("puts a document-scope Audit pass in structure and a section-scope Reader pass in paragraph", () => {
+    const audit: Pass = { ...modelPass("audit", "document", true), output: "audit" };
+    const reader: Pass = { ...modelPass("reader", "section", true), output: "section-summary" };
+
+    const order = workingOrder(
+      [audit, reader],
+      [finding("a", "audit"), finding("r", "reader")],
+    );
+
+    const byBand = Object.fromEntries(
+      order.groups.map((group) => [group.band, group.findings.map((entry) => entry.id)]),
+    );
+    expect(byBand).toEqual({ structure: ["a"], paragraph: ["r"], word: [] });
+  });
+
+  it("keeps every Band present whatever the Pass set", () => {
+    expect(workingOrder([]).groups.map((group) => group.band)).toEqual([
+      "structure",
+      "paragraph",
+      "word",
+    ]);
+    expect(workingOrder([rulePass("only-word", true)]).groups.map((group) => group.band)).toEqual([
+      "structure",
+      "paragraph",
+      "word",
+    ]);
+  });
+
+  it("is never empty of a Finding that exists: All holds every one", () => {
+    const findings = [
+      finding("w", "word"),
+      finding("s", "structure"),
+      finding("p", "local"),
+      finding("s2", "structure"),
+    ];
+
+    const order = workingOrder(PASSES, findings);
+
+    expect(order.all.map((entry) => entry.id)).toEqual(["s", "s2", "p", "w"]);
+    expect(new Set(order.all.map((entry) => entry.id))).toEqual(
+      new Set(findings.map((entry) => entry.id)),
+    );
+  });
+
+  it("carries a Finding whose Pass is gone in All, without inventing a Band", () => {
+    const orphan = finding("gone", "deleted-pass");
+    const order = workingOrder(PASSES, [orphan]);
+
+    expect(order.groups.flatMap((group) => group.findings)).toEqual([]);
+    expect(order.all).toEqual([orphan]);
+  });
+
+  it("derives the same partition for the same input", () => {
+    const findings = [finding("a", "structure"), finding("b", "word")];
+
+    const order = workingOrder(PASSES, findings);
+
+    // The expected partition is written out, not recomputed by the function.
+    expect(order.groups.map((group) => group.findings.map((entry) => entry.id))).toEqual([
+      ["a"],
+      [],
+      ["b"],
+    ]);
+    expect(order.all.map((entry) => entry.id)).toEqual(["a", "b"]);
+    // An equal array with the same contents gives the same result.
+    expect(workingOrder([...PASSES], [...findings]).all.map((entry) => entry.id)).toEqual([
+      "a",
+      "b",
+    ]);
   });
 });

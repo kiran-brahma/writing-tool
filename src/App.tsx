@@ -1,21 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import type { Interval } from "./core/finding";
-import { emptyDocTree } from "./core/docTree";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
-import { isAuditPass, isReaderPass } from "./core/pass";
 import { sectionAt, sections } from "./core/sections";
-import { AuditPanel } from "./editor/AuditPanel";
 import { DocumentEditor } from "./editor/DocumentEditor";
-import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./editor/findingQueue";
-import { FindingsSidebar } from "./editor/FindingsSidebar";
-import { JudgePanel } from "./editor/JudgePanel";
+import { WorkingOrderRail } from "./editor/WorkingOrderRail";
 import { LibraryView } from "./library/LibraryView";
 import { PrivacyView } from "./privacy/PrivacyView";
-import { MetricsPanel } from "./editor/MetricsPanel";
-import { ModelPassesPanel } from "./editor/ModelPassesPanel";
-import { OutlinePanel } from "./editor/OutlinePanel";
-import { ReaderPanel } from "./editor/ReaderPanel";
-import { RulePassesPanel } from "./editor/RulePassesPanel";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 import { AiSettingsView } from "./settings/AiSettingsView";
@@ -31,12 +21,12 @@ const HEADER_BUTTON_CLASS =
   "rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100";
 
 export default function App() {
+  const handle = useDocument();
   const {
     status,
     openError,
     saveError,
     document,
-    revisions,
     library,
     refreshLibrary,
     openDocument,
@@ -44,56 +34,18 @@ export default function App() {
     renameDocument,
     setDocumentStatus,
     setDocumentTags,
-    findings,
     passes,
     highlights,
     targetBlockIndex,
     setTargetBlockIndex,
-    runningPassId,
-    structuralRunning,
-    runStartedAt,
-    runError,
-    lastRunReport,
     priceTable,
-    runEstimates,
     savePriceTable,
-    sessionCost,
-    cancelRun,
-    runModelPass,
-    runStructuralSet,
     screeningFrame,
     setScreeningFrame,
     characterLimit,
     setCharacterLimit,
     voiceList,
     setVoiceList,
-    documentChunks,
-    rawResponses,
-    readerAccounts,
-    readerRunning,
-    readerStartedAt,
-    readerError,
-    runReaderPass,
-    auditAccounts,
-    auditRunning,
-    auditStartedAt,
-    auditError,
-    auditReport,
-    runAuditPass,
-    judgeResult,
-    judgeError,
-    judgeRunning,
-    runJudge,
-    criticConnection,
-    judgeConnection,
-    judgeIsDefault,
-    sameModelWarning,
-    handleChange,
-    flagMilestone,
-    markAddressed,
-    decline,
-    togglePass,
-    saveRuleConfig,
     connections,
     slots,
     saveConnection,
@@ -119,7 +71,14 @@ export default function App() {
     assistantRunning,
     assistantError,
     runPromptAssistant,
-  } = useDocument();
+    handleChange,
+    flagMilestone,
+    togglePass,
+    saveRuleConfig,
+    criticConnection,
+    judgeConnection,
+    judgeIsDefault,
+  } = handle;
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20: the Library is a view of its own; the Editor is the default. */
@@ -134,8 +93,6 @@ export default function App() {
   const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
-  /** Stories 91–93, 118–136: the sidebar's tabs keep derived output apart. */
-  const [sidebarTab, setSidebarTab] = useState<"findings" | "reader" | "audit">("findings");
   const [importError, setImportError] = useState<string | null>(null);
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
@@ -145,21 +102,6 @@ export default function App() {
   /** A heading the Writer asked to jump to; the nonce lets a repeat click move again. */
   const [jumpRequest, setJumpRequest] = useState<{ blockIndex: number; nonce: number } | null>(
     null,
-  );
-
-  const openQueue = useMemo(() => openFindings(findings, passes), [findings, passes]);
-  const currentFinding = openQueue.find((finding) => finding.id === currentFindingId) ?? null;
-
-  /** The Passes whose output shape is a Reader account; the Reader tab owns them. */
-  const readerPasses = useMemo(
-    () => passes.filter((pass) => pass.kind === "model" && isReaderPass(pass)),
-    [passes],
-  );
-
-  /** The Passes whose output shape is an Audit account; the Audit tab owns them. */
-  const auditPasses = useMemo(
-    () => passes.filter((pass) => pass.kind === "model" && isAuditPass(pass)),
-    [passes],
   );
 
   /** Story 25: the outline, derived from the Document's headings. */
@@ -244,69 +186,6 @@ export default function App() {
     return selectionAnchorFor(document.canonical, activeSection.interval);
   }, [document, activeSection]);
 
-  /**
-   * Runs a queue write and, when it stored, moves the selection to the Finding
-   * that slid into the vacated slot, so the Writer keeps their place. The queue
-   * from before the write is captured here rather than at each call site.
-   */
-  const leaveQueue = useCallback(
-    (findingId: string, write: () => Promise<boolean>) => {
-      const before = openQueue;
-      return write().then((written) => {
-        if (written) setCurrentFindingId(selectionAfterLeavingQueue(before, findingId));
-      });
-    },
-    [openQueue],
-  );
-
-  // The queue's keys are only live when the Writer is not typing. `j`, `k`, `a`
-  // and `x` are ordinary letters: while the Editor or a field has focus they
-  // must reach the prose, so the Writer clicks a Finding (or tabs to one) to
-  // put focus in the queue.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
-      // The queue's keys belong to the Findings tab. On the Reader tab the
-      // queue is not on screen, so a stray `a`/`x`/`v` must not mutate it
-      // invisibly.
-      if (sidebarTab !== "findings") return;
-
-      if (event.key === "j" || event.key === "k") {
-        event.preventDefault();
-        setCurrentFindingId(stepSelection(openQueue, currentFindingId, event.key === "j" ? 1 : -1));
-        return;
-      }
-
-      if (currentFinding === null) return;
-
-      if (event.key === "a") {
-        event.preventDefault();
-        void leaveQueue(currentFinding.id, () => markAddressed(currentFinding.id));
-        return;
-      }
-
-      if (event.key === "x") {
-        event.preventDefault();
-        void leaveQueue(currentFinding.id, () => decline(currentFinding.id));
-        return;
-      }
-
-      if (event.key === "v" && (currentFinding.violations?.length ?? 0) > 0) {
-        event.preventDefault();
-        void leaveQueue(currentFinding.id, () => decline(currentFinding.id, "violation"));
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openQueue, currentFindingId, currentFinding, leaveQueue, markAddressed, decline, sidebarTab]);
-
-  // These are hooks, so they must run on every render, before the early returns
-  // below. Declaring them after the returns changed the hook count once the
-  // Library finished loading and React refused to render (error #310).
-
   /** Story 102: downloads the whole Pass set as one JSON file. */
   const onExportPassSet = useCallback(() => {
     downloadText(
@@ -386,10 +265,6 @@ export default function App() {
       </CenteredMessage>
     );
   }
-
-  const visibleRevisions = milestonesOnly
-    ? revisions.filter((revision) => revision.flagged)
-    : revisions;
 
   const onFlagMilestone = async () => {
     await flagMilestone(milestoneNote);
@@ -576,221 +451,44 @@ export default function App() {
 
       {view === "editor" && (
         <div className="flex min-h-0 flex-1">
-        <main className="flex min-h-0 flex-1 flex-col bg-white">
-          {document !== null && (
-            <>
-              <DocumentTitleField
-                key={document.id}
-                title={document.title}
-                onCommit={(title) => void renameDocument(document.id, title)}
-              />
-              <DocumentEditor
-                key={`${document.id}:${editorGeneration}`}
-                initialContent={document.tree}
-                onChange={handleChange}
-                highlights={highlights}
-                onTargetChange={setTargetBlockIndex}
-                onSelectionChange={setSelectionInterval}
-                jumpRequest={jumpRequest}
-              />
-            </>
-          )}
-        </main>
-
-        <aside className="flex w-96 flex-col overflow-y-auto border-l border-stone-200 bg-stone-100/60">
-          <OutlinePanel
-            sections={outlineSections}
-            activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
-            onJump={jumpToSection}
-          />
-
-          <MetricsPanel
-            canonical={document?.canonical ?? ""}
-            tree={document?.tree ?? emptyDocTree()}
-          />
-
-          <section className="border-b border-stone-300 bg-stone-100/60">
-            <div className="flex items-center justify-between border-b border-stone-200 pr-4">
-              <div className="flex" role="tablist" aria-label="Analysis views">
-                <SidebarTab
-                  label="Findings"
-                  active={sidebarTab === "findings"}
-                  onClick={() => setSidebarTab("findings")}
+          <main className="flex min-h-0 flex-1 flex-col bg-white">
+            {document !== null && (
+              <>
+                <DocumentTitleField
+                  key={document.id}
+                  title={document.title}
+                  onCommit={(title) => void renameDocument(document.id, title)}
                 />
-                <SidebarTab
-                  label="Reader accounts"
-                  active={sidebarTab === "reader"}
-                  onClick={() => setSidebarTab("reader")}
+                <DocumentEditor
+                  key={`${document.id}:${editorGeneration}`}
+                  initialContent={document.tree}
+                  onChange={handleChange}
+                  highlights={highlights}
+                  onTargetChange={setTargetBlockIndex}
+                  onSelectionChange={setSelectionInterval}
+                  jumpRequest={jumpRequest}
                 />
-                <SidebarTab
-                  label="Audit"
-                  active={sidebarTab === "audit"}
-                  onClick={() => setSidebarTab("audit")}
-                />
-              </div>
-              {sidebarTab === "findings" ? (
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-xs text-stone-600">
-                    <input
-                      type="checkbox"
-                      checked={showRawResponse}
-                      onChange={(event) => setShowRawResponse(event.target.checked)}
-                    />
-                    Raw response
-                  </label>
-                  <span className="text-xs text-stone-500">{openQueue.length} open</span>
-                </div>
-              ) : sidebarTab === "reader" ? (
-                <span className="text-xs text-stone-500">
-                  {readerAccounts.length} account{readerAccounts.length === 1 ? "" : "s"}
-                </span>
-              ) : (
-                <span className="text-xs text-stone-500">
-                  {auditAccounts.length} account{auditAccounts.length === 1 ? "" : "s"}
-                </span>
-              )}
-            </div>
-            {sidebarTab === "findings" ? (
-              <FindingsSidebar
-                findings={findings}
-                passes={passes}
-                currentFindingId={currentFindingId}
-                onSelect={setCurrentFindingId}
-                showRawResponse={showRawResponse}
-                rawResponses={rawResponses}
-                onDecline={(findingId, reason) =>
-                  void leaveQueue(findingId, () => decline(findingId, reason))
-                }
-              />
-            ) : sidebarTab === "reader" ? (
-              <ReaderPanel
-                passes={readerPasses}
-                accounts={readerAccounts}
-                running={readerRunning}
-                runningSince={readerStartedAt}
-                error={readerError}
-                criticName={criticConnection?.name ?? null}
-                onRun={(passId) => void runReaderPass(passId)}
-                onToggle={(passId, enabled) => void togglePass(passId, enabled)}
-              />
-            ) : (
-              <AuditPanel
-                passes={auditPasses}
-                accounts={auditAccounts}
-                running={auditRunning}
-                runningSince={auditStartedAt}
-                error={auditError}
-                report={auditReport}
-                criticName={criticConnection?.name ?? null}
-                onRun={(passId) => void runAuditPass(passId)}
-                onToggle={(passId, enabled) => void togglePass(passId, enabled)}
-              />
+              </>
             )}
-          </section>
+          </main>
 
-          {/* Stories 146–148: the Passes in the recommended working order —
-              structure, then paragraph (the model Passes), then word (the rule
-              Passes). A recommendation, not a gate: every panel stays usable in
-              any order. */}
-          <ModelPassesPanel
-            passes={passes}
-            runningPassId={runningPassId}
-            structuralRunning={structuralRunning}
-            runningSince={runStartedAt}
-            lastRunReport={lastRunReport}
-            runError={runError}
-            criticName={criticConnection?.name ?? null}
-            documentLength={document?.canonical.length ?? 0}
-            characterLimit={characterLimit}
-            chunkCount={documentChunks}
-            estimates={runEstimates}
-            sessionCost={sessionCost}
-            onRun={(passId) => void runModelPass(passId)}
-            onRunStructural={() => void runStructuralSet()}
-            onCancel={cancelRun}
-            onToggle={(passId, enabled) => void togglePass(passId, enabled)}
-          />
-
-          <RulePassesPanel
-            passes={passes}
-            onToggle={(passId, enabled) => void togglePass(passId, enabled)}
-            onSaveConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
-          />
-
-          <JudgePanel
-            revisions={revisions}
-            currentCanonical={document?.canonical ?? ""}
+          <WorkingOrderRail
+            handle={handle}
+            outlineSections={outlineSections}
+            activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
+            onJumpToSection={jumpToSection}
+            currentFindingId={currentFindingId}
+            onSelectFinding={setCurrentFindingId}
+            showRawResponse={showRawResponse}
+            onToggleRawResponse={setShowRawResponse}
             selection={selection}
             section={section}
-            judge={judgeConnection}
-            judgeIsDefault={judgeIsDefault}
-            sameModelWarning={sameModelWarning}
-            running={judgeRunning}
-            error={judgeError}
-            result={judgeResult}
-            onJudge={(before, after) => void runJudge(before, after)}
+            milestoneNote={milestoneNote}
+            onMilestoneNoteChange={setMilestoneNote}
+            onFlagMilestone={() => void onFlagMilestone()}
+            milestonesOnly={milestonesOnly}
+            onMilestonesOnlyChange={setMilestonesOnly}
           />
-
-          <section className="border-t border-stone-300">
-            <div className="space-y-3 border-b border-stone-200 p-4">
-              <h2 className="text-sm font-semibold">Milestones</h2>
-              <textarea
-                value={milestoneNote}
-                onChange={(event) => setMilestoneNote(event.target.value)}
-                placeholder="Note for this milestone (optional)"
-                rows={2}
-                className="w-full resize-none rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => void onFlagMilestone()}
-                className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
-              >
-                Flag this Revision
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
-              <h2 className="text-sm font-semibold">Revisions</h2>
-              <label className="flex items-center gap-1.5 text-xs text-stone-600">
-                <input
-                  type="checkbox"
-                  checked={milestonesOnly}
-                  onChange={(event) => setMilestonesOnly(event.target.checked)}
-                />
-                Milestones only
-              </label>
-            </div>
-
-            <ol className="overflow-y-auto">
-              {visibleRevisions.length === 0 && (
-                <li className="px-4 py-4 text-sm text-stone-500">
-                  {milestonesOnly
-                    ? "No milestones yet. Flag one to make it findable later."
-                    : "Revisions appear as you write."}
-                </li>
-              )}
-              {visibleRevisions.map((revision) => (
-                <li key={revision.id} className="border-b border-stone-200/70 px-4 py-3 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-stone-700">
-                      {new Date(revision.createdAt).toLocaleString()}
-                    </span>
-                    {revision.flagged && (
-                      <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-medium text-amber-900">
-                        Milestone
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-stone-500">{revision.wordCount} words</p>
-                  {revision.note !== null && revision.note !== "" && (
-                    <p className="mt-1 text-stone-700">{revision.note}</p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </section>
-        </aside>
         </div>
       )}
     </div>
@@ -799,7 +497,7 @@ export default function App() {
 
 /**
  * The Document's title, editable in place. It is the Writer's name for the
- * piece, never a model's (story 74): the field commits on blur or Enter and
+ * Document, never a model's (story 74): the field commits on blur or Enter and
  * holds no generated text.
  */
 function DocumentTitleField({
@@ -830,40 +528,6 @@ function DocumentTitleField({
       className="border-b border-stone-200 bg-white px-8 py-3 text-xl font-semibold tracking-tight text-stone-900 focus:outline-none"
     />
   );
-}
-
-/** A sidebar tab: Findings stays the default, Reader its own view. */
-function SidebarTab({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={
-        active
-          ? "border-b-2 border-stone-900 px-4 py-2 text-sm font-semibold text-stone-900"
-          : "border-b-2 border-transparent px-4 py-2 text-sm font-medium text-stone-500 hover:text-stone-700"
-      }
-    >
-      {label}
-    </button>
-  );
-}
-
-/** A key event the queue owns must not steal from a field or the Editor. */
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
 }
 
 /** Saves a string as a download. Local only: no request leaves the browser. */

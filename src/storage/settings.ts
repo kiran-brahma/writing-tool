@@ -1,4 +1,5 @@
 import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
+import { isWorkingOrderBand, type WorkingOrderBand } from "../core/pass";
 import { normalizeVoiceList } from "../core/voiceList";
 import type { ObelusDatabase } from "./obelusDatabase";
 
@@ -76,4 +77,50 @@ export async function saveVoiceList(
   const normalized = normalizeVoiceList(voiceList);
   await database.settings.put({ key: VOICE_LIST_SETTING_KEY, value: normalized });
   return normalized;
+}
+
+/**
+ * ADR 0010: the rail opens on Structure the first time and on the last Band the
+ * Writer was in thereafter. A default is not a gate. Only the three Bands are
+ * stored — **All** is a view of the queue, not a Band, so selecting it leaves
+ * the stored Band where it was. A value that is not a Band falls back to
+ * Structure rather than leaving the rail with nothing selected.
+ */
+export const RAIL_BAND_SETTING_KEY = "railBand";
+
+function normalizeRailBand(value: unknown): WorkingOrderBand {
+  return isWorkingOrderBand(value) ? value : "structure";
+}
+
+export async function loadRailBand(database: ObelusDatabase): Promise<WorkingOrderBand> {
+  const record = await database.settings.get(RAIL_BAND_SETTING_KEY);
+  return normalizeRailBand(record?.value);
+}
+
+export async function saveRailBand(
+  database: ObelusDatabase,
+  band: WorkingOrderBand,
+): Promise<WorkingOrderBand> {
+  const normalized = normalizeRailBand(band);
+  await database.settings.put({ key: RAIL_BAND_SETTING_KEY, value: normalized });
+  return normalized;
+}
+
+/**
+ * ADR 0010, story 166: whether the rail is collapsed entirely so the Writer has
+ * the prose alone. Off by default; only an explicit `true` collapses it.
+ */
+export const RAIL_COLLAPSED_SETTING_KEY = "railCollapsed";
+
+export async function loadRailCollapsed(database: ObelusDatabase): Promise<boolean> {
+  const record = await database.settings.get(RAIL_COLLAPSED_SETTING_KEY);
+  return record === undefined ? false : record.value === true;
+}
+
+export async function saveRailCollapsed(
+  database: ObelusDatabase,
+  collapsed: boolean,
+): Promise<boolean> {
+  await database.settings.put({ key: RAIL_COLLAPSED_SETTING_KEY, value: collapsed });
+  return collapsed;
 }

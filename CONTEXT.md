@@ -94,6 +94,12 @@ kind and scope rather than stored. The Writer navigates by Band; every Band is o
 every other, and no Band is gated on another.
 _Avoid_: stage, tier, phase, step, section
 
+**Rail**:
+The surface the Writer navigates by Band: the reference strip, the Band control, the selected Band's
+Passes with their Findings and accounts, the Judge, and milestones and Revisions. It collapses so the
+prose has the width.
+_Avoid_: sidebar, panel, drawer, nav
+
 **Target**:
 The text a Run is asked about.
 _Avoid_: selection, focus, scope

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
-import { groupFindingsByPass } from "./findingsGroups";
+import { ORPHANED_GROUP_ID, groupFindingsByPass } from "./findingsGroups";
 
 function finding(id: string, passId: string): Finding {
   return {
@@ -62,5 +62,15 @@ describe("groupFindingsByPass", () => {
     );
 
     expect(groups.map((group) => group.id)).toEqual(["structure", "paragraph", "word"]);
+  });
+
+  it("keeps a Finding whose Pass left the set in a trailing group rather than hiding it", () => {
+    const groups = groupFindingsByPass(
+      [finding("a", "first"), finding("gone", "removed-pass")],
+      [pass("first", "First")],
+    );
+
+    expect(groups.map((group) => group.id)).toEqual(["first", ORPHANED_GROUP_ID]);
+    expect(groups[1].findings.map((entry) => entry.id)).toEqual(["gone"]);
   });
 });

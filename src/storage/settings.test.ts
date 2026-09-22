@@ -3,11 +3,17 @@ import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
   CHARACTER_LIMIT_SETTING_KEY,
+  RAIL_BAND_SETTING_KEY,
+  RAIL_COLLAPSED_SETTING_KEY,
   VOICE_LIST_SETTING_KEY,
   loadCharacterLimit,
+  loadRailBand,
+  loadRailCollapsed,
   loadScreeningFrame,
   loadVoiceList,
   saveCharacterLimit,
+  saveRailBand,
+  saveRailCollapsed,
   saveScreeningFrame,
   saveVoiceList,
 } from "./settings";
@@ -95,5 +101,52 @@ describe("the Voice list setting", () => {
     await database.settings.put({ key: VOICE_LIST_SETTING_KEY, value: "leverage" });
 
     await expect(loadVoiceList(database)).resolves.toEqual([]);
+  });
+});
+
+describe("the rail Band setting", () => {
+  it("opens on Structure when no Band is stored", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadRailBand(database)).resolves.toBe("structure");
+  });
+
+  it("persists the Writer's last Band", async () => {
+    const database = await openTestDatabase();
+
+    await expect(saveRailBand(database, "word")).resolves.toBe("word");
+    await expect(loadRailBand(database)).resolves.toBe("word");
+  });
+
+  it("falls back to Structure for a stored value that is not a Band", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: RAIL_BAND_SETTING_KEY, value: "all" });
+
+    await expect(loadRailBand(database)).resolves.toBe("structure");
+  });
+});
+
+describe("the rail collapsed setting", () => {
+  it("is open by default", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadRailCollapsed(database)).resolves.toBe(false);
+  });
+
+  it("persists the Writer's choice", async () => {
+    const database = await openTestDatabase();
+
+    await saveRailCollapsed(database, true);
+    await expect(loadRailCollapsed(database)).resolves.toBe(true);
+
+    await saveRailCollapsed(database, false);
+    await expect(loadRailCollapsed(database)).resolves.toBe(false);
+  });
+
+  it("treats a stored value that is not true as open", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: RAIL_COLLAPSED_SETTING_KEY, value: "yes" });
+
+    await expect(loadRailCollapsed(database)).resolves.toBe(false);
   });
 });

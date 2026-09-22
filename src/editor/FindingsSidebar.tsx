@@ -1,18 +1,17 @@
-import { useEffect, useRef, type Ref } from "react";
-import { isOpenFinding, responseKey, type DeclineReason, type Finding } from "../core/finding";
+import { responseKey, type DeclineReason, type Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
 import { groupFindingsByPass } from "./findingsGroups";
-import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
-import { splitViolations, violationsOutsideText } from "./violationMarks";
+import { FindingRow } from "./FindingRow";
 
 /**
- * The sidebar is grouped by Pass rather than by location, because the Writer
- * works one Pass over the whole Document before starting the next. Within a
- * Pass, Core already ordered the Findings in document order.
+ * The **All** queue: every open Finding across every Pass, grouped by the Pass
+ * that produced it in the recommended working order. It is not a Band (ADR
+ * 0010) — it is the whole queue in one place, so navigating by Band never hides
+ * work from the Writer.
  *
  * Only open Findings are the queue: addressing or declining one leaves it, so
- * the group's count is its open count and any Finding that has left the queue
- * is muted. Those rows stay visible because declining is logged, not erased.
+ * the group's count is its open count and any Finding that has left the queue is
+ * muted. Those rows stay visible because declining is logged, not erased.
  */
 export interface FindingsSidebarProps {
   findings: Finding[];
@@ -37,29 +36,17 @@ export function FindingsSidebar({
   onDecline,
 }: FindingsSidebarProps) {
   const groups = groupFindingsByPass(findings, passes);
-  const currentRowRef = useRef<HTMLLIElement | null>(null);
-
-  useEffect(() => {
-    currentRowRef.current?.scrollIntoView({ block: "nearest" });
-  }, [currentFindingId]);
 
   if (groups.length === 0) {
     return (
       <p className="px-4 py-4 text-sm text-stone-500">
-        No findings yet. Rule passes run free, with no Connection and no key.
+        No findings across any Pass. Rule passes run free, with no Connection and no key.
       </p>
     );
   }
 
   return (
     <div>
-      <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs text-stone-500">
-        <kbd className="font-sans font-medium text-stone-700">j</kbd> /{" "}
-        <kbd className="font-sans font-medium text-stone-700">k</kbd> move ·{" "}
-        <kbd className="font-sans font-medium text-stone-700">a</kbd> address ·{" "}
-        <kbd className="font-sans font-medium text-stone-700">x</kbd> decline ·{" "}
-        <kbd className="font-sans font-medium text-stone-700">v</kbd> decline as violation
-      </p>
       {groups.map((group) => {
         const openCount = group.findings.filter((finding) => finding.status === "open").length;
         return (
@@ -81,7 +68,6 @@ export function FindingsSidebar({
                     {...(showRawResponse
                       ? { rawResponse: rawResponses[responseKey(finding.passId, finding.promptHash)] }
                       : {})}
-                    {...(current ? { rowRef: currentRowRef } : {})}
                   />
                 );
               })}
@@ -90,103 +76,5 @@ export function FindingsSidebar({
         );
       })}
     </div>
-  );
-}
-
-interface FindingRowProps {
-  finding: Finding;
-  current: boolean;
-  onSelect: (findingId: string) => void;
-  onDecline: (findingId: string, reason: DeclineReason) => void;
-  rowRef?: Ref<HTMLLIElement>;
-  rawResponse?: string;
-}
-
-function FindingRow({
-  finding,
-  current,
-  onSelect,
-  onDecline,
-  rowRef,
-  rawResponse,
-}: FindingRowProps) {
-  const attached = finding.anchor.state === "attached";
-  const leftQueue = !isOpenFinding(finding);
-  const violations = finding.violations ?? [];
-  const { rewrites } = splitViolations(violations);
-  const elsewhere = violationsOutsideText(
-    [finding.issue, finding.diagnosis, finding.anchor.quote],
-    violations,
-  );
-
-  return (
-    <li ref={rowRef} className="border-b border-stone-200/70 last:border-b-0">
-      <button
-        type="button"
-        onClick={() => onSelect(finding.id)}
-        aria-current={current ? "true" : undefined}
-        className={[
-          "w-full px-4 py-3 text-left text-sm transition-colors",
-          current ? "bg-amber-100/70" : "hover:bg-stone-200/50",
-          leftQueue ? "opacity-60" : "",
-        ].join(" ")}
-      >
-        <p className="flex items-start gap-2 text-stone-800">
-          <span className="font-mono text-xs text-stone-500">
-            “<StruckText text={finding.anchor.quote} violations={violations} />”
-          </span>
-          <span className="font-medium">
-            <StruckText text={finding.issue} violations={violations} />
-          </span>
-        </p>
-        <p className="mt-1 text-stone-600">
-          <StruckText text={finding.diagnosis} violations={violations} />
-        </p>
-        {finding.inVoiceList === true && (
-          <p className="mt-1 text-xs text-stone-500">
-            <span className="rounded bg-stone-200 px-1.5 py-0.5 font-medium text-stone-600">
-              In your Voice list
-            </span>{" "}
-            The model flagged it anyway.
-          </p>
-        )}
-        {!attached && (
-          <p className="mt-1 text-xs italic text-stone-500">No longer found in the text.</p>
-        )}
-        <p className="mt-1 text-xs text-stone-400">
-          {finding.provenance.model} · {new Date(finding.provenance.at).toLocaleString()}
-          {leftQueue && (
-            <span className="ml-2 rounded bg-stone-300/70 px-1.5 py-0.5 font-medium text-stone-700">
-              {finding.status}
-              {finding.declineReason === undefined ? "" : ` · ${finding.declineReason}`}
-            </span>
-          )}
-        </p>
-      </button>
-      {violations.length > 0 && (
-        <div className="border-t border-stone-200/70 px-4 py-2">
-          {elsewhere.length > 0 && (
-            <p className="text-xs text-stone-500">
-              Model drift: <StruckViolations violations={elsewhere} />
-            </p>
-          )}
-          {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
-          {!leftQueue && (
-            <button
-              type="button"
-              onClick={() => onDecline(finding.id, "violation")}
-              className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800 hover:bg-rose-100"
-            >
-              Decline as violation
-            </button>
-          )}
-        </div>
-      )}
-      {rawResponse !== undefined && rawResponse !== "" && (
-        <pre className="mx-4 mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-stone-900/90 p-2 font-mono text-xs text-stone-100">
-          {rawResponse}
-        </pre>
-      )}
-    </li>
   );
 }

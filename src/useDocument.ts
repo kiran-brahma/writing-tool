@@ -11,7 +11,7 @@ import {
   sameModelWarning as sameModelWarningFor,
   type JudgeResult,
 } from "./core/judge";
-import { isAuditPass, isFindingsPass, isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig } from "./core/pass";
+import { isAuditPass, isFindingsPass, isReaderPass, structuralPasses, type Pass, type PassScope, type RuleConfig, type WorkingOrderBand } from "./core/pass";
 import { passProblem, parsePassSet, serializePassSet } from "./core/passSet";
 import { documentContext, targetForPass } from "./core/passContext";
 import { promptCharacters } from "./core/prompt";
@@ -82,7 +82,7 @@ import {
   listAuditAccounts,
   runAuditPass as runAuditPassRecord,
 } from "./storage/auditAccounts";
-import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit, loadVoiceList, saveVoiceList } from "./storage/settings";
+import { loadScreeningFrame, saveScreeningFrame, loadCharacterLimit, saveCharacterLimit, loadVoiceList, saveVoiceList, loadRailBand, saveRailBand, loadRailCollapsed, saveRailCollapsed } from "./storage/settings";
 import { loadLastBackedUp } from "./storage/durability";
 import { useDurability } from "./durability/useDurability";
 import { createCustomConnection, type Connection } from "./wire/connection";
@@ -165,6 +165,15 @@ export interface DocumentHandle {
    */
   voiceList: string[];
   setVoiceList: (entries: string[]) => Promise<void>;
+  /**
+   * ADR 0010: the Band the rail opens on. Structure until the Writer moves, and
+   * the last Band they were in thereafter. A default, never a gate.
+   */
+  railBand: WorkingOrderBand;
+  setRailBand: (band: WorkingOrderBand) => Promise<void>;
+  /** ADR 0010, story 166: whether the rail is collapsed entirely. */
+  railCollapsed: boolean;
+  setRailCollapsed: (collapsed: boolean) => Promise<void>;
   /**
    * Story 50: how many chunks a document-scope Run of the current Document
    * would make at the current limit. `1` when it fits in a single call, so the
@@ -326,6 +335,9 @@ export function useDocument(): DocumentHandle {
   const [characterLimit, setCharacterLimitState] = useState(DEFAULT_CHARACTER_LIMIT);
   /** Stories 149–152: the words and phrases the Writer has declared theirs. */
   const [voiceList, setVoiceListState] = useState<string[]>([]);
+  /** ADR 0010: the rail's last Band and whether it is collapsed. */
+  const [railBand, setRailBandState] = useState<WorkingOrderBand>("structure");
+  const [railCollapsed, setRailCollapsedState] = useState(false);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   /** Story 102: a Pass set save, import or restore failure. */
@@ -430,6 +442,8 @@ export function useDocument(): DocumentHandle {
     const loadedVoiceList = await loadVoiceList(database);
     voiceListRef.current = loadedVoiceList;
     setVoiceListState(loadedVoiceList);
+    setRailBandState(await loadRailBand(database));
+    setRailCollapsedState(await loadRailCollapsed(database));
     setPriceTableState(await loadPriceTable(database));
     setLastBackedUp(await loadLastBackedUp(database));
   }, []);
@@ -1405,6 +1419,34 @@ export function useDocument(): DocumentHandle {
     }
   }, [rerunRules]);
 
+  /** ADR 0010: the rail's last Band, persisted so it opens where the Writer left it. */
+  const setRailBand = useCallback(async (band: WorkingOrderBand) => {
+    // Set the visible Band before the write resolves, so the rail does not lag
+    // behind the click on IndexedDB.
+    setRailBandState(band);
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setRailBandState(await saveRailBand(database, band));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
+  /** ADR 0010, story 166: collapse the rail entirely, persisted across reloads. */
+  const setRailCollapsed = useCallback(async (collapsed: boolean) => {
+    // Set the visible state before the write resolves, so the rail does not lag
+    // behind the click on IndexedDB.
+    setRailCollapsedState(collapsed);
+    const database = databaseRef.current;
+    if (database === null) return;
+    try {
+      setRailCollapsedState(await saveRailCollapsed(database, collapsed));
+    } catch (error) {
+      setSaveError(describeError(error));
+    }
+  }, []);
+
   const saveConnection = useCallback(async (connection: Connection) => {
     const database = databaseRef.current;
     if (database === null) return;
@@ -1487,6 +1529,10 @@ export function useDocument(): DocumentHandle {
     setCharacterLimit,
     voiceList,
     setVoiceList,
+    railBand,
+    setRailBand,
+    railCollapsed,
+    setRailCollapsed,
     documentChunks,
     rawResponses,
     readerAccounts,
