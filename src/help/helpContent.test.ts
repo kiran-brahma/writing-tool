@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import railSource from "../editor/WorkingOrderRail.tsx?raw";
 import { ruleMatches } from "../core/rulePass";
 import { BANNED_WORDS_PASS, WORN_PHRASES_PASS } from "../core/starterPasses";
+import { QUEUE_SHORTCUTS, queueShortcutKeys } from "../editor/queueKeys";
 import {
   FIRST_RUN_NOTE,
   HELP_GLOSSARY,
@@ -9,9 +10,11 @@ import {
   HELP_SECTION_IDS,
   HELP_SECTIONS,
   HELP_SHORTCUTS,
+  QUEUE_HINT,
   RULE_ONE,
   RULE_TWO,
   SCRATCHPAD_EMPTY_STATE,
+  SHORTCUTS_KEY,
   helpProse,
   helpShortcutKeys,
 } from "./helpContent";
@@ -24,14 +27,6 @@ import {
  * app binds.
  */
 const prose = helpProse().toLowerCase();
-
-/**
- * The rail's keydown handler is the authority for what the app binds. Read it
- * rather than trusting a literal in this file, so adding or removing a queue key
- * without moving the page fails the test below. This is the ticket's "matches
- * the keys the app actually binds"; it names the source file on purpose.
- */
-const RAIL_SOURCE = railSource;
 
 describe("the two rules", () => {
   it("states Rule 1 by its substance and what enforces it", () => {
@@ -112,25 +107,47 @@ describe("the glossary", () => {
 
 describe("the shortcuts", () => {
   /**
-   * The authority is `WorkingOrderRail`'s `keydown` handler, which binds exactly
-   * these keys today. #39 will add the modifier and `?` shortcuts, and this list
-   * must move with it: a page that advertises a key the app does not bind, or
-   * omits one it does, is a lie about the interface.
+   * `QUEUE_SHORTCUTS` in `queueKeys.ts` is the authority for the queue keys, and
+   * `SHORTCUTS_KEY` the shell's app-wide one. A page that advertises a key the
+   * app does not bind, or omits one it does, is a lie about the interface.
    */
-  it("lists exactly the keys the app binds", () => {
-    const bound = [
-      ...new Set(
-        [...RAIL_SOURCE.matchAll(/event\.key === "([^"]+)"/g)].map((match) => match[1]),
-      ),
-    ];
-    expect(bound.length).toBeGreaterThan(0);
-    expect(helpShortcutKeys()).toEqual(bound);
+  it("lists exactly the queue keys and the shell-wide ?", () => {
+    const railKeys = QUEUE_SHORTCUTS.flatMap((shortcut) => queueShortcutKeys(shortcut));
+    expect(helpShortcutKeys()).toEqual([...railKeys, SHORTCUTS_KEY]);
+  });
+
+  /**
+   * The rail must dispatch only through the published table; an ad-hoc
+   * `event.key === "…"` in the effect would never reach the page's list.
+   */
+  it("binds no key in the rail outside the published table", () => {
+    expect(railSource).not.toMatch(/event\.key\s*===/);
   });
 
   it("describes every shortcut", () => {
     for (const shortcut of HELP_SHORTCUTS) {
       expect(shortcut.keys.length, JSON.stringify(shortcut)).toBeGreaterThan(0);
       expect(shortcut.description.trim(), JSON.stringify(shortcut)).not.toBe("");
+    }
+  });
+});
+
+describe("the hint bar", () => {
+  it("states when the plain keys are live rather than advertising them unconditionally", () => {
+    expect(QUEUE_HINT).toContain("not typing");
+    expect(QUEUE_HINT.toLowerCase()).toContain("editor");
+  });
+
+  it("names the modifier shortcut that works anywhere", () => {
+    expect(QUEUE_HINT).toContain("Alt");
+    expect(QUEUE_HINT).toContain("anywhere");
+  });
+
+  it("names every plain shortcut the page lists", () => {
+    for (const shortcut of HELP_SHORTCUTS.filter(
+      (entry) => !entry.keys.includes("Alt"),
+    )) {
+      expect(QUEUE_HINT, shortcut.keys.join(" / ")).toContain(shortcut.keys.join(" / "));
     }
   });
 });

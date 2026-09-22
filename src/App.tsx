@@ -1,12 +1,19 @@
-import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { blockIndexForInterval, type HighlightInterval } from "./core/anchor";
 import type { Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor } from "./editor/DocumentEditor";
+import { isTypingTarget } from "./editor/typingTarget";
 import { WorkingOrderRail } from "./editor/WorkingOrderRail";
 import { HowThisWorksView } from "./help/HowThisWorksView";
-import { FIRST_RUN_NOTE, SCRATCHPAD_EMPTY_STATE } from "./help/helpContent";
+import {
+  FIRST_RUN_NOTE,
+  HELP_SECTION_IDS,
+  SCRATCHPAD_EMPTY_STATE,
+  SHORTCUTS_KEY,
+  type HelpSectionId,
+} from "./help/helpContent";
 import { LibraryView } from "./library/LibraryView";
 import { PrivacyView } from "./privacy/PrivacyView";
 import { SCRATCHPAD_DOCUMENT_ID } from "./storage/documents";
@@ -99,6 +106,8 @@ export default function App() {
   const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
   /** Which view How this works returns to when the Writer leaves it. */
   const [helpReturn, setHelpReturn] = useState<"editor" | "library">("editor");
+  /** Story 178: the section How this works should open at, or null for the top. */
+  const [helpSection, setHelpSection] = useState<HelpSectionId | null>(null);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -196,12 +205,39 @@ export default function App() {
 
   /**
    * How this works: the method, reachable from the Editor and the Library, and
-   * the destination the first-run note and a panel's gloss link to.
+   * the destination the first-run note and a panel's gloss link to. Story 178's
+   * `?` opens it straight at the shortcut list.
    */
-  const openHelp = useCallback(() => {
-    setHelpReturn(view === "library" ? "library" : "editor");
-    setView("help");
-  }, [view]);
+  const openHelpSection = useCallback(
+    (sectionId: HelpSectionId | null) => {
+      setHelpReturn(view === "library" ? "library" : "editor");
+      setHelpSection(sectionId);
+      setView("help");
+    },
+    [view],
+  );
+  const openHelp = useCallback(() => openHelpSection(null), [openHelpSection]);
+  const openShortcuts = useCallback(
+    () => openHelpSection(HELP_SECTION_IDS.shortcuts),
+    [openHelpSection],
+  );
+
+  // Story 178: `?` opens the shortcuts from anywhere, as long as the Writer is
+  // not typing, where the question mark belongs to the text. The Editor's own
+  // queue keys live in the rail; this is the one the whole shell binds.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key !== SHORTCUTS_KEY) return;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      openShortcuts();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openShortcuts]);
 
   /** Clears the Editor's view state that belongs to the Document being left. */
   const leaveEditor = useCallback(() => {
@@ -478,7 +514,7 @@ export default function App() {
 
       {view === "privacy" && <PrivacyView />}
 
-      {view === "help" && <HowThisWorksView />}
+      {view === "help" && <HowThisWorksView initialSectionId={helpSection} />}
 
       {view === "settings" && (
         <AiSettingsView

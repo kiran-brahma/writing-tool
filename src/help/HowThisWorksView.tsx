@@ -1,4 +1,5 @@
-import { HELP_SECTIONS } from "./helpContent";
+import { useEffect } from "react";
+import { HELP_SECTIONS, type HelpSectionId } from "./helpContent";
 
 /**
  * How this works. It is prose, not a control: it carries Rule 1 and Rule 2 in
@@ -7,7 +8,14 @@ import { HELP_SECTIONS } from "./helpContent";
  * two Rules have a permanent home in the product even after the first-run note
  * is dismissed. Nothing here sends anything or puts model text anywhere.
  */
-export function HowThisWorksView() {
+export function HowThisWorksView({ initialSectionId = null }: { initialSectionId?: HelpSectionId | null }) {
+  // Story 178: `?` opens the page at the shortcuts, not the top. The section id
+  // is stable (`HELP_SECTION_IDS`) and the sections carry `scroll-mt-8`.
+  useEffect(() => {
+    if (initialSectionId === null) return;
+    document.getElementById(initialSectionId)?.scrollIntoView({ block: "start" });
+  }, [initialSectionId]);
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <article className="mx-auto max-w-2xl px-6 py-8">

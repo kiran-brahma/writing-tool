@@ -3,6 +3,7 @@ import { emptyDocTree } from "../core/docTree";
 import type { AnchorDraft } from "../core/finding";
 import { structuralPasses, workingOrder, type WorkingOrderBand } from "../core/pass";
 import type { Section } from "../core/sections";
+import { QUEUE_HINT } from "../help/helpContent";
 import type { DocumentHandle } from "../useDocument";
 import { BandPanel } from "./BandPanel";
 import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
@@ -11,6 +12,8 @@ import { formatUsd } from "./formatUsd";
 import { JudgePanel } from "./JudgePanel";
 import { MetricsPanel } from "./MetricsPanel";
 import { OutlinePanel } from "./OutlinePanel";
+import { queueActionFor } from "./queueKeys";
+import { isTypingTarget } from "./typingTarget";
 
 /**
  * ADR 0010: the rail's top-level control is the **Band** — Structure, Paragraph,
@@ -123,37 +126,50 @@ export function WorkingOrderRail({
     [openQueue, onSelectFinding],
   );
 
-  // The queue's keys are only live when the Writer is not typing and the rail is
-  // showing the queue. `j`, `k`, `a` and `x` are ordinary letters: while the
-  // Editor or a field has focus they must reach the prose.
+  // The queue's keys are live while the rail can show the queue. The plain
+  // `j`, `k`, `a`, `x` and `v` are ordinary letters: `queueActionFor` stands them
+  // down inside the Editor and any field so they reach the prose, while the
+  // Alt-arrow shortcut keeps working there. A modifier step that arrives with the
+  // rail collapsed opens it first, so "anywhere" is true and the selection it
+  // makes is visible.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
-      if (railCollapsed) return;
+      const action = queueActionFor({
+        key: event.key,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        typing: isTypingTarget(event.target),
+      });
+      if (action === null) return;
 
-      if (event.key === "j" || event.key === "k") {
+      if (railCollapsed) {
+        if (!event.altKey) return;
+        void setRailCollapsed(false);
+      }
+
+      if (action.kind === "step") {
         event.preventDefault();
-        onSelectFinding(stepSelection(openQueue, currentFindingId, event.key === "j" ? 1 : -1));
+        onSelectFinding(stepSelection(openQueue, currentFindingId, action.direction));
         return;
       }
 
       if (currentFinding === null) return;
 
-      if (event.key === "a") {
+      if (action.kind === "address") {
         event.preventDefault();
         void leaveQueue(currentFinding.id, () => markAddressed(currentFinding.id));
         return;
       }
 
-      if (event.key === "x") {
+      if (action.kind === "decline") {
         event.preventDefault();
         void leaveQueue(currentFinding.id, () => decline(currentFinding.id));
         return;
       }
 
-      if (event.key === "v" && (currentFinding.violations?.length ?? 0) > 0) {
+      if (action.kind === "decline-violation" && (currentFinding.violations?.length ?? 0) > 0) {
         event.preventDefault();
         void leaveQueue(currentFinding.id, () => decline(currentFinding.id, "violation"));
       }
@@ -169,6 +185,7 @@ export function WorkingOrderRail({
     markAddressed,
     decline,
     railCollapsed,
+    setRailCollapsed,
     onSelectFinding,
   ]);
 
@@ -271,6 +288,12 @@ export function WorkingOrderRail({
         </label>
         <span className="text-xs text-stone-500">{openQueue.length} open</span>
       </div>
+
+      {/* Story 177: the truth about when the plain keys are live, and the
+          modifier shortcut that works from inside the prose. */}
+      <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs leading-relaxed text-stone-500">
+        {QUEUE_HINT}
+      </p>
 
       {/* A model Run's failure is not about one Band, so it is not attributed to
           one; Cancel is reachable wherever the Run was started. */}
@@ -457,11 +480,4 @@ export function WorkingOrderRail({
       </section>
     </aside>
   );
-}
-
-/** A queue key must not steal from a field or the Editor. */
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
 }

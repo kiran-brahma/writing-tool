@@ -48,6 +48,12 @@ export const HELP_SECTION_IDS = {
   shortcuts: "shortcuts",
 } as const;
 
+/** Every anchor How this works can open at. */
+export type HelpSectionId = (typeof HELP_SECTION_IDS)[keyof typeof HELP_SECTION_IDS];
+
+/** Story 178: the shell-wide key that opens the shortcut list. */
+export const SHORTCUTS_KEY = "?";
+
 /**
  * Rule 1, in full. The first line is the rule; the rest is what enforces it. It
  * names the structural guarantee rather than an affordance, and it never
@@ -285,8 +291,9 @@ export const HELP_GLOSSARY: readonly GlossaryEntry[] = [
 
 /**
  * The keys the app binds for the queue, as data. It must match what the app
- * actually binds; `WorkingOrderRail` is the authority today, and #39 will teach
- * this list the modifier and `?` shortcuts it adds.
+ * actually binds; `queueKeys.ts` is the authority, and `helpContent.test.ts`
+ * compares the two, so adding or removing a binding without moving this list
+ * fails the build.
  */
 export const HELP_SHORTCUTS: readonly HelpShortcut[] = [
   { keys: ["j"], description: "Move to the next open Finding in the queue." },
@@ -297,7 +304,24 @@ export const HELP_SHORTCUTS: readonly HelpShortcut[] = [
     keys: ["v"],
     description: "Decline the Current Finding as a violation, when it carries one.",
   },
+  {
+    keys: ["Alt", "↓"],
+    description: "Move to the next open Finding even while the cursor is in the prose.",
+  },
+  {
+    keys: ["Alt", "↑"],
+    description: "Move to the previous open Finding even while the cursor is in the prose.",
+  },
+  { keys: [SHORTCUTS_KEY], description: "Open these shortcuts." },
 ];
+
+/**
+ * Story 177: the rail's hint bar. It states the condition under which the plain
+ * keys are live and names the modifier shortcut that works anywhere, rather than
+ * advertising `j`/`k`/`a`/`x`/`v` unconditionally into the prose.
+ */
+export const QUEUE_HINT =
+  "j / k move · a address · x decline · v decline as a violation · ? shows every shortcut. These work when you are not typing, because in the Editor they belong to the prose. Alt + ↓ / Alt + ↑ step the queue from anywhere.";
 
 /**
  * Story 168: the first-run note in the Editor body. It is not a modal; it sits
@@ -358,7 +382,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
     id: HELP_SECTION_IDS.shortcuts,
     heading: "Shortcuts",
     paragraphs: [
-      "The queue keys are live when you are not typing. While the Editor or a field has focus they stand down, because j, k, a and x are ordinary letters that must reach the prose.",
+      "The plain queue keys are live when you are not typing. While the Editor or a field has focus they stand down, because j, k, a, x and v are ordinary letters that must reach the prose. The Alt shortcut works anywhere, including the prose.",
     ],
     items: HELP_SHORTCUTS.map((shortcut) => ({
       title: shortcut.keys.join(" / "),
