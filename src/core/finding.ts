@@ -79,6 +79,16 @@ export function isOpenFinding(finding: Finding): boolean {
   return finding.status === "open";
 }
 
+/**
+ * Stories 179 and 182: the Findings a per-Pass decline touches — exactly the
+ * open ones in that Pass, so a Finding already addressed or declined is not
+ * disturbed. The action is offered per Pass; this is the whole selection it
+ * makes.
+ */
+export function openFindingsInPass(findings: Finding[], passId: string): Finding[] {
+  return findings.filter((finding) => finding.passId === passId && isOpenFinding(finding));
+}
+
 /** A half-open range in the Editor's document, what `projectInterval` returns. */
 export interface EditorRange {
   from: number;

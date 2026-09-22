@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Finding, FindingStatus } from "../core/finding";
 import type { Pass } from "../core/pass";
-import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
+import { openFindings, selectionAfterLeavingPass, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
 
 function finding(id: string, passId: string, status: FindingStatus = "open"): Finding {
   return {
@@ -102,5 +102,37 @@ describe("selectionAfterLeavingQueue", () => {
 
   it("returns null when nothing open remains", () => {
     expect(selectionAfterLeavingQueue([finding("a", "first")], "a")).toBeNull();
+  });
+});
+
+describe("selectionAfterLeavingPass", () => {
+  const open = [
+    finding("a", "first"),
+    finding("b", "second"),
+    finding("c", "first"),
+    finding("d", "second"),
+  ];
+
+  it("selects the Finding that slid into the vacated slot", () => {
+    expect(selectionAfterLeavingPass(open, "first", "a")).toBe("b");
+    expect(selectionAfterLeavingPass(open, "first", "c")).toBe("d");
+  });
+
+  it("keeps a Current Finding that is in another Pass", () => {
+    expect(selectionAfterLeavingPass(open, "first", "b")).toBe("b");
+    expect(selectionAfterLeavingPass(open, "first", "d")).toBe("d");
+  });
+
+  it("returns null when the declined Pass held every open Finding", () => {
+    const only = [finding("a", "first"), finding("c", "first")];
+    expect(selectionAfterLeavingPass(only, "first", "a")).toBeNull();
+  });
+
+  it("returns null with no Current Finding", () => {
+    expect(selectionAfterLeavingPass(open, "first", null)).toBeNull();
+  });
+
+  it("returns null for a stale Current Finding", () => {
+    expect(selectionAfterLeavingPass(open, "first", "gone")).toBeNull();
   });
 });

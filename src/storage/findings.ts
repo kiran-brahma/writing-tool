@@ -141,7 +141,10 @@ export async function provenanceLookup(
  * The write is serialised with rule Runs through `enqueueMutation`, so a Run's
  * reconciliation cannot overwrite the status just set.
  */
-type StatusWrite = { status: "addressed" } | { status: "declined"; reason: DeclineReason };
+type StatusWrite =
+  | { status: "addressed" }
+  | { status: "declined"; reason: DeclineReason }
+  | { status: "open" };
 
 function writeStatus(
   database: ObelusDatabase,
@@ -157,7 +160,9 @@ function writeStatus(
       const updated: Finding =
         write.status === "declined"
           ? { ...finding, status: "declined", declineReason: write.reason }
-          : { ...finding, status: "addressed" };
+          : write.status === "open"
+            ? { ...finding, status: "open" }
+            : { ...finding, status: "addressed" };
       await database.findings.put(toFindingRecord(updated, record.documentId));
       return updated;
     }),
@@ -185,4 +190,16 @@ export function declineFinding(
   reason: DeclineReason,
 ): Promise<Finding | null> {
   return writeStatus(database, findingId, { status: "declined", reason });
+}
+
+/**
+ * Story 181: returns a Finding to the queue. The status write drops any stored
+ * `declineReason`, so reopening a declined Finding leaves no stale reason
+ * behind, exactly as addressing one does not.
+ */
+export function reopenFinding(
+  database: ObelusDatabase,
+  findingId: string,
+): Promise<Finding | null> {
+  return writeStatus(database, findingId, { status: "open" });
 }

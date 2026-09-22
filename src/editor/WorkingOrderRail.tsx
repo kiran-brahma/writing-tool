@@ -6,7 +6,7 @@ import type { Section } from "../core/sections";
 import { QUEUE_HINT } from "../help/helpContent";
 import type { DocumentHandle } from "../useDocument";
 import { BandPanel } from "./BandPanel";
-import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
+import { openFindings, selectionAfterLeavingPass, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
 import { FindingsSidebar } from "./FindingsSidebar";
 import { formatUsd } from "./formatUsd";
 import { JudgePanel } from "./JudgePanel";
@@ -110,7 +110,7 @@ export function WorkingOrderRail({
     [setRailBand],
   );
 
-  const { markAddressed, decline } = handle;
+  const { markAddressed, decline, declineRestOfPass, reopen } = handle;
 
   /**
    * Runs a queue write and, when it stored, moves the selection to the Finding
@@ -124,6 +124,21 @@ export function WorkingOrderRail({
       });
     },
     [openQueue, onSelectFinding],
+  );
+
+  /**
+   * Stories 179 and 182: declines every open Finding in one Pass. When the
+   * Current Finding was one of them, the selection lands on the Finding that
+   * slid into the vacated slot; otherwise it stays where the Writer left it.
+   */
+  const declineRestAndAdvance = useCallback(
+    (passId: string) => {
+      const before = openQueue;
+      void declineRestOfPass(passId).then((written) => {
+        if (written) onSelectFinding(selectionAfterLeavingPass(before, passId, currentFindingId));
+      });
+    },
+    [openQueue, currentFindingId, declineRestOfPass, onSelectFinding],
   );
 
   // The queue's keys are live while the rail can show the queue. The plain
@@ -331,6 +346,8 @@ export function WorkingOrderRail({
             onDecline={(findingId, reason) =>
               void leaveQueue(findingId, () => decline(findingId, reason))
             }
+            onDeclineRest={declineRestAndAdvance}
+            onReopen={(findingId) => void reopen(findingId)}
           />
         ) : (
           <>
@@ -378,6 +395,7 @@ export function WorkingOrderRail({
               onDecline={(findingId, reason) =>
                 void leaveQueue(findingId, () => decline(findingId, reason))
               }
+              onReopen={(findingId) => void reopen(findingId)}
               runningPassId={handle.runningPassId}
               runningSince={handle.runStartedAt}
               lastRunReport={handle.lastRunReport}

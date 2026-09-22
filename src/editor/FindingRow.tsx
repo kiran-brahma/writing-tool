@@ -7,15 +7,18 @@ import { splitViolations, violationsOutsideText } from "./violationMarks";
  * One Finding in the rail. The same row renders in the **All** queue and inside
  * the Band that produced it, so the two views cannot drift.
  *
- * The row is display and two controls only: selecting it, and declining it. No
- * affordance here inserts model-derived text, and a rewrite the linter caught is
- * quarantined behind `QuarantinedRewrite` rather than shown as prose to accept.
+ * The row is display and controls only: selecting it, declining it, and — once
+ * it has left the queue — returning it to `open`. No affordance here inserts
+ * model-derived text, and a rewrite the linter caught is quarantined behind
+ * `QuarantinedRewrite` rather than shown as prose to accept.
  */
 export interface FindingRowProps {
   finding: Finding;
   current: boolean;
   onSelect: (findingId: string) => void;
   onDecline: (findingId: string, reason: DeclineReason) => void;
+  /** Story 181: return a Finding that left the queue to `open`. */
+  onReopen?: (findingId: string) => void;
   rawResponse?: string;
 }
 
@@ -24,6 +27,7 @@ export function FindingRow({
   current,
   onSelect,
   onDecline,
+  onReopen,
   rawResponse,
 }: FindingRowProps) {
   const rowRef = useRef<HTMLLIElement | null>(null);
@@ -88,6 +92,17 @@ export function FindingRow({
           )}
         </p>
       </button>
+      {leftQueue && onReopen !== undefined && (
+        <div className="border-t border-stone-200/70 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => onReopen(finding.id)}
+            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+          >
+            Reopen
+          </button>
+        </div>
+      )}
       {violations.length > 0 && (
         <div className="border-t border-stone-200/70 px-4 py-2">
           {elsewhere.length > 0 && (

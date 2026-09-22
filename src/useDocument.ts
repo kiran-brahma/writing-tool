@@ -4,7 +4,7 @@ import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
 import { addRunCost, estimateRunCost, type CostEstimate, type PriceTable } from "./core/cost";
 import type { DocTree } from "./core/docTree";
-import { type DeclineReason, type Finding, type Violation } from "./core/finding";
+import { openFindingsInPass, type DeclineReason, type Finding, type Violation } from "./core/finding";
 import type { DocumentStatus, LibraryEntry } from "./core/library";
 import {
   judge as judgeCore,
@@ -46,6 +46,7 @@ import {
 import {
   declineFinding,
   markFindingAddressed,
+  reopenFinding,
   resolveDocumentFindings,
 } from "./storage/findings";
 import {
@@ -234,6 +235,14 @@ export interface DocumentHandle {
   markAddressed: (findingId: string) => Promise<boolean>;
   /** Stories 64 and 72: decline a Finding, recording why — `advice` or `violation`. */
   decline: (findingId: string, reason?: DeclineReason) => Promise<boolean>;
+  /**
+   * Stories 179–182: decline every open Finding in one Pass in one action, each
+   * written individually as declined advice. Returns whether anything was
+   * stored.
+   */
+  declineRestOfPass: (passId: string) => Promise<boolean>;
+  /** Story 181: return a Finding to the queue, clearing any declineReason. */
+  reopen: (findingId: string) => Promise<boolean>;
   /** Story 35: turn one rule Pass on or off, then re-run the rules. */
   togglePass: (passId: string, enabled: boolean) => Promise<void>;
   /** Story 34: replace a rule Pass's word lists and patterns, then re-run. */
@@ -704,6 +713,41 @@ export function useDocument(): DocumentHandle {
   const decline = useCallback(
     (findingId: string, reason: DeclineReason = "advice") =>
       applyStatus((database, id) => declineFinding(database, id, reason), findingId),
+    [applyStatus],
+  );
+
+  /**
+   * Stories 179 and 180: declines the remaining open Findings in one Pass. The
+   * set is the pure `openFindingsInPass`, and each Finding is written through
+   * the same storage entry point a single decline uses, with `advice` — never
+   * `violation`, which is an assertion about the model that cannot responsibly
+   * be made for a whole Pass at once. One refresh follows, so the queue and
+   * Highlights settle once.
+   */
+  const declineRestOfPass = useCallback(
+    async (passId: string): Promise<boolean> => {
+      const database = databaseRef.current;
+      if (database === null) return false;
+      const targets = openFindingsInPass(findingsRef.current, passId);
+      if (targets.length === 0) return false;
+
+      try {
+        for (const finding of targets) {
+          await declineFinding(database, finding.id, "advice");
+        }
+        await refreshFindings();
+        return true;
+      } catch (error) {
+        setSaveError(describeError(error));
+        return false;
+      }
+    },
+    [refreshFindings],
+  );
+
+  /** Story 181: returns a Finding to `open`, and the status write clears the reason. */
+  const reopen = useCallback(
+    (findingId: string) => applyStatus(reopenFinding, findingId),
     [applyStatus],
   );
 
@@ -1585,6 +1629,8 @@ export function useDocument(): DocumentHandle {
     flagMilestone,
     markAddressed,
     decline,
+    declineRestOfPass,
+    reopen,
     togglePass,
     saveRuleConfig,
     savePass,

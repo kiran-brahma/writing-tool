@@ -9,6 +9,7 @@ import {
   replaceFindingsForPass,
   declineFinding,
   markFindingAddressed,
+  reopenFinding,
   resolveDocumentFindings,
 } from "./findings";
 import { openObelusDatabase, type DocumentRecord, type ObelusDatabase } from "./obelusDatabase";
@@ -284,6 +285,87 @@ describe("finding status", () => {
     expect(updated?.declineReason).toBe("violation");
   });
 
+  it("reopens a declined Finding and clears the declineReason", async () => {
+    const { database, documentId, findingId } = await storeOneFinding();
+    await declineFinding(database, findingId, "advice");
+
+    const updated = await reopenFinding(database, findingId);
+
+    expect(updated).toMatchObject({ id: findingId, status: "open" });
+    expect(updated?.declineReason).toBeUndefined();
+    const stored = await listFindings(database, documentId);
+    expect(stored[0].status).toBe("open");
+    expect(stored[0].declineReason).toBeUndefined();
+  });
+
+  it("reopens an addressed Finding, still without a declineReason", async () => {
+    const { database, documentId, findingId } = await storeOneFinding();
+    await markFindingAddressed(database, findingId);
+
+    const updated = await reopenFinding(database, findingId);
+
+    expect(updated).toMatchObject({ id: findingId, status: "open" });
+    expect(updated?.declineReason).toBeUndefined();
+    const stored = await listFindings(database, documentId);
+    expect(stored[0].status).toBe("open");
+    expect(stored[0]).not.toHaveProperty("declineReason");
+  });
+
+  it("declines each open Finding in a Pass individually, leaving the others alone", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very really quite good"), 1_100);
+    const findings = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    expect(findings.length).toBeGreaterThan(1);
+    const [addressed, ...declined] = findings;
+    await markFindingAddressed(database, addressed.id);
+
+    // The per-Pass decline writes each remaining open Finding through the same
+    // entry point a single decline uses, with `advice`.
+    for (const finding of declined) {
+      await declineFinding(database, finding.id, "advice");
+    }
+
+    const stored = new Map(
+      (await listFindingsForPass(database, saved.id, HEDGES_PASS.id)).map((finding) => [
+        finding.id,
+        finding,
+      ]),
+    );
+    expect(stored.get(addressed.id)).toMatchObject({ status: "addressed" });
+    expect(stored.get(addressed.id)?.declineReason).toBeUndefined();
+    for (const finding of declined) {
+      expect(stored.get(finding.id)).toMatchObject({ status: "declined", declineReason: "advice" });
+    }
+
+    const rerun = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 });
+    const rerunById = new Map(rerun.map((finding) => [finding.id, finding]));
+    expect(rerun).toHaveLength(findings.length);
+    expect(rerunById.get(addressed.id)?.status).toBe("addressed");
+    for (const finding of declined) {
+      expect(rerunById.get(finding.id)).toMatchObject({
+        status: "declined",
+        declineReason: "advice",
+      });
+    }
+  });
+
+  it("raises a reopened Finding again on the next Run, open and un-declined", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(database, document, paragraphDoc("very good"), 1_100);
+    const first = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    await declineFinding(database, first[0].id, "advice");
+    await reopenFinding(database, first[0].id);
+
+    const second = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 });
+
+    expect(second).toHaveLength(1);
+    expect(second[0].id).toBe(first[0].id);
+    expect(second[0].status).toBe("open");
+    expect(second[0].declineReason).toBeUndefined();
+  });
+
   it("does not raise a declined Finding again on a later Run of unchanged text", async () => {
     const database = await openTestDatabase();
     const document = await loadOrCreateDocument(database, 1_000);
@@ -334,6 +416,7 @@ describe("finding status", () => {
 
     expect(await markFindingAddressed(database, "missing")).toBeNull();
     expect(await declineFinding(database, "missing", "advice")).toBeNull();
+    expect(await reopenFinding(database, "missing")).toBeNull();
   });
 });
 

@@ -46,6 +46,8 @@ export interface BandPanelProps {
   showRawResponse: boolean;
   rawResponses: Record<string, string>;
   onDecline: (findingId: string, reason: DeclineReason) => void;
+  /** Story 181: return a Finding that left the queue to `open`. */
+  onReopen: (findingId: string) => void;
   runningPassId: string | null;
   runningSince: number | null;
   lastRunReport: RunReport | null;
@@ -85,6 +87,7 @@ export function BandPanel({
   showRawResponse,
   rawResponses,
   onDecline,
+  onReopen,
   runningPassId,
   runningSince,
   lastRunReport,
@@ -138,6 +141,7 @@ export function BandPanel({
                 currentFindingId={currentFindingId}
                 onSelectFinding={onSelectFinding}
                 onDecline={onDecline}
+                onReopen={onReopen}
                 showRawResponse={showRawResponse}
                 rawResponses={rawResponses}
                 onToggle={onToggle}
@@ -187,6 +191,7 @@ export function BandPanel({
               currentFindingId={currentFindingId}
               onSelectFinding={onSelectFinding}
               onDecline={onDecline}
+              onReopen={onReopen}
               showRawResponse={showRawResponse}
               rawResponses={rawResponses}
               onRun={onRun}
@@ -291,6 +296,7 @@ function FindingsPassBlock({
   currentFindingId,
   onSelectFinding,
   onDecline,
+  onReopen,
   showRawResponse,
   rawResponses,
   onRun,
@@ -306,6 +312,7 @@ function FindingsPassBlock({
   currentFindingId: string | null;
   onSelectFinding: (findingId: string) => void;
   onDecline: (findingId: string, reason: DeclineReason) => void;
+  onReopen: (findingId: string) => void;
   showRawResponse: boolean;
   rawResponses: Record<string, string>;
   onRun: (passId: string) => void;
@@ -376,6 +383,7 @@ function FindingsPassBlock({
                 current={finding.id === currentFindingId}
                 onSelect={onSelectFinding}
                 onDecline={onDecline}
+                onReopen={onReopen}
                 {...(showRawResponse
                   ? { rawResponse: rawResponses[responseKey(finding.passId, finding.promptHash)] }
                   : {})}
@@ -396,6 +404,7 @@ function RulePassBlock({
   currentFindingId,
   onSelectFinding,
   onDecline,
+  onReopen,
   showRawResponse,
   rawResponses,
   onToggle,
@@ -407,6 +416,7 @@ function RulePassBlock({
   currentFindingId: string | null;
   onSelectFinding: (findingId: string) => void;
   onDecline: (findingId: string, reason: DeclineReason) => void;
+  onReopen: (findingId: string) => void;
   showRawResponse: boolean;
   rawResponses: Record<string, string>;
   onToggle: (passId: string, enabled: boolean) => void;
@@ -464,6 +474,7 @@ function RulePassBlock({
                 current={finding.id === currentFindingId}
                 onSelect={onSelectFinding}
                 onDecline={onDecline}
+                onReopen={onReopen}
                 {...(showRawResponse
                   ? { rawResponse: rawResponses[responseKey(finding.passId, finding.promptHash)] }
                   : {})}
