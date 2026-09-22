@@ -88,6 +88,12 @@ The recommended sequence in which the Writer works the Passes — structure, the
 word — derived from Pass scope. A recommendation, never a gate.
 _Avoid_: revision order, pass order, pass stage
 
+**Band**:
+One of the three divisions of the Working order — structure, paragraph, word — derived from a Pass's
+kind and scope rather than stored. The Writer navigates by Band; every Band is one click away from
+every other, and no Band is gated on another.
+_Avoid_: stage, tier, phase, step, section
+
 **Target**:
 The text a Run is asked about.
 _Avoid_: selection, focus, scope
@@ -104,12 +110,17 @@ _Avoid_: pass run, critique, job, analysis
 One problem a Run reports about the prose, anchored to the text it concerns.
 _Avoid_: comment, note, issue, suggestion, flag, error
 
+**Current Finding**:
+The one open Finding the queue's selection is on. Its Highlight is distinguished from the others and
+the Editor scrolls to it, so the prose and the queue never disagree about where the Writer is.
+_Avoid_: active finding, selected finding, focused finding
+
 **Anchor**:
 The data tying a Finding to its text: the quoted span, with an offset as a hint.
 _Avoid_: position, range, mark
 
 **Highlight**:
-The visual rendering of an Anchor.
+The visual rendering of an Anchor. The Current Finding's Highlight is distinguished from the rest.
 _Avoid_: underline, marker
 
 **Orphaned**:

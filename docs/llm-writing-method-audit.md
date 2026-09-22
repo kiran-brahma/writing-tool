@@ -4,7 +4,8 @@
 **Status:** Analysis. Not a requirement. Where this document disagrees with
 `docs/specs/obelus-v1.md`, the spec is the requirement and this is the argument to reopen it.
 **Outcome:** The recommendations accepted in the design session of 2026-09-21 are now
-`docs/specs/obelus-v1.1.md`; see `DESIGN.md` §13 and ADRs 0007–0009.
+`docs/specs/obelus-v1.1.md`; see `DESIGN.md` §13 and ADRs 0007–0009. §5.1 and §5.2 closed in v1.1;
+§5.3 (declining a whole category of advice) is `docs/specs/obelus-v1.2.md`, stories 179–182.
 **Subject:** the source method behind Obelus, what the app already implements, what the post
 recommends that the app treats as second-class, and what the research literature implies should be
 added next.

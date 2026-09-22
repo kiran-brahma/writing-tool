@@ -66,10 +66,14 @@ verify-it-yourself steps in DevTools. #10 (Workbench) and #21 (Prompt authoring 
 since landed: the Writer writes and edits their own Pass prompts with placeholder validation and the
 fixed scope and output shapes, edits Rule config, round-trips the Pass set as JSON and restores the
 Starter pack, and can ask a model to draft a Pass prompt — assistance that reaches a Pass record and
-never the prose. **Every ticket in the order has landed: the frontier is complete and only the parent
-spec issue #1 stays open.** #16's migration 7 (`runCache`) is its own commit, ahead of the
+never the prose. **Every v1 and v1.1 ticket has landed**, and issues #1 and #25 are both closed.
+#16's migration 7 (`runCache`) is its own commit, ahead of the
 Run-cache behaviour, so it can ship alone as `docs/migrations.md` requires: deploy the migration
 commit first, then the behaviour that uses the store.
+
+**v1.2 is the open frontier.** The spec is #34 and the sequence is the v1.2 table below. Its subject
+is the surface rather than the analysis: v1.1 made the tool recommend, and v1.2 makes the
+recommendation reachable. #35 is the only ticket with no blocker that the rest wait on.
 
 ## How to work a ticket
 
@@ -111,6 +115,44 @@ commit first, then the behaviour that uses the store.
 | 22 | **#21** | Prompt authoring assistant | The assistant that helps author passes and never touches prose | - Completed
 
 Steps 9 and 10 may swap: both are blocked only by row 7.
+
+## The order — v1.2
+
+Parent: **#34**, `docs/specs/obelus-v1.2.md`. The decision is
+`docs/adr/0010-the-working-order-is-the-navigation.md`.
+
+v1.1 made the tool recommend. v1.2 makes the recommendation reachable: the Working order stops being
+a caption over a panel and becomes the thing the Writer navigates. Every ticket here is surface work;
+no prompt changes, no schema changes, and **no Dexie migration** — the three new settings go into the
+existing key-value store, so `docs/migrations.md` does not bind this increment.
+
+Three waves. Nothing inside a wave blocks anything else inside it, so a wave can be worked in
+parallel.
+
+| Step | # | Ticket | Blocked by | What it makes work |
+|---|---|---|---|---|
+| 23 | **#35** | The Working order rail | — | The Band is the navigation: Structure, Paragraph, Word, All; a Band shows its Passes and their Findings in one view; the Judge is its own destination; the three-tab strip is gone; the rail remembers its Band and collapses |
+| 24 | **#36** | How this works, and first run | — | A permanent page carrying Rule 1, Rule 2, the loop, the terms and the shortcuts; a dismissible first-run note; an empty Scratchpad that says what to do |
+| 25 | **#37** | The Judge's default pair | — | The default comparison is the last flagged Revision against now, not two autosaves |
+| 26 | **#38** | The Current Finding | #35 | Selecting a Finding scrolls the prose to it and distinguishes its Highlight |
+| 27 | **#39** | Reaching the queue from the prose | #35 | A modifier shortcut that steps the queue while typing; a hint bar that tells the truth; `?` |
+| 28 | **#40** | Decline the rest, and reopen | #35 | Declining a whole Pass in one action, and the first path back to `open` — closes audit §5.3 |
+| 29 | **#41** | Plain-language glosses | #35, #36 | Every panel explains its own nouns once, linking into How this works |
+| 30 | **#42** | Accessibility | #35 | Tab-panel linkage, an announced Run result, 4.5:1 contrast, no text under 12px |
+| 31 | **#43** | What a Run will cost | #35 | The estimate beside the control that spends, and a summed estimate for the structural set |
+| 32 | **#44** | Header and navigation | #36 | Persistent navigation over six destinations; document actions separated; the three "Back to the Editor" buttons and their state deleted |
+
+**Why this order.** #35 restructures nearly every file the other nine touch, so it lands before the
+tickets that decorate it — otherwise an AFK agent resolves conflicts it cannot see. #36 is in the
+first wave rather than beside #44 because the header ticket needs the fourth destination to exist
+before it can arrange it. #37 is unblocked because its change is internal to `JudgePanel`'s state
+defaults even though #35 relocates the panel.
+
+**The standing constraints**, in every ticket body: no affordance that inserts model-derived text; a
+recommendation, never a gate (ADR 0009, and the four properties in ADR 0010); `CONTEXT.md` terms only
+and **"stage" is banned**; name the pure function and test it through the seam; **no DOM test layer**
+— a ticket that wants Testing Library, jsdom or Playwright must raise it as its own ticket with an
+ADR rather than adding one in passing.
 
 **#2 (Toolchain and shell)** has no row because it is the order's foundation rather than a step in
 it: the Vite/React/TypeScript toolchain, the test runner, the gates, the in-memory IndexedDB setup

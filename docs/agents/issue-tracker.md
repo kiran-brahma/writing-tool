@@ -58,6 +58,7 @@ canonical and the GitHub issue is the publication.**
   | --- | --- |
   | `docs/specs/obelus-v1.md` | [#1](https://github.com/kiran-brahma/writing-tool/issues/1) |
   | `docs/specs/obelus-v1.1.md` | [#25](https://github.com/kiran-brahma/writing-tool/issues/25) |
+  | `docs/specs/obelus-v1.2.md` | [#34](https://github.com/kiran-brahma/writing-tool/issues/34) |
 
 - **Sync direction**: edit the file (git diffs it), then republish:
   `gh issue edit <n> --body-file docs/specs/<slug>.md`. Never edit the issue body
