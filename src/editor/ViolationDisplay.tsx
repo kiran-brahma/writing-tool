@@ -12,7 +12,7 @@ export function StruckText({ text, violations }: { text: string; violations: Vio
     <>
       {markViolations(text, violations).map((segment, index) =>
         segment.violated ? (
-          <s key={index} className="text-stone-500 decoration-rose-500 decoration-2">
+          <s key={index} className="text-stone-600 decoration-rose-500 decoration-2">
             {segment.text}
           </s>
         ) : (
@@ -34,7 +34,7 @@ export function StruckViolations({ violations }: { violations: Violation[] }) {
       {violations.map((violation, index) => (
         <span key={index}>
           {index > 0 && ", "}
-          <s className="text-stone-500 decoration-rose-500 decoration-2">{violation.text}</s>
+          <s className="text-stone-600 decoration-rose-500 decoration-2">{violation.text}</s>
         </span>
       ))}
     </>
@@ -49,7 +49,7 @@ export function StruckViolations({ violations }: { violations: Violation[] }) {
 export function QuarantinedRewrite({ violations }: { violations: Violation[] }) {
   return (
     <details className="mt-2 rounded border border-stone-300 bg-stone-50">
-      <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-stone-600">
+      <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600">
         Reveal quarantined rewrite
       </summary>
       <div
@@ -61,7 +61,7 @@ export function QuarantinedRewrite({ violations }: { violations: Violation[] }) 
             {violation.text}
           </p>
         ))}
-        <p className="mt-1 font-sans text-[11px] italic text-stone-400">
+        <p className="mt-1 font-sans text-xs italic text-stone-600">
           Shown for inspection only. Your keyboard is the only way text enters your Document.
         </p>
       </div>

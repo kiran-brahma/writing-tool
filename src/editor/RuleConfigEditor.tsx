@@ -42,14 +42,14 @@ export function RuleConfigEditor({ pass, onSave, onCancel }: RuleConfigEditorPro
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded bg-stone-900 px-3 py-1 text-xs font-medium text-stone-50 hover:bg-stone-700"
+          className="rounded bg-stone-900 px-3 py-1 text-xs font-medium text-stone-50 hover:bg-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
           onClick={save}
         >
           Save
         </button>
         <button
           type="button"
-          className="rounded border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+          className="rounded border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
           onClick={onCancel}
         >
           Cancel
@@ -75,7 +75,7 @@ function FieldEditor({ field, value, onChange }: FieldEditorProps) {
           min={1}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="mt-1 w-24 rounded border border-stone-300 bg-white px-2 py-1 text-sm focus:border-stone-500 focus:outline-none"
+          className="mt-1 w-24 rounded border border-stone-300 bg-white px-2 py-1 text-sm focus:border-stone-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
         />
       ) : (
         <textarea
@@ -83,10 +83,10 @@ function FieldEditor({ field, value, onChange }: FieldEditorProps) {
           value={value}
           onChange={(event) => onChange(event.target.value)}
           spellCheck={false}
-          className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1.5 font-mono text-xs focus:border-stone-500 focus:outline-none"
+          className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1.5 font-mono text-xs focus:border-stone-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
         />
       )}
-      <span className="mt-0.5 block text-xs text-stone-500">{field.help}</span>
+      <span className="mt-0.5 block text-xs text-stone-600">{field.help}</span>
     </label>
   );
 }

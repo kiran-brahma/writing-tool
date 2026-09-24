@@ -114,18 +114,18 @@ export function BandPanel({
 
   return (
     <div>
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
         {PANEL_GLOSSES.band.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.band.sectionId)}
-          className="underline hover:text-stone-700"
+          className="rounded px-0.5 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
         >
           How this works
         </button>
       </p>
 
-      <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs text-stone-500">
+      <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs text-stone-600">
         {criticName === null
           ? "No critic assigned."
           : `Bands that call a model use the critic connection: ${criticName}`}
@@ -139,7 +139,7 @@ export function BandPanel({
       )}
 
       {passes.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-stone-500">
+        <p className="px-4 py-4 text-sm text-stone-600">
           No pass sits in this band yet. The starter pack adds them as tickets land.
         </p>
       ) : (
@@ -236,7 +236,7 @@ function PassHeading({
     <div className="flex items-start gap-2 px-4 py-3">
       <input
         type="checkbox"
-        className="mt-0.5"
+        className="mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 rounded-xs"
         checked={pass.enabled}
         aria-label={`Enable ${pass.name}`}
         onChange={(event) => onToggle(pass.id, event.target.checked)}
@@ -245,8 +245,8 @@ function PassHeading({
         <p
           className={
             pass.enabled
-              ? "text-sm font-medium text-stone-800"
-              : "text-sm font-medium text-stone-500"
+              ? "text-sm font-semibold text-stone-900"
+              : "text-sm font-medium text-stone-600"
           }
         >
           {pass.name}
@@ -254,7 +254,7 @@ function PassHeading({
         </p>
         <p className="mt-0.5 text-xs text-stone-600">{pass.description}</p>
         {detail}
-        {!pass.enabled && <p className="mt-1 text-xs italic text-stone-500">Disabled.</p>}
+        {!pass.enabled && <p className="mt-1 text-xs italic text-stone-600">Disabled.</p>}
       </div>
       {action}
     </div>
@@ -291,7 +291,7 @@ function RunButton({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+      className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
     >
       {children}
     </button>
@@ -445,7 +445,7 @@ function RulePassBlock({
         onToggle={onToggle}
         badge={
           held ? (
-            <span className="ml-1.5 rounded bg-stone-200 px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-600">
+            <span className="ml-1.5 rounded bg-stone-200 px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-700">
               held
             </span>
           ) : null
@@ -453,7 +453,7 @@ function RulePassBlock({
         action={
           <button
             type="button"
-            className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
             onClick={() => setEditing((current) => !current)}
           >
             {editing ? "Close" : "Edit"}

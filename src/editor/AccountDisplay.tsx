@@ -200,7 +200,7 @@ function MarkedField({
     <div className="mt-1">
       <p className="text-xs font-medium text-stone-600">{label}</p>
       {nullable && text === null ? (
-        <p className="mt-0.5 text-sm italic text-stone-500">None given.</p>
+        <p className="mt-0.5 text-sm italic text-stone-600">None given.</p>
       ) : (
         <p className="mt-0.5 whitespace-pre-wrap text-sm text-stone-800">
           <StruckText text={text ?? ""} violations={strikes} />

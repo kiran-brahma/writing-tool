@@ -50,12 +50,12 @@ export function FindingsSidebar({
   const groups = groupFindingsByPass(findings, passes);
 
   const gloss = (
-    <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+    <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
       {PANEL_GLOSSES.allFindings.text}{" "}
       <button
         type="button"
         onClick={() => onOpenHelp?.(PANEL_GLOSSES.allFindings.sectionId)}
-        className="underline hover:text-stone-700"
+        className="rounded px-0.5 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
       >
         How this works
       </button>
@@ -66,7 +66,7 @@ export function FindingsSidebar({
     return (
       <div>
         {gloss}
-        <p className="px-4 py-4 text-sm text-stone-500">
+        <p className="px-4 py-4 text-sm text-stone-600">
           No findings across any pass. Rule passes run free, with no connection and no key.
         </p>
       </div>
@@ -83,13 +83,13 @@ export function FindingsSidebar({
             <h3 className="flex items-baseline justify-between gap-2 bg-stone-200/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-stone-600">
               <span>{group.name}</span>
               <span className="flex items-baseline gap-2">
-                <span className="font-normal normal-case text-stone-500">{openCount} open</span>
+                <span className="font-normal normal-case text-stone-600">{openCount} open</span>
                 {openCount > 0 && group.id !== ORPHANED_GROUP_ID && (
                   <button
                     type="button"
                     onClick={() => onDeclineRest(group.id)}
                     title={`Decline every open finding in ${group.name} as advice`}
-                    className="rounded border border-stone-300 bg-white px-2 py-0.5 font-normal normal-case text-stone-700 hover:bg-stone-100"
+                    className="rounded border border-stone-300 bg-white px-2 py-0.5 font-normal normal-case text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
                   >
                     Decline the rest
                   </button>
