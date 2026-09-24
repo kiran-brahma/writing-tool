@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { soloRulePass, type Pass, type RuleConfig } from "../core/pass";
 import { RuleConfigEditor } from "./RuleConfigEditor";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * Stories 34 and 35: the Writer edits the word lists and patterns behind each
@@ -16,9 +17,15 @@ export interface RulePassesPanelProps {
   passes: Pass[];
   onToggle: (passId: string, enabled: boolean) => void;
   onSaveConfig: (passId: string, ruleConfig: RuleConfig) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
-export function RulePassesPanel({ passes, onToggle, onSaveConfig }: RulePassesPanelProps) {
+export function RulePassesPanel({
+  passes,
+  onToggle,
+  onSaveConfig,
+  onOpenHelp,
+}: RulePassesPanelProps) {
   const rulePasses = passes.filter((pass) => pass.kind === "rule");
   /** The exclusive rule Pass that is on, whose fellows are held while it runs. */
   const solo = soloRulePass(passes);
@@ -30,6 +37,17 @@ export function RulePassesPanel({ passes, onToggle, onSaveConfig }: RulePassesPa
         <h2 className="text-sm font-semibold">Word — rule passes</h2>
         <span className="text-xs text-stone-500">free, offline</span>
       </div>
+
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+        {PANEL_GLOSSES.rulePasses.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.rulePasses.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
       {solo !== null && (
         <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
           {solo.name} runs on its own. The other rule passes are held while it is on; turn it off

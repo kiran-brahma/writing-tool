@@ -9,6 +9,7 @@ import {
   type LibraryEntry,
 } from "../core/library";
 import { BackupPanel } from "./BackupPanel";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * The Library: a flat list of every Document in this browser, with search over
@@ -37,6 +38,7 @@ export interface LibraryViewProps {
   /** Story 114: imports a Document bundle as a new Document. */
   onImportBundle: (json: string) => void;
   onDismissBackupError: () => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 export function LibraryView({
@@ -53,6 +55,7 @@ export function LibraryView({
   onExportBundle,
   onImportBundle,
   onDismissBackupError,
+  onOpenHelp,
 }: LibraryViewProps) {
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string | null>(null);
@@ -80,7 +83,17 @@ export function LibraryView({
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Library</h2>
             <p className="text-sm text-stone-500">
-              {entries.length} Document{entries.length === 1 ? "" : "s"} in this browser
+              {entries.length} {entries.length === 1 ? "document" : "documents"} in this browser.{" "}
+              {PANEL_GLOSSES.library.text}{" "}
+              {onOpenHelp !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => onOpenHelp(PANEL_GLOSSES.library.sectionId)}
+                  className="text-stone-500 underline hover:text-stone-800"
+                >
+                  How this works
+                </button>
+              )}
             </p>
           </div>
           <button
@@ -88,7 +101,7 @@ export function LibraryView({
             onClick={onCreate}
             className="rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
           >
-            New Document
+            New document
           </button>
         </div>
 
@@ -99,6 +112,7 @@ export function LibraryView({
           onRestore={onRestore}
           onImportBundle={onImportBundle}
           onDismissError={onDismissBackupError}
+          onOpenHelp={onOpenHelp}
         />
 
         <div className="mt-6 space-y-3">
@@ -107,7 +121,7 @@ export function LibraryView({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search titles and body text"
-            aria-label="Search Documents"
+            aria-label="Search documents"
             className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-stone-500 focus:outline-none"
           />
 
@@ -131,8 +145,8 @@ export function LibraryView({
           {visible.length === 0 && (
             <li className="rounded border border-dashed border-stone-300 px-4 py-8 text-center text-sm text-stone-500">
               {entries.length === 0
-                ? "No Documents yet. Create one, or start typing in the Scratchpad."
-                : "No Documents match this search."}
+                ? "No documents yet. Create one, or start typing in the scratchpad."
+                : "No documents match this search."}
             </li>
           )}
           {visible.map((entry) => (
@@ -220,8 +234,8 @@ function LibraryRow({
         {entry.wordCount} word{entry.wordCount === 1 ? "" : "s"} · edited{" "}
         {new Date(entry.updatedAt).toLocaleString()} ·{" "}
         {entry.openFindings === 0
-          ? "no open Findings"
-          : `${entry.openFindings} open Finding${entry.openFindings === 1 ? "" : "s"}`}
+          ? "no open findings"
+          : `${entry.openFindings} open finding${entry.openFindings === 1 ? "" : "s"}`}
       </p>
 
       <TagEditor tags={entry.tags} onChange={(tags) => onTags(entry.id, tags)} />

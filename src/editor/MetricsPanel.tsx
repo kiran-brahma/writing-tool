@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { DocTree } from "../core/docTree";
 import { documentMetrics, paragraphShapeMetrics } from "../core/metrics";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * Story 31: sentence length, its variance and adverb density, so a monotone
@@ -15,7 +16,15 @@ import { documentMetrics, paragraphShapeMetrics } from "../core/metrics";
  * gate. A3 reads the Document tree rather than the canonical string, because
  * block structure is the tree's to know; the rest of the metrics read the string.
  */
-export function MetricsPanel({ canonical, tree }: { canonical: string; tree: DocTree }) {
+export function MetricsPanel({
+  canonical,
+  tree,
+  onOpenHelp,
+}: {
+  canonical: string;
+  tree: DocTree;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
+}) {
   const metrics = useMemo(() => documentMetrics(canonical), [canonical]);
   const shape = useMemo(() => paragraphShapeMetrics(tree), [tree]);
 
@@ -42,7 +51,16 @@ export function MetricsPanel({ canonical, tree }: { canonical: string; tree: Doc
           value={`${shape.longestUniformParagraphRun} in a row`}
         />
       </dl>
-      <p className="mt-2 text-xs text-stone-500">A signal, not a verdict.</p>
+      <p className="mt-2 text-xs text-stone-500">
+        {PANEL_GLOSSES.metrics.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.metrics.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
       <ChipRow label="Sentence lengths" values={metrics.sentenceLengths} />
       <ChipRow label="Paragraph sentence counts" values={shape.paragraphSentenceCounts} />
     </section>

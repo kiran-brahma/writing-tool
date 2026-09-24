@@ -353,6 +353,75 @@ export const SCRATCHPAD_EMPTY_STATE = {
   libraryLabel: "Open the Library",
 } as const;
 
+/**
+ * A plain-language gloss explaining a panel's own nouns once, with a link
+ * target in How this works.
+ */
+export interface PanelGloss {
+  readonly text: string;
+  readonly sectionId: HelpSectionId;
+}
+
+/**
+ * Story 183–184: the plain-language glosses for every panel. Each panel
+ * explains its own nouns once in plain language, using ordinary case, and
+ * links to a section in How this works.
+ */
+export const PANEL_GLOSSES = {
+  band: {
+    text: "A band groups passes by scope: structure, paragraph, or word. Each pass looks for problems in your text without rewriting it.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  allFindings: {
+    text: "All findings from your passes, anchored to your prose. Step through each problem or decline advice you disagree with.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  judge: {
+    text: "The judge compares two revisions of a passage blind to see which is clearer, receiving the two texts and nothing else.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  revisions: {
+    text: "Revisions are saved points in your document history; a milestone is a revision you flag with a note.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  metrics: {
+    text: "Measurements of rhythm and sentence structure across your document. A metric is a diagnostic signal, never a score.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  outline: {
+    text: "The structure of your document, drawn from its headings. Click any section to jump your cursor to it.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  rulePasses: {
+    text: "Rule passes check for mechanical habits using deterministic rules in your browser, without an AI model.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  connections: {
+    text: "A connection is a route to an AI provider. Your keys stay in this browser, sent only to the provider you configure.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  slots: {
+    text: "Slots assign connections and models to roles: the critic finds flaws, and the judge compares revisions.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  runSettings: {
+    text: "Run settings govern model calls: the screening frame sets editorial stance, and the voice list protects your phrasing.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  workbench: {
+    text: "A pass is an editorial instruction with a scope and an output shape. The workbench is where you create and edit passes.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  library: {
+    text: "The library holds all documents saved in this browser. Everything stays local until you export or back up.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+  backup: {
+    text: "A backup saves your whole library to one file; a bundle exports a single document with its revisions and findings.",
+    sectionId: HELP_SECTION_IDS.glossary,
+  },
+} as const satisfies Record<string, PanelGloss>;
+
 /** Every section of the page, in reading order. */
 export const HELP_SECTIONS: readonly HelpSection[] = [
   {
@@ -419,5 +488,6 @@ export function helpProse(): string {
     ...SCRATCHPAD_EMPTY_STATE.body,
     SCRATCHPAD_EMPTY_STATE.libraryLabel,
   ];
-  return [...sections, ...note, ...scratchpad].join("\n");
+  const glosses = Object.values(PANEL_GLOSSES).map((gloss) => gloss.text);
+  return [...sections, ...note, ...scratchpad, ...glosses].join("\n");
 }

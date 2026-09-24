@@ -105,7 +105,9 @@ export default function App() {
   /** Which view AI Settings returns to when the Writer leaves it. */
   const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
   /** Which view How this works returns to when the Writer leaves it. */
-  const [helpReturn, setHelpReturn] = useState<"editor" | "library">("editor");
+  const [helpReturn, setHelpReturn] = useState<
+    "editor" | "library" | "settings" | "workbench"
+  >("editor");
   /** Story 178: the section How this works should open at, or null for the top. */
   const [helpSection, setHelpSection] = useState<HelpSectionId | null>(null);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
@@ -210,7 +212,11 @@ export default function App() {
    */
   const openHelpSection = useCallback(
     (sectionId: HelpSectionId | null) => {
-      setHelpReturn(view === "library" ? "library" : "editor");
+      if (view === "library" || view === "settings" || view === "workbench") {
+        setHelpReturn(view);
+      } else {
+        setHelpReturn("editor");
+      }
       setHelpSection(sectionId);
       setView("help");
     },
@@ -438,7 +444,13 @@ export default function App() {
                   onClick={() => setView(helpReturn)}
                   className={HEADER_BUTTON_CLASS}
                 >
-                  Back to the {helpReturn === "library" ? "Library" : "Editor"}
+                  {helpReturn === "library"
+                    ? "Back to the Library"
+                    : helpReturn === "settings"
+                      ? "Back to AI Settings"
+                      : helpReturn === "workbench"
+                        ? "Back to the Pass workbench"
+                        : "Back to the Editor"}
                 </button>
               )}
               {view === "editor" && (
@@ -484,13 +496,13 @@ export default function App() {
 
       {saveError !== null && (
         <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
-          Could not save your Document: {saveError}
+          Could not save your document: {saveError}
         </div>
       )}
 
       {importError !== null && (
         <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
-          Could not import that Markdown: {importError}
+          Could not import that markdown: {importError}
         </div>
       )}
 
@@ -509,6 +521,7 @@ export default function App() {
           onExportBundle={(documentId) => void onExportBundle(documentId)}
           onImportBundle={(json) => void onImportBundle(json)}
           onDismissBackupError={clearBackupError}
+          onOpenHelp={openHelpSection}
         />
       )}
 
@@ -534,6 +547,7 @@ export default function App() {
           onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
           onSaveVoiceList={(entries) => void setVoiceList(entries)}
           onSavePriceTable={(table) => void savePriceTable(table)}
+          onOpenHelp={openHelpSection}
         />
       )}
 
@@ -553,6 +567,7 @@ export default function App() {
           assistantError={assistantError}
           onAssist={runPromptAssistant}
           criticName={criticConnection?.name ?? null}
+          onOpenHelp={openHelpSection}
         />
       )}
 
@@ -613,6 +628,7 @@ export default function App() {
             onFlagMilestone={() => void onFlagMilestone()}
             milestonesOnly={milestonesOnly}
             onMilestonesOnlyChange={setMilestonesOnly}
+            onOpenHelp={openHelpSection}
           />
         </div>
       )}

@@ -17,6 +17,7 @@ import type {
 } from "../core/promptAssistant";
 import { describeError } from "../errors";
 import { RulePassesPanel } from "../editor/RulePassesPanel";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * The Pass workbench (story 98 onward). It is where the Writer writes their own
@@ -50,6 +51,7 @@ export interface WorkbenchViewProps {
   assistantError: string | null;
   onAssist: (input: PromptAssistantRequest) => Promise<PromptAssistantResult | null>;
   criticName: string | null;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 export function WorkbenchView({
@@ -67,6 +69,7 @@ export function WorkbenchView({
   assistantError,
   onAssist,
   criticName,
+  onOpenHelp,
 }: WorkbenchViewProps) {
   const modelPasses = passes.filter((pass) => pass.kind === "model");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -98,9 +101,16 @@ export function WorkbenchView({
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Pass workbench</h1>
           <p className="mt-1 max-w-xl text-sm text-stone-600">
-            Write your own Pass prompts, choose each Pass's scope and output shape, and move the
-            whole Pass set in and out as JSON. A prompt with an unknown placeholder is refused on
-            save.
+            {PANEL_GLOSSES.workbench.text}{" "}
+            {onOpenHelp !== undefined && (
+              <button
+                type="button"
+                onClick={() => onOpenHelp(PANEL_GLOSSES.workbench.sectionId)}
+                className="text-stone-500 underline hover:text-stone-800"
+              >
+                How this works
+              </button>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +119,7 @@ export function WorkbenchView({
             onClick={startNewPass}
             className="rounded bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-50 hover:bg-stone-700"
           >
-            New Pass
+            New pass
           </button>
           <button
             type="button"
@@ -136,7 +146,7 @@ export function WorkbenchView({
             onClick={() => void onRestore()}
             className="rounded border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
           >
-            Restore Starter pack
+            Restore starter pack
           </button>
         </div>
       </div>
@@ -161,13 +171,13 @@ export function WorkbenchView({
         <h2 className="text-sm font-semibold text-stone-800">Model passes</h2>
         <p className="mt-1 text-xs text-stone-500">
           {criticName === null
-            ? "Assign a Connection to the critic Slot before asking the assistant for a draft."
-            : `The assistant drafts prompts through the critic Connection: ${criticName}.`}
+            ? "Assign a connection to the critic slot before asking the assistant for a draft."
+            : `The assistant drafts prompts through the critic connection: ${criticName}.`}
         </p>
         {newDraft !== null && (
           <div className="mt-3 rounded border border-stone-300 bg-white">
             <div className="border-b border-stone-200 px-4 py-2 text-xs font-medium text-stone-700">
-              New Pass — not saved yet
+              New pass — not saved yet
             </div>
             <ModelPassEditor
               key={newDraft.id}
@@ -232,14 +242,19 @@ export function WorkbenchView({
           })}
           {modelPasses.length === 0 && (
             <li className="rounded border border-stone-200 bg-white px-4 py-4 text-sm text-stone-500">
-              No model Passes yet. Add one, or restore the Starter pack.
+              No model passes yet. Add one, or restore the starter pack.
             </li>
           )}
         </ul>
       </section>
 
       <div className="mt-6 rounded border border-stone-200 bg-white">
-        <RulePassesPanel passes={passes} onToggle={onToggle} onSaveConfig={onSaveRuleConfig} />
+        <RulePassesPanel
+          passes={passes}
+          onToggle={onToggle}
+          onSaveConfig={onSaveRuleConfig}
+          onOpenHelp={onOpenHelp}
+        />
       </div>
     </main>
   );
@@ -365,7 +380,7 @@ function ModelPassEditor({
             ))}
           </select>
           <span className="mt-1 block text-xs text-stone-500">
-            Who this Pass is written for. The Reader and the Audit keep their own stance.
+            Who this pass is written for. The reader and the audit keep their own stance.
           </span>
         </label>
       )}
@@ -452,14 +467,14 @@ function PromptAssistant({
     <div className="rounded border border-stone-300 bg-white p-3">
       <p className="text-xs font-medium text-stone-700">Prompt assistant</p>
       <p className="mt-0.5 text-xs text-stone-500">
-        Ask for help writing this Pass prompt. The assistant sees only your request and the prompt
-        above — never your Document.
+        Ask for help writing this pass prompt. The assistant sees only your request and the prompt
+        above, never your document.
       </p>
       <textarea
         rows={2}
         value={request}
         onChange={(event) => onRequest(event.target.value)}
-        placeholder="What should this Pass look for?"
+        placeholder="What should this pass look for?"
         className="mt-2 w-full resize-none rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
       />
       <button
@@ -514,7 +529,7 @@ function frameLabel(frame: ScreeningFrame): string {
 function scopeLabel(scope: PassScope): string {
   switch (scope) {
     case "document":
-      return "Whole Document";
+      return "Whole document";
     case "section":
       return "Section";
     case "paragraph":

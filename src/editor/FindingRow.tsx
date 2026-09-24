@@ -107,7 +107,7 @@ export function FindingRow({
         <div className="border-t border-stone-200/70 px-4 py-2">
           {elsewhere.length > 0 && (
             <p className="text-xs text-stone-500">
-              Model drift: <StruckViolations violations={elsewhere} />
+              Praise from the model: <StruckViolations violations={elsewhere} />
             </p>
           )}
           {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}

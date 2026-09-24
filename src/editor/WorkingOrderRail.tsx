@@ -3,7 +3,7 @@ import { emptyDocTree } from "../core/docTree";
 import type { AnchorDraft } from "../core/finding";
 import { structuralPasses, workingOrder, type WorkingOrderBand } from "../core/pass";
 import type { Section } from "../core/sections";
-import { QUEUE_HINT } from "../help/helpContent";
+import { PANEL_GLOSSES, QUEUE_HINT, type HelpSectionId } from "../help/helpContent";
 import type { DocumentHandle } from "../useDocument";
 import { BandPanel } from "./BandPanel";
 import { openFindings, selectionAfterLeavingPass, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
@@ -57,6 +57,7 @@ export interface WorkingOrderRailProps {
   onFlagMilestone: () => void;
   milestonesOnly: boolean;
   onMilestonesOnlyChange: (milestonesOnly: boolean) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 export function WorkingOrderRail({
@@ -75,6 +76,7 @@ export function WorkingOrderRail({
   onFlagMilestone,
   milestonesOnly,
   onMilestonesOnlyChange,
+  onOpenHelp,
 }: WorkingOrderRailProps) {
   const { passes, findings, railBand, railCollapsed, setRailBand, setRailCollapsed } = handle;
   /** **All** is not a Band, so it is a local override rather than stored state. */
@@ -257,10 +259,12 @@ export function WorkingOrderRail({
               sections={outlineSections}
               activeHeadingBlockIndex={activeHeadingBlockIndex}
               onJump={onJumpToSection}
+              onOpenHelp={onOpenHelp}
             />
             <MetricsPanel
               canonical={handle.document?.canonical ?? ""}
               tree={handle.document?.tree ?? emptyDocTree()}
+              onOpenHelp={onOpenHelp}
             />
           </>
         )}
@@ -348,6 +352,7 @@ export function WorkingOrderRail({
             }
             onDeclineRest={declineRestAndAdvance}
             onReopen={(findingId) => void reopen(findingId)}
+            onOpenHelp={onOpenHelp}
           />
         ) : (
           <>
@@ -374,11 +379,11 @@ export function WorkingOrderRail({
                 </div>
                 {pastLimit && (
                   <p className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
-                    This Document is {documentLength.toLocaleString()} characters, past the{" "}
+                    This document is {documentLength.toLocaleString()} characters, past the{" "}
                     {handle.characterLimit.toLocaleString()} character limit for a single call.{" "}
                     {handle.documentChunks > 1
-                      ? `Structural Passes will run in ${handle.documentChunks} overlapping chunks — Section by Section where the Document has headings — so the whole Document is still examined.`
-                      : "It has no Section or Paragraph boundary to split on, so a structural Pass will be sent as one call."}
+                      ? `Structural passes will run in ${handle.documentChunks} overlapping chunks, section by section where the document has headings, so the whole piece is still examined.`
+                      : "The text has no section or paragraph boundary to split on, so a structural pass will run as a single call."}
                   </p>
                 )}
               </div>
@@ -416,6 +421,7 @@ export function WorkingOrderRail({
               onSaveRuleConfig={(passId, ruleConfig) =>
                 void handle.saveRuleConfig(passId, ruleConfig)
               }
+              onOpenHelp={onOpenHelp}
             />
           </>
         )}
@@ -434,6 +440,7 @@ export function WorkingOrderRail({
         error={handle.judgeError}
         result={handle.judgeResult}
         onJudge={(before, after) => void handle.runJudge(before, after)}
+        onOpenHelp={onOpenHelp}
       />
 
       {/* Story 165: milestones and Revisions under the Judge, its raw material. */}
@@ -452,7 +459,7 @@ export function WorkingOrderRail({
             onClick={onFlagMilestone}
             className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
           >
-            Flag this Revision
+            Flag this revision
           </button>
         </div>
 
@@ -467,6 +474,17 @@ export function WorkingOrderRail({
             Milestones only
           </label>
         </div>
+
+        <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+          {PANEL_GLOSSES.revisions.text}{" "}
+          <button
+            type="button"
+            onClick={() => onOpenHelp?.(PANEL_GLOSSES.revisions.sectionId)}
+            className="underline hover:text-stone-700"
+          >
+            How this works
+          </button>
+        </p>
 
         <ol className="overflow-y-auto">
           {visibleRevisions.length === 0 && (

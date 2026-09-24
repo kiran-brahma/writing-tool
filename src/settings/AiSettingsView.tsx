@@ -6,6 +6,7 @@ import type { Slot, SlotAssignment, SlotBinding } from "../storage/connections";
 import type { Connection } from "../wire/connection";
 import { ConnectionsPanel } from "../wire/ConnectionsPanel";
 import { transport } from "../wire/productionTransport";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * The AI Settings view: every global choice about how Obelus talks to a model,
@@ -35,6 +36,7 @@ export interface AiSettingsViewProps {
   onSetCharacterLimit: (limit: number) => void;
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 export function AiSettingsView({
@@ -54,6 +56,7 @@ export function AiSettingsView({
   onSetCharacterLimit,
   onSaveVoiceList,
   onSavePriceTable,
+  onOpenHelp,
 }: AiSettingsViewProps) {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-6">
@@ -62,10 +65,11 @@ export function AiSettingsView({
         slots={slots}
         judgeNote={
           judgeIsDefault
-            ? `Not set — defaulting to ${judgeDefaultName ?? "another Connection"}.`
+            ? `Not set — defaulting to ${judgeDefaultName ?? "another connection"}.`
             : null
         }
         onAssignSlot={onAssignSlot}
+        onOpenHelp={onOpenHelp}
       />
 
       <div className="overflow-hidden rounded border border-stone-300 bg-white">
@@ -74,6 +78,7 @@ export function AiSettingsView({
           onSave={onSaveConnection}
           onAddCustom={onAddCustom}
           onRemove={onRemoveConnection}
+          onOpenHelp={onOpenHelp}
         />
       </div>
 
@@ -86,6 +91,7 @@ export function AiSettingsView({
         onSetCharacterLimit={onSetCharacterLimit}
         onSaveVoiceList={onSaveVoiceList}
         onSavePriceTable={onSavePriceTable}
+        onOpenHelp={onOpenHelp}
       />
     </div>
   );
@@ -96,11 +102,13 @@ function SlotsPanel({
   slots,
   judgeNote,
   onAssignSlot,
+  onOpenHelp,
 }: {
   connections: Connection[];
   slots: SlotAssignment;
   judgeNote: string | null;
   onAssignSlot: (slot: Slot, binding: SlotBinding | null) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }) {
   return (
     <section className="overflow-hidden rounded border border-stone-300 bg-white">
@@ -108,9 +116,19 @@ function SlotsPanel({
         <h2 className="text-sm font-semibold">Slots</h2>
       </div>
       <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
-        The Critic runs model Passes; the Judge compares two versions. Each Slot names its own
-        model, so both may share one Connection and still run different models — the Judge stays
-        independent without a second route. A Connection's own model is used only when a Slot's
+        {PANEL_GLOSSES.slots.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.slots.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+        The critic runs model passes; the judge compares two versions. Each slot names its own
+        model, so both may share one connection and still run different models, keeping the judge
+        independent without a second route. A connection's own model is used only when a slot's
         model is left empty.
       </p>
       <div className="grid gap-4 px-4 py-3 sm:grid-cols-2">
@@ -302,6 +320,7 @@ function RunSettingsPanel({
   onSetCharacterLimit,
   onSaveVoiceList,
   onSavePriceTable,
+  onOpenHelp,
 }: {
   screeningFrame: boolean;
   characterLimit: number;
@@ -311,12 +330,24 @@ function RunSettingsPanel({
   onSetCharacterLimit: (limit: number) => void;
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }) {
   return (
     <section className="overflow-hidden rounded border border-stone-300 bg-white">
       <div className="border-b border-stone-200 px-4 py-2">
         <h2 className="text-sm font-semibold">Runs</h2>
       </div>
+
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+        {PANEL_GLOSSES.runSettings.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.runSettings.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
 
       <label className="flex items-center gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
         <input
@@ -338,7 +369,7 @@ function RunSettingsPanel({
         <summary className="cursor-pointer select-none">Voice list</summary>
         <p className="mt-1 text-stone-500">
           Words and phrases you have declared yours. A rule pass drops them, and a model pass is
-          told not to flag them. A model Finding that still does is marked, never hidden.
+          told not to flag them. A model finding that still does is marked, never hidden.
         </p>
         <VoiceListField value={voiceList} onCommit={onSaveVoiceList} />
       </details>
@@ -347,7 +378,7 @@ function RunSettingsPanel({
         <summary className="cursor-pointer select-none">Price table</summary>
         <p className="mt-1 text-stone-500">
           USD per million tokens. An entry prices a model id, or any model id it prefixes. The
-          estimate is characters ÷ 4 and never blocks a Run.
+          estimate is characters ÷ 4 and never blocks a run.
         </p>
         <PriceTableField value={priceTable} onCommit={onSavePriceTable} />
       </details>

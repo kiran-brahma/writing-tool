@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from "react";
 import { backupReminder } from "../core/durability";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * Stories 111–113: the backup and restore controls, with the last-backed-up
@@ -14,6 +15,7 @@ export function BackupPanel({
   onRestore,
   onImportBundle,
   onDismissError,
+  onOpenHelp,
 }: {
   lastBackedUp: number | null;
   error: string | null;
@@ -21,6 +23,7 @@ export function BackupPanel({
   onRestore: (json: string) => Promise<boolean>;
   onImportBundle: (json: string) => void;
   onDismissError: () => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }) {
   const [includeKeys, setIncludeKeys] = useState(false);
   const [pending, setPending] = useState<{ name: string; json: string } | null>(null);
@@ -63,9 +66,21 @@ export function BackupPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Backup</h3>
-          <p className={reminder.stale ? "text-sm text-amber-800" : "text-sm text-stone-500"}>
+          <p className="mt-0.5 text-xs text-stone-500">
+            {PANEL_GLOSSES.backup.text}{" "}
+            {onOpenHelp !== undefined && (
+              <button
+                type="button"
+                onClick={() => onOpenHelp(PANEL_GLOSSES.backup.sectionId)}
+                className="text-stone-500 underline hover:text-stone-800"
+              >
+                How this works
+              </button>
+            )}
+          </p>
+          <p className={reminder.stale ? "mt-1 text-sm text-amber-800" : "mt-1 text-sm text-stone-500"}>
             {reminder.label}
-            {reminder.stale && " Back up the Library before clearing this browser."}
+            {reminder.stale && " Back up the library before clearing this browser."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -82,7 +97,7 @@ export function BackupPanel({
             onClick={backUp}
             className="rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
           >
-            Back up Library
+            Back up library
           </button>
         </div>
       </div>
@@ -104,7 +119,7 @@ export function BackupPanel({
           />
         </label>
         <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
-          Import Document bundle
+          Import document bundle
           <input
             type="file"
             accept=".json,application/json"
@@ -113,7 +128,7 @@ export function BackupPanel({
           />
         </label>
         <span className="text-xs text-stone-500">
-          A restore replaces the Library. Keys already stored in this browser are kept; keys omitted
+          A restore replaces the library. Keys already stored in this browser are kept; keys omitted
           from a backup cannot be restored.
         </span>
       </div>
@@ -122,7 +137,7 @@ export function BackupPanel({
         <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3">
           <p className="text-sm text-amber-900">
             Restore <span className="font-semibold">{pending.name}</span>? This replaces every
-            Document, Revision, Finding and setting in this browser. The current Library cannot be
+            document, revision, finding and setting in this browser. The current library cannot be
             recovered afterwards unless it is itself backed up.
           </p>
           <div className="mt-2 flex items-center gap-2">
@@ -132,7 +147,7 @@ export function BackupPanel({
               disabled={busy}
               className="rounded bg-amber-900 px-3 py-1.5 text-sm font-medium text-amber-50 hover:bg-amber-800 disabled:opacity-50"
             >
-              Replace Library
+              Replace library
             </button>
             <button
               type="button"

@@ -2,6 +2,7 @@ import { responseKey, type DeclineReason, type Finding } from "../core/finding";
 import type { Pass } from "../core/pass";
 import { groupFindingsByPass, ORPHANED_GROUP_ID } from "./findingsGroups";
 import { FindingRow } from "./FindingRow";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * The **All** queue: every open Finding across every Pass, grouped by the Pass
@@ -31,6 +32,7 @@ export interface FindingsSidebarProps {
   onDeclineRest: (passId: string) => void;
   /** Story 181: return a Finding that left the queue to `open`. */
   onReopen: (findingId: string) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 export function FindingsSidebar({
@@ -43,19 +45,37 @@ export function FindingsSidebar({
   onDecline,
   onDeclineRest,
   onReopen,
+  onOpenHelp,
 }: FindingsSidebarProps) {
   const groups = groupFindingsByPass(findings, passes);
 
+  const gloss = (
+    <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+      {PANEL_GLOSSES.allFindings.text}{" "}
+      <button
+        type="button"
+        onClick={() => onOpenHelp?.(PANEL_GLOSSES.allFindings.sectionId)}
+        className="underline hover:text-stone-700"
+      >
+        How this works
+      </button>
+    </p>
+  );
+
   if (groups.length === 0) {
     return (
-      <p className="px-4 py-4 text-sm text-stone-500">
-        No findings across any Pass. Rule passes run free, with no Connection and no key.
-      </p>
+      <div>
+        {gloss}
+        <p className="px-4 py-4 text-sm text-stone-500">
+          No findings across any pass. Rule passes run free, with no connection and no key.
+        </p>
+      </div>
     );
   }
 
   return (
     <div>
+      {gloss}
       {groups.map((group) => {
         const openCount = group.findings.filter((finding) => finding.status === "open").length;
         return (
@@ -68,7 +88,7 @@ export function FindingsSidebar({
                   <button
                     type="button"
                     onClick={() => onDeclineRest(group.id)}
-                    title={`Decline every open Finding in ${group.name} as advice`}
+                    title={`Decline every open finding in ${group.name} as advice`}
                     className="rounded border border-stone-300 bg-white px-2 py-0.5 font-normal normal-case text-stone-700 hover:bg-stone-100"
                   >
                     Decline the rest

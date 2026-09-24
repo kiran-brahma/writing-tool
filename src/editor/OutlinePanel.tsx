@@ -1,4 +1,5 @@
 import type { Section } from "../core/sections";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * Story 25: the Document outline derived from the Writer's headings. It is the
@@ -11,9 +12,15 @@ export interface OutlinePanelProps {
   /** The heading block the cursor is inside, or null when it is in the preamble. */
   activeHeadingBlockIndex: number | null;
   onJump: (blockIndex: number) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
-export function OutlinePanel({ sections, activeHeadingBlockIndex, onJump }: OutlinePanelProps) {
+export function OutlinePanel({
+  sections,
+  activeHeadingBlockIndex,
+  onJump,
+  onOpenHelp,
+}: OutlinePanelProps) {
   return (
     <section className="border-b border-stone-300 bg-stone-100/60">
       <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
@@ -22,6 +29,17 @@ export function OutlinePanel({ sections, activeHeadingBlockIndex, onJump }: Outl
           {sections.length} {sections.length === 1 ? "section" : "sections"}
         </span>
       </div>
+
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+        {PANEL_GLOSSES.outline.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.outline.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
 
       {sections.length === 0 ? (
         <p className="px-4 py-4 text-sm text-stone-500">

@@ -10,6 +10,7 @@ import {
   HELP_SECTION_IDS,
   HELP_SECTIONS,
   HELP_SHORTCUTS,
+  PANEL_GLOSSES,
   QUEUE_HINT,
   RULE_ONE,
   RULE_TWO,
@@ -212,5 +213,77 @@ describe("voice", () => {
 
   it("uses no em dash", () => {
     expect(helpProse()).not.toContain("—");
+  });
+});
+
+describe("panel glosses", () => {
+  it("resolves every gloss link to a section id that exists", () => {
+    const validSectionIds = new Set(HELP_SECTIONS.map((section) => section.id));
+    for (const [panel, gloss] of Object.entries(PANEL_GLOSSES)) {
+      expect(validSectionIds.has(gloss.sectionId), `${panel} targets valid section`).toBe(true);
+    }
+  });
+
+  it("covers every panel required by ticket #41", () => {
+    const expectedPanels = [
+      "band",
+      "allFindings",
+      "judge",
+      "revisions",
+      "metrics",
+      "outline",
+      "rulePasses",
+      "connections",
+      "slots",
+      "runSettings",
+      "workbench",
+      "library",
+      "backup",
+    ];
+    for (const panel of expectedPanels) {
+      expect(panel in PANEL_GLOSSES, `missing gloss for ${panel}`).toBe(true);
+    }
+  });
+
+  it("uses ordinary case without capitalized domain terms mid-sentence", () => {
+    // UI sentences use ordinary case; glossary terms mid-sentence should not be capitalized contracts.
+    const domainTerms = [
+      "Document",
+      "Documents",
+      "Pass",
+      "Passes",
+      "Finding",
+      "Findings",
+      "Revision",
+      "Revisions",
+      "Section",
+      "Sections",
+      "Anchor",
+      "Anchors",
+      "Slot",
+      "Slots",
+      "Connection",
+      "Connections",
+    ];
+    for (const [panel, gloss] of Object.entries(PANEL_GLOSSES)) {
+      for (const term of domainTerms) {
+        // Must not appear after a lowercase letter, number, or punctuation mid-sentence
+        const midSentenceRegex = new RegExp(`[a-zA-Z0-9,;:]\\s+${term}\\b`);
+        expect(
+          gloss.text,
+          `${panel} gloss should not contain capitalized mid-sentence contract: ${term}`,
+        ).not.toMatch(midSentenceRegex);
+      }
+    }
+  });
+
+  it("never praises the prose or characterises skill", () => {
+    const praiseWords = ["great", "good", "well done", "excellent", "impressive", "better writer", "improve your skill"];
+    for (const [panel, gloss] of Object.entries(PANEL_GLOSSES)) {
+      const lower = gloss.text.toLowerCase();
+      for (const word of praiseWords) {
+        expect(lower, `${panel} should not contain praise "${word}"`).not.toContain(word);
+      }
+    }
   });
 });

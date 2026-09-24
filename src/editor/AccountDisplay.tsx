@@ -48,7 +48,7 @@ export function ReaderAccountRow({
         <div className="mt-2">
           {elsewhere.length > 0 && (
             <p className="text-xs text-stone-600">
-              Model drift: <StruckViolations violations={elsewhere} />
+              Praise from the model: <StruckViolations violations={elsewhere} />
             </p>
           )}
           {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
@@ -174,7 +174,7 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
         <div className="mt-2">
           {elsewhere.length > 0 && (
             <p className="text-xs text-stone-600">
-              Model drift: <StruckViolations violations={elsewhere} />
+              Praise from the model: <StruckViolations violations={elsewhere} />
             </p>
           )}
           {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}

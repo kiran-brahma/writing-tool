@@ -23,6 +23,7 @@ import { formatUsd } from "./formatUsd";
 import { RuleConfigEditor } from "./RuleConfigEditor";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
 import { splitViolations } from "./violationMarks";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * ADR 0010: one Band's panel. It shows the Band's Passes **together with the
@@ -68,12 +69,13 @@ export interface BandPanelProps {
   criticName: string | null;
   onToggle: (passId: string, enabled: boolean) => void;
   onSaveRuleConfig: (passId: string, ruleConfig: RuleConfig) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 /** The Target a Pass of this scope runs against, for its controls and copy. */
 function targetLabel(scope: Pass["scope"]): string {
-  if (scope === "document") return "the whole Document";
-  if (scope === "section") return "the Section your cursor is in";
+  if (scope === "document") return "the whole document";
+  if (scope === "section") return "the section your cursor is in";
   return "the paragraph your cursor is in";
 }
 
@@ -106,15 +108,27 @@ export function BandPanel({
   criticName,
   onToggle,
   onSaveRuleConfig,
+  onOpenHelp,
 }: BandPanelProps) {
   const solo = soloRulePass(passes);
 
   return (
     <div>
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+        {PANEL_GLOSSES.band.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.band.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
+
       <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs text-stone-500">
         {criticName === null
           ? "No critic assigned."
-          : `Bands that call a model use the critic Connection: ${criticName}`}
+          : `Bands that call a model use the critic connection: ${criticName}`}
       </p>
 
       {solo !== null && (
@@ -126,7 +140,7 @@ export function BandPanel({
 
       {passes.length === 0 ? (
         <p className="px-4 py-4 text-sm text-stone-500">
-          No Pass sits in this Band yet. The Starter pack adds them as tickets land.
+          No pass sits in this band yet. The starter pack adds them as tickets land.
         </p>
       ) : (
         passes.map((pass) => {
@@ -349,16 +363,16 @@ function FindingsPassBlock({
       />
       {report !== null && (
         <p className="px-4 pb-2 text-xs text-stone-600">
-          {report.fromCache && "Served from the cache; no Provider call. "}
+          {report.fromCache && "Served from the cache; no provider call. "}
           {report.droppedAnchors === 0
-            ? "No Findings dropped outside the target."
-            : `${report.droppedAnchors} Anchor${report.droppedAnchors === 1 ? "" : "s"} dropped outside the target.`}
+            ? "All findings stayed inside the text examined."
+            : `${report.droppedAnchors} ${report.droppedAnchors === 1 ? "finding fell" : "findings fell"} outside the text examined and ${report.droppedAnchors === 1 ? "was" : "were"} dropped.`}
           {report.chunks > 1 && ` Ran in ${report.chunks} overlapping chunks.`}
         </p>
       )}
       {strikes.length > 0 && (
         <p className="px-4 pb-2 text-xs text-stone-600">
-          Model drift, struck through rather than hidden: <StruckViolations violations={strikes} />
+          Praise from the model, struck through rather than hidden: <StruckViolations violations={strikes} />
         </p>
       )}
       {rewrites.length > 0 && (
@@ -578,7 +592,7 @@ function AuditPassBlock({
             <RunningBadge since={runningSince} />
           ) : (
             <RunButton disabled={!pass.enabled || running} onClick={() => onRun(pass.id)}>
-              Audit the whole Document
+              Audit the whole document
             </RunButton>
           )
         }
@@ -592,7 +606,7 @@ function AuditPassBlock({
       )}
       {report !== null && strikes.length > 0 && (
         <p className="px-4 pb-2 text-xs text-stone-600">
-          Model drift, struck through rather than hidden: <StruckViolations violations={strikes} />
+          Praise from the model, struck through rather than hidden: <StruckViolations violations={strikes} />
         </p>
       )}
       {error !== null && (
@@ -602,7 +616,7 @@ function AuditPassBlock({
       )}
       {accounts.length === 0 ? (
         <p className="border-t border-stone-200/70 px-4 py-2 text-xs text-stone-600">
-          No Audit account yet. Run the pass to see whether the Document's reasoning holds up.
+          No audit account yet. Run the pass to see whether the document's reasoning holds up.
         </p>
       ) : (
         <ol>

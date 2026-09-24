@@ -8,12 +8,14 @@ import {
 } from "./connection";
 import { concurrencyGate, transport } from "./productionTransport";
 import { testConnection } from "./transport";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 interface ConnectionsPanelProps {
   connections: Connection[];
   onSave: (connection: Connection) => void;
   onAddCustom: () => void;
   onRemove: (connectionId: string) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 interface Feedback {
@@ -34,6 +36,7 @@ export function ConnectionsPanel({
   onSave,
   onAddCustom,
   onRemove,
+  onOpenHelp,
 }: ConnectionsPanelProps) {
   const [queue, setQueue] = useState(() => concurrencyGate.total());
 
@@ -52,10 +55,21 @@ export function ConnectionsPanel({
         </span>
       </div>
 
+      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+        {PANEL_GLOSSES.connections.text}{" "}
+        <button
+          type="button"
+          onClick={() => onOpenHelp?.(PANEL_GLOSSES.connections.sectionId)}
+          className="underline hover:text-stone-700"
+        >
+          How this works
+        </button>
+      </p>
+
       <p className="px-4 py-2 text-xs text-stone-500">
-        A key is stored in this browser only, and sent only to the base URL of the Connection you
+        A key is stored in this browser only, and sent only to the base URL of the connection you
         configured. In session mode it stays in memory and is gone after a reload. The model is
-        chosen per Slot above.
+        chosen per slot above.
       </p>
 
       <ul className="space-y-3 px-4 py-3">
@@ -75,7 +89,7 @@ export function ConnectionsPanel({
           onClick={onAddCustom}
           className="w-full rounded border border-dashed border-stone-400 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-200/60"
         >
-          Add Custom Connection
+          Add custom connection
         </button>
       </div>
     </section>

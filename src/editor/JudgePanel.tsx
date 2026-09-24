@@ -14,6 +14,7 @@ import { defaultJudgePair, extractPassages, type ExtractedPassages } from "../co
 import { lardFactor } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
+import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 /**
  * Story 78–90: comparing two versions of a passage. The Writer picks any two
@@ -48,6 +49,7 @@ export interface JudgePanelProps {
   error: string | null;
   result: JudgeResult | null;
   onJudge: (before: string, after: string) => void;
+  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 type SelectionMode = "span" | "section";
@@ -64,6 +66,7 @@ export function JudgePanel({
   error,
   result,
   onJudge,
+  onOpenHelp,
 }: JudgePanelProps) {
   const [mode, setMode] = useState<SelectionMode>("span");
   /** Stories 171–172: the pair the panel opens on, recomputed only when the Revisions change. */
@@ -155,26 +158,32 @@ export function JudgePanel({
 
       <div className="space-y-3 p-4">
         <p className="text-xs text-stone-500">
-          Compare two versions of the same passage. The Judge sees only the two passages,
-          labelled A and B, and never learns which is newer or who wrote it.
+          {PANEL_GLOSSES.judge.text}{" "}
+          <button
+            type="button"
+            onClick={() => onOpenHelp?.(PANEL_GLOSSES.judge.sectionId)}
+            className="underline hover:text-stone-700"
+          >
+            How this works
+          </button>
         </p>
 
         {!hasTwoRevisions && (
           <p className="text-sm text-stone-500">
-            Take at least two Revisions to compare: keep writing, or flag a milestone.
+            Take at least two revisions to compare: keep writing, or flag a milestone.
           </p>
         )}
 
         {judge === null ? (
           <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
-            Assign a Connection to the Critic and another to the Judge Slot. The Judge defaults
-            to a different model from the Critic.
+            Assign a connection to the critic and another to the judge slot. The judge defaults
+            to a different model from the critic.
           </p>
         ) : (
           <p className="text-xs text-stone-500">
             Judge: <span className="font-medium text-stone-700">{judge.name}</span>
             {judge.model.trim() === "" ? " (no model set)" : ` (${judge.model})`}
-            {judgeIsDefault ? " — a different Connection from the Critic, by default" : ""}
+            {judgeIsDefault ? ", a different connection from the critic, by default" : ""}
           </p>
         )}
 
@@ -203,7 +212,7 @@ export function JudgePanel({
           <h3 className="mb-1 text-xs font-semibold text-stone-600">Word-level diff</h3>
           <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-stone-200 bg-white p-2 text-xs leading-relaxed">
             {diff.length === 0 ? (
-              <span className="text-stone-500">Pick two Revisions to see what changed.</span>
+              <span className="text-stone-500">Pick two revisions to see what changed.</span>
             ) : (
               diff.map((segment, index) => <DiffSegmentView key={index} segment={segment} />)
             )}
@@ -213,7 +222,7 @@ export function JudgePanel({
               Lard Factor:{" "}
               <span className="font-medium text-stone-800">{formatLardFactor(lard)}</span>{" "}
               <span className="text-stone-500">
-                — the share of the earlier Revision's words cut in the later one. A signal, not a
+                — the share of the earlier revision's words cut in the later one. A signal, not a
                 verdict.
               </span>
             </p>
@@ -232,8 +241,8 @@ export function JudgePanel({
         {anchor === null && (
           <p className="text-xs text-stone-500">
             {mode === "span"
-              ? "Select a span of text in the Document to judge."
-              : "Place the cursor inside a Section (a heading and its body) to judge it."}
+              ? "Select a span of text in the document to judge."
+              : "Place the cursor inside a section (a heading and its body) to judge it."}
           </p>
         )}
 
@@ -251,7 +260,7 @@ export function JudgePanel({
             </h3>
             <p className="mb-2 text-xs text-stone-500">
               Which version do you think is clearer? Kept in this session only, never sent to
-              the Judge, and never required to run it.
+              the judge, and never required to run it.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <PredictionButton
@@ -332,7 +341,7 @@ function RevisionSelect({
         className="mt-1 w-full rounded border border-stone-300 bg-white px-1.5 py-1 text-xs text-stone-800"
       >
         <option value="" disabled>
-          Pick a Revision
+          Pick a revision
         </option>
         {revisions.map((revision) => (
           <option key={revision.id} value={revision.id}>
@@ -401,7 +410,7 @@ function Passage({ label, text }: { label: string; text: string | null }) {
       <h3 className="mb-1 text-xs font-semibold text-stone-600">{label}</h3>
       <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-stone-200 bg-white p-2 text-xs leading-relaxed">
         {text === null ? (
-          <span className="text-stone-500">Not found in this Revision.</span>
+          <span className="text-stone-500">Not found in this revision.</span>
         ) : (
           text
         )}
@@ -452,17 +461,17 @@ const AGREEMENT_CLASS: Record<PredictionAgreement, string> = {
 function agreementText(agreement: PredictionAgreement, verdict: JudgeVerdict | null): string {
   switch (agreement) {
     case "agrees":
-      return "The Judge agreed.";
+      return "The judge agreed.";
     case "disagrees": {
       const preference = verdict?.preference;
       return preference === "before" || preference === "after"
-        ? `The Judge preferred ${preferenceLabel(preference)}.`
-        : "The Judge preferred the other version.";
+        ? `The judge preferred ${preferenceLabel(preference)}.`
+        : "The judge preferred the other version.";
     }
     case "tie":
-      return "The Judge called it a tie.";
+      return "The judge called it a tie.";
     case "unstable":
-      return "The Judge was unstable, so there is no verdict to compare.";
+      return "The judge was unstable, so there is no verdict to compare.";
   }
 }
 
@@ -472,8 +481,8 @@ function Verdict({ result }: { result: JudgeResult }) {
       <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
         <p className="font-semibold">Unstable</p>
         <p className="mt-1 text-xs">
-          The Judge changed its answer when the labels were swapped, so there is no
-          preference to report. The two versions may be equivalent, or the Judge may be
+          The judge changed its answer when the labels were swapped, so there is no
+          preference to report. The two versions may be equivalent, or the judge may be
           biased by which passage it read first.
         </p>
       </div>
@@ -493,7 +502,7 @@ function Verdict({ result }: { result: JudgeResult }) {
       <div>
         <h3 className="mb-1 text-xs font-semibold text-stone-600">Reasons</h3>
         {verdict.reasons.length === 0 ? (
-          <p className="text-xs text-stone-500">The Judge gave no reasons.</p>
+          <p className="text-xs text-stone-500">The judge gave no reasons.</p>
         ) : (
           <ul className="space-y-2">
             {verdict.reasons.map((reason, index) => (
