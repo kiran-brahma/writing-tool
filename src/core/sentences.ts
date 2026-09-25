@@ -7,9 +7,9 @@
  * The canonical string is Markdown source, so a line's leading block marker
  * (`#`, `>`, `-`, `N.`) is syntax, not prose, and is skipped. A sentence ends at
  * a run of `.`, `!` or `?` followed by whitespace or the end of a line; the
- * lookahead keeps a decimal such as `3.14` from splitting, an escaped `\.` is
- * not a boundary, and stripping the ordered-list marker keeps `1.` from
- * splitting. A fenced code block is skipped entirely, because a code sample is
+ * lookahead keeps a decimal such as `3.14` from splitting, an escaped `\.`
+ * that is a leading ordered-list marker is not a boundary, and stripping the
+ * ordered-list marker keeps `1.` from splitting. A fenced code block is skipped entirely, because a code sample is
  * not prose. This is a deterministic rule, not a grammatical analysis: an
  * abbreviation inside a sentence will split it, which the Writer can see through
  * the metrics it produces.
@@ -69,9 +69,14 @@ function collectSentences(segment: string, base: number, out: Sentence[]): void 
   for (const match of segment.matchAll(/[.!?]+(?=\s|$)/g)) {
     const start = match.index;
     const end = start + match[0].length;
-    // A backslash-escaped period (the renderer escapes a paragraph that would
-    // otherwise read as a list marker) is prose, not a sentence end.
-    if (segment[start - 1] === "\\") continue;
+    // A period the renderer escaped because the line would otherwise read as
+    // an ordered-list marker ("1\\. not a list") is a marker, not a sentence
+    // end. Only a leading ordered-marker escape is skipped: a backslash
+    // anywhere later in the prose is a literal the Writer typed, so the period
+    // after it still ends a sentence.
+    if (segment[start - 1] === "\\" && /^\s*\d+$/.test(segment.slice(0, start - 1))) {
+      continue;
+    }
     out.push({ text: segment.slice(last, end), start: base + last, end: base + end });
     last = end;
   }

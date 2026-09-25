@@ -472,11 +472,18 @@ function escapePlainCharacter(char: string): string {
  * A Paragraph whose first character would otherwise be read as a block marker
  * is escaped, so prose such as "- not a list" or "1. not a list" round-trips as
  * prose. Inline markers are already escaped by the text renderer.
+ *
+ * The markers mirrored here are exactly the parser's: a marker has to be
+ * followed by whitespace or the end of the line. Escaping more than the parser
+ * accepts (as this once did for `#hashtag`, `-word`, `+word`, `>quote`, `3.14`)
+ * put characters in the canonical string that the Writer never typed, which
+ * then failed the model's quoted span and the sentence segmentation.
  */
 function escapeBlockStart(line: CanonicalMap): CanonicalMap {
   if (line.text === "") return line;
-  if (/^[#>+\-]/.test(line.text)) return concat([syntax("\\"), line]);
-  if (/^\d+\./.test(line.text)) {
+  if (/^#{1,6}(?:\s|$)/.test(line.text)) return concat([syntax("\\"), line]);
+  if (/^[>-](?:\s|$)/.test(line.text)) return concat([syntax("\\"), line]);
+  if (/^\d+\.(?:\s|$)/.test(line.text)) {
     const dot = line.text.indexOf(".");
     return concat([slice(line, 0, dot), syntax("\\"), slice(line, dot)]);
   }

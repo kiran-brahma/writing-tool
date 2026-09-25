@@ -207,6 +207,36 @@ describe("canonicalText", () => {
     }
   });
 
+  it("leaves prose that is not a block marker unescaped", () => {
+    const cases = [
+      ["3.14 is pi", "3.14 is pi\n"],
+      ["1.5 million", "1.5 million\n"],
+      ["-word", "-word\n"],
+      ["+word", "+word\n"],
+      ["#hashtag", "#hashtag\n"],
+      [">quote", ">quote\n"],
+    ];
+
+    for (const [text, expected] of cases) {
+      expect(canonicalText(doc(paragraph(text))), text).toBe(expected);
+    }
+  });
+
+  it("still escapes prose the parser would read as a block marker", () => {
+    const cases = [
+      ["- a list", "\\- a list\n"],
+      ["# a heading", "\\# a heading\n"],
+      ["> a quote", "\\> a quote\n"],
+      ["1. a list", "1\\. a list\n"],
+      ["-", "\\-\n"],
+      ["#", "\\#\n"],
+    ];
+
+    for (const [text, expected] of cases) {
+      expect(canonicalText(doc(paragraph(text))), text).toBe(expected);
+    }
+  });
+
   it("round-trips a fuzz of adversarial prose", () => {
     const alphabet = ["\\", "`", "*", "[", "]", "#", ">", "-", "+", ".", ")", "1", " ", "a", "~"];
     let seed = 987_654_321;

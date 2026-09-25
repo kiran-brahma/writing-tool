@@ -52,6 +52,18 @@ describe("splitSentences", () => {
     ]);
   });
 
+  it("splits after an escaped period that is not a list marker", () => {
+    // The Writer typed a literal backslash, which the renderer escapes as \\.
+    // The period after it is a real sentence end, unlike the escaped marker
+    // period in "1\\. not a list".
+    const sentences = splitSentences("He typed a backslash \\. Then he stopped.\n");
+
+    expect(sentences.map((sentence) => sentence.text.trim())).toEqual([
+      "He typed a backslash \\.",
+      "Then he stopped.",
+    ]);
+  });
+
   it("skips a fenced code block, which is not prose", () => {
     const sentences = splitSentences("Prose one.\n\n```ts\nconst x = 1;\n```\n\nProse two.\n");
 
