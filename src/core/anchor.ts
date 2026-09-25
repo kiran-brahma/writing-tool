@@ -1,4 +1,4 @@
-import { diffChars, type Change } from "diff";
+import { diffChars, diffLines, type Change } from "diff";
 import { canonicalBlocks, canonicalTextWithMap } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import {
@@ -45,6 +45,40 @@ export function resolveAnchor(
     provenanceCanonical,
     diffEdits(provenanceCanonical, currentCanonical),
   );
+}
+
+/**
+ * Diffs against the most recent current string, by provenance string. A save
+ * resolves every rule Pass's Findings and then the whole queue against the same
+ * text, so they share these; a new current string starts the cache afresh,
+ * which bounds it to one Document state.
+ */
+let cachedCurrent: string | null = null;
+let cachedEdits = new Map<string, Change[]>();
+
+/**
+ * `resolveAnchor` for many Anchors against one current string. The diff is the
+ * expensive part — a full-Document diff per call — so it is computed once per
+ * provenance string and shared by every Anchor projected from it. Resolving a
+ * Pass's stored Findings one `resolveAnchor` at a time would pay that diff per
+ * Finding on every save.
+ */
+export function anchorResolver(
+  currentCanonical: string,
+): (anchor: AnchorDraft, provenanceCanonical?: string) => Interval | null {
+  if (cachedCurrent !== currentCanonical) {
+    cachedCurrent = currentCanonical;
+    cachedEdits = new Map();
+  }
+  const editsByProvenance = cachedEdits;
+  return (anchor, provenanceCanonical = currentCanonical) => {
+    let edits = editsByProvenance.get(provenanceCanonical);
+    if (edits === undefined) {
+      edits = diffEdits(provenanceCanonical, currentCanonical);
+      editsByProvenance.set(provenanceCanonical, edits);
+    }
+    return resolveWithEdits(anchor, currentCanonical, provenanceCanonical, edits);
+  };
 }
 
 /** `resolveAnchor`'s body, with the character diff already computed. */
@@ -108,17 +142,11 @@ export function reResolveFindings(
   const resolved: Finding[] = [];
   const changed: Finding[] = [];
   const highlights: FindingInterval[] = [];
-  const editsByProvenance = new Map<string, Change[]>();
+  // Every Finding from one Revision shares a diff; the resolver computes it once.
+  const resolve = anchorResolver(currentCanonical);
 
   for (const finding of findings) {
-    const provenance = provenanceCanonical(finding.provenance.revisionId) ?? currentCanonical;
-    // Every Finding from one Revision shares a diff; compute it once.
-    let edits = editsByProvenance.get(provenance);
-    if (edits === undefined) {
-      edits = diffEdits(provenance, currentCanonical);
-      editsByProvenance.set(provenance, edits);
-    }
-    const interval = resolveWithEdits(finding.anchor, currentCanonical, provenance, edits);
+    const interval = resolve(finding.anchor, provenanceCanonical(finding.provenance.revisionId));
     const state: AnchorState = interval === null ? "orphaned" : "attached";
     if (finding.anchor.state === state) {
       resolved.push(finding);
@@ -157,14 +185,112 @@ function matchQuote(quote: string, canonical: string, preferredOffset: number): 
 }
 
 /**
+ * How many character edits a whole-Document diff may take before it gives up.
+ * The bound is on edits, so the attempt stays small however far the Document
+ * has drifted — measured at about 18ms from 300 to 6,000 words, where an
+ * unbounded diff took seconds — and within the bound it is the plain character
+ * diff, which also follows a Paragraph that moved.
+ */
+const DOCUMENT_EDIT_LIMIT = 500;
+
+/**
+ * How far two lines may differ and still count as one line edited: at most
+ * this share of the longer line's characters, and never more than
+ * `LINE_EDIT_LIMIT` edits. Past this the pairing is unsafe — the line was
+ * rewritten, or the line opposite it is another Paragraph that was inserted or
+ * moved — and projecting through it would put a Highlight on prose the Finding
+ * never named. The pair then counts as removed and added, projection fails,
+ * and step 2 — quote match — decides.
+ */
+const LINE_EDIT_SHARE = 1 / 3;
+const LINE_EDIT_LIMIT = 400;
+
+/**
  * The character diff between two canonical strings. Identical strings need no
  * diff and one common run, which keeps the fresh-Finding path (provenance equal
  * to current) free of a diff call.
+ *
+ * A character diff of the whole Document costs its length times the number of
+ * differences, and a Writer working through Findings drifts further from the
+ * Revision they came from with every fix: one such diff grew to seconds, and it
+ * ran on every typing pause for every provenance Revision. So it is attempted
+ * only up to `DOCUMENT_EDIT_LIMIT` edits. Past that the strings are diffed by
+ * line — a canonical line is a Paragraph, a heading or a list item, and an
+ * unchanged one costs nothing — and only the changed lines are diffed by
+ * character, each against its counterpart and bounded by `LINE_EDIT_LIMIT`.
+ * Either way, the common case the spec names, an edit inside the anchored
+ * span, is projected through a character diff.
  */
 function diffEdits(provenance: string, current: string): Change[] {
-  return provenance === current
-    ? [{ value: provenance, added: false, removed: false, count: provenance.length }]
-    : diffChars(provenance, current);
+  if (provenance === current) return [common(provenance)];
+  const whole = diffChars(provenance, current, { maxEditLength: DOCUMENT_EDIT_LIMIT });
+  if (whole !== undefined) return whole;
+
+  const edits: Change[] = [];
+  const lines = diffLines(provenance, current);
+  let index = 0;
+  while (index < lines.length) {
+    const part = lines[index];
+    if (!part.added && !part.removed) {
+      edits.push(part);
+      index += 1;
+      continue;
+    }
+    // A run of removed and added lines is one changed region.
+    let removed = "";
+    let added = "";
+    while (index < lines.length && (lines[index].added || lines[index].removed)) {
+      if (lines[index].removed) removed += lines[index].value;
+      else added += lines[index].value;
+      index += 1;
+    }
+    edits.push(...diffRegion(removed, added));
+  }
+  return edits;
+}
+
+/**
+ * A changed region, diffed line against line in order. A pair that differs by
+ * more than `LINE_EDIT_SHARE` is not treated as one line edited, and lines left
+ * over on one side were removed or added whole.
+ */
+function diffRegion(removed: string, added: string): Change[] {
+  const before = splitLinesKeepingEnds(removed);
+  const after = splitLinesKeepingEnds(added);
+  const paired = Math.min(before.length, after.length);
+  const edits: Change[] = [];
+  for (let line = 0; line < paired; line += 1) {
+    const longer = Math.max(before[line].length, after[line].length);
+    const budget = Math.min(LINE_EDIT_LIMIT, Math.floor(longer * LINE_EDIT_SHARE));
+    edits.push(
+      ...(diffChars(before[line], after[line], { maxEditLength: budget }) ?? [
+        removal(before[line]),
+        addition(after[line]),
+      ]),
+    );
+  }
+  const leftBefore = before.slice(paired).join("");
+  const leftAfter = after.slice(paired).join("");
+  if (leftBefore !== "") edits.push(removal(leftBefore));
+  if (leftAfter !== "") edits.push(addition(leftAfter));
+  return edits;
+}
+
+/** A string's lines, each keeping its newline, so they join back to the string. */
+function splitLinesKeepingEnds(text: string): string[] {
+  return text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+}
+
+function common(value: string): Change {
+  return { value, added: false, removed: false, count: value.length };
+}
+
+function removal(value: string): Change {
+  return { value, added: false, removed: true, count: value.length };
+}
+
+function addition(value: string): Change {
+  return { value, added: true, removed: false, count: value.length };
 }
 
 /**

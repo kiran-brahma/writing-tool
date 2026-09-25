@@ -1,4 +1,4 @@
-import { resolveAnchor } from "./anchor";
+import { anchorResolver } from "./anchor";
 import type { Finding, Interval } from "./finding";
 
 /**
@@ -41,33 +41,45 @@ export function reconcileFindings(
   canonical: string,
   provenanceCanonical: (revisionId: string) => string | undefined = () => undefined,
 ): Finding[] {
-  const producedIntervals = produced.map((finding) => resolveAnchor(finding.anchor, canonical));
+  const resolve = anchorResolver(canonical);
+  const producedIntervals = produced.map((finding) => resolve(finding.anchor));
   const claimed = new Set<string>();
   // A resolved Finding travels with its already-computed interval. A produced
   // Finding's interval is in current coordinates and must not be re-projected
   // from a provenance string, which is a coordinate system it never saw.
   const entries: { finding: Finding; interval: Interval | null }[] = [];
 
-  // Resolve each stored Finding once; a pass can hold many, and the diff is the
-  // expensive part.
+  // Resolve each stored Finding once; a pass can hold many. The resolver shares
+  // one diff per provenance Revision, the expensive part, across all of them.
   const resolvedExisting = new Map<string, Interval | null>();
   const intervalFor = (finding: Finding): Interval | null => {
     if (resolvedExisting.has(finding.id)) return resolvedExisting.get(finding.id) ?? null;
-    const interval = resolveAnchor(
-      finding.anchor,
-      canonical,
-      provenanceCanonical(finding.provenance.revisionId),
-    );
+    const interval = resolve(finding.anchor, provenanceCanonical(finding.provenance.revisionId));
     resolvedExisting.set(finding.id, interval);
     return interval;
   };
 
+  // Stored Findings by resolved interval, each bucket in stored order, so a
+  // match is a lookup rather than a scan of every stored Finding for every
+  // produced one — quadratic once a Pass holds hundreds. The first unclaimed
+  // Finding in a bucket is the one a scan in stored order would have found.
+  const byInterval = new Map<string, Finding[]>();
+  for (const candidate of existing) {
+    const interval = intervalFor(candidate);
+    if (interval === null) continue;
+    const key = intervalKey(interval);
+    const bucket = byInterval.get(key);
+    if (bucket === undefined) byInterval.set(key, [candidate]);
+    else bucket.push(candidate);
+  }
+
   for (let index = 0; index < produced.length; index++) {
     const finding = produced[index];
     const interval = producedIntervals[index];
-    const match = existing.find(
-      (candidate) => !claimed.has(candidate.id) && sameInterval(intervalFor(candidate), interval),
-    );
+    const match =
+      interval === null
+        ? undefined
+        : byInterval.get(intervalKey(interval))?.find((candidate) => !claimed.has(candidate.id));
 
     if (match === undefined) {
       entries.push({ finding, interval });
@@ -113,8 +125,8 @@ export function reconcileFindings(
   return documentOrder(entries);
 }
 
-function sameInterval(a: Interval | null, b: Interval | null): boolean {
-  return a !== null && b !== null && a.start === b.start && a.end === b.end;
+function intervalKey(interval: Interval): string {
+  return `${interval.start}:${interval.end}`;
 }
 
 /** Findings within a Pass in document order, Orphaned ones last. */

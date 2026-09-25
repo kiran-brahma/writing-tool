@@ -8,7 +8,7 @@ import {
 } from "./anchor";
 import { canonicalText, canonicalTextWithMap } from "./canonicalText";
 import type { BlockNode, DocTree, ParagraphNode } from "./docTree";
-import type { Finding } from "./finding";
+import type { Finding, Interval } from "./finding";
 
 function doc(...content: BlockNode[]): DocTree {
   return { type: "doc", content };
@@ -53,6 +53,107 @@ describe("resolveAnchor", () => {
  * Document now. Exact quote match alone would orphan the Finding the moment the
  * Writer changed a character inside the anchored span, which is the common case.
  */
+/**
+ * A long Document whose every Paragraph but one the Writer has since rewritten:
+ * the drift a Writer builds up working through a queue of Findings.
+ */
+const ANCHORED_BEFORE = "The very good cat sat on the mat.";
+const ANCHORED_AFTER = "The very great cat sat on the mat.";
+
+/**
+ * A long Document whose every Paragraph but one the Writer has since rewritten:
+ * the drift a Writer builds up working through a queue of Findings. The one
+ * kept Paragraph holds the Anchor and was edited inside the anchored span.
+ * `arrange` reorders the current Paragraphs, to insert or move one.
+ */
+function heavilyRevised(arrange: (paragraphs: string[]) => string[] = (paragraphs) => paragraphs): {
+  provenance: string;
+  current: string;
+  quoteOffset: number;
+} {
+  // Each Paragraph is distinct, as prose is: none can align with another.
+  const paragraph = (seed: number) =>
+    `Paragraph ${seed}: ` +
+    Array.from({ length: 60 }, (_, word) => `w${(seed * 31 + word * 7) % 97}`).join(" ") +
+    ".";
+  const kept = 40;
+  const before: string[] = [];
+  const after: string[] = [];
+  for (let index = 0; index < 200; index += 1) {
+    if (index === kept) {
+      before.push(ANCHORED_BEFORE);
+      after.push(ANCHORED_AFTER);
+    } else {
+      before.push(paragraph(index));
+      after.push(paragraph(index + 1_000));
+    }
+  }
+  const provenance = before.join("\n\n") + "\n";
+  return {
+    provenance,
+    current: arrange(after).join("\n\n") + "\n",
+    quoteOffset: provenance.indexOf("very good"),
+  };
+}
+
+/** The anchored Paragraph's span in `current`, where alone a projection may land. */
+function anchoredParagraph(current: string): Interval {
+  const start = current.indexOf(ANCHORED_AFTER);
+  return { start, end: start + ANCHORED_AFTER.length };
+}
+
+describe("resolveAnchor across a heavily revised Document", () => {
+  it("still follows a rewrite inside the anchored span", () => {
+    const { provenance, current, quoteOffset } = heavilyRevised();
+
+    const interval = resolveAnchor({ quote: "very good", offset: quoteOffset }, current, provenance);
+
+    expect(interval).not.toBeNull();
+    expect(current.slice(interval!.start, interval!.end)).toBe("very great");
+  });
+
+  it.each([
+    [
+      "a Paragraph inserted just above the anchored one",
+      (paragraphs: string[]) => {
+        const at = paragraphs.indexOf(ANCHORED_AFTER);
+        return [...paragraphs.slice(0, at), "A dog barked twice at the gate.", ...paragraphs.slice(at)];
+      },
+    ],
+    [
+      "the anchored Paragraph moved as well as edited",
+      (paragraphs: string[]) => {
+        const rest = paragraphs.filter((paragraph) => paragraph !== ANCHORED_AFTER);
+        return [...rest.slice(0, 120), ANCHORED_AFTER, ...rest.slice(120)];
+      },
+    ],
+  ])("never projects onto the wrong prose after %s", (_, arrange) => {
+    const { provenance, current, quoteOffset } = heavilyRevised(arrange);
+    const paragraph = anchoredParagraph(current);
+
+    const interval = resolveAnchor({ quote: "very good", offset: quoteOffset }, current, provenance);
+
+    // Orphaned is an honest outcome; a Highlight on some other Paragraph is not.
+    if (interval !== null) {
+      expect(interval.start).toBeGreaterThanOrEqual(paragraph.start);
+      expect(interval.end).toBeLessThanOrEqual(paragraph.end);
+    }
+  });
+
+  it("resolves a long Document far faster than one whole-Document character diff", () => {
+    // One unbounded character diff of a pair this size took several seconds,
+    // and it ran on every typing pause, so the Editor hung while the Writer
+    // typed. The bound is loose on purpose: it guards the order of magnitude,
+    // not a machine's speed.
+    const { provenance, current, quoteOffset } = heavilyRevised();
+
+    const started = performance.now();
+    resolveAnchor({ quote: "very good", offset: quoteOffset }, current, provenance);
+
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
+});
+
 describe("resolveAnchor across Revisions", () => {
   it("follows a rewrite inside the anchored span", () => {
     const provenance = "The very good cat sat.\n";
