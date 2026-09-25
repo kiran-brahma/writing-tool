@@ -52,14 +52,15 @@ Everything runs in the browser. Documents, revisions, findings, passes, connecti
 ### Requirements
 
 - Node.js 22.12.0 or newer.
+- pnpm 10 or newer (`package.json` pins the version in `packageManager`).
 - A browser with IndexedDB and service worker support.
 - For model passes, an API key for OpenAI, Anthropic, Google Gemini, or OpenRouter, or a local Ollama install. Rule passes need none of this.
 
 ### Run it locally
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Open http://localhost:5173.
@@ -92,10 +93,10 @@ The Privacy page in the app lists where your data lives and gives the steps to v
 ### Checks
 
 ```sh
-npm run typecheck   # tsc -b
-npm test            # full suite, including the constitution harness
-npm run gates       # import, silent-catch, affordance, and lockfile gates
-npm run harness     # the constitution harness alone
+pnpm run typecheck  # tsc -b
+pnpm test           # full suite, including the constitution harness
+pnpm run gates      # the import, silent-catch, affordance, Worker and lockfile gates
+pnpm run harness    # the constitution harness alone
 ```
 
 Run the constitution harness before changing any pass prompt. It checks that model output parses, that praise is flagged, that no response carries rewritten prose, and that findings stay inside their target.
@@ -103,11 +104,11 @@ Run the constitution harness before changing any pass prompt. It checks that mod
 To check the production build and the security headers, use the Worker locally:
 
 ```sh
-npm run build
+pnpm run build
 npx wrangler dev
 ```
 
-`npm run preview` serves the static build without the Worker, so it will not show the Content-Security-Policy header.
+`pnpm run preview` serves the static build without the Worker, so it will not show the Content-Security-Policy header.
 
 ### Deploy to Cloudflare Workers
 
@@ -115,23 +116,21 @@ This is the intended host. `wrangler.jsonc` serves `dist/` as static assets and 
 
 ```sh
 npx wrangler login
-npm run deploy
+pnpm run deploy
 ```
 
-`npm run deploy` runs the gates, typechecks, builds with Vite, and deploys with Wrangler. To preview the Worker and its headers locally, run `npm run build && npx wrangler dev`.
+`pnpm run deploy` runs the gates, typechecks, builds with Vite, and deploys with Wrangler. To preview the Worker and its headers locally, run `pnpm run build && npx wrangler dev`.
 
 Take a backup before the first deploy to a browser that already holds work. The launch applies the accumulated database migrations at once.
 
-### Deploy to Vercel
+### Deploy to Vercel (optional, unsupported)
 
-Vercel is a static host here. It builds `dist/` with `npm run build` and serves it. The Worker does not run, so `vercel.json` supplies the same security headers, the single-page-app rewrite, and caching for the hashed assets.
-
-```sh
-npx vercel        # preview deployment
-npx vercel --prod # production deployment
-```
-
-The Content-Security-Policy in `vercel.json` is a copy of the one in `worker/securityHeaders.ts`. Change either and update the other. The "requests go only to your connection" property is enforced by the app's code, not by the header, so it holds on any host.
+Cloudflare is the supported host and the one described above. If you would rather
+deploy to Vercel, `docs/reference/vercel-deploy.md` has the steps and
+`docs/reference/vercel.json` is the config to copy to the repository root. On
+Vercel the Worker does not run, so that config supplies the security headers
+statically; `pnpm run gates` fails the build if its Content-Security-Policy
+drifts from `worker/securityHeaders.ts`.
 
 ### Documentation
 
@@ -141,6 +140,7 @@ The Content-Security-Policy in `vercel.json` is a copy of the one in `worker/sec
 - `docs/adr/` records the load-bearing decisions.
 - `docs/migrations.md` states the database migration policy.
 - `notes/provider-api-facts.md` records the provider wire facts, with the date they were checked.
+- `docs/reference/` holds optional material, such as the Vercel deploy config.
 - `AGENTS.md` describes the build discipline for agents working in the repository.
 
 ### License

@@ -67,7 +67,7 @@ until forward code returns.
 ## Verifying offline opening
 
 No unit test covers the service worker, the CSP header or offline opening; verify them in a browser
-against a production build (`npm run build && npm run preview`):
+against a production build (`pnpm run build && pnpm run preview`):
 
 1. Load the app and wait for `Application → Service Workers` to show the worker **activated**.
 2. In `Application → Cache Storage → obelus-shell-v1`, confirm the built `index.html`, its hashed

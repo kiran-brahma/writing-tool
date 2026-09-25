@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { dirname, join } from "node:path";
 import ts from "typescript";
+import { PNPM_LOCK_FILE } from "./pnpm-lock.mjs";
 import { finding, parseSource, toRepoPath, walk } from "./scan.mjs";
 
 const NODE_BUILTINS = new Set([
@@ -9,7 +10,7 @@ const NODE_BUILTINS = new Set([
   ...builtinModules.map((name) => `node:${name}`),
 ]);
 
-// Fields whose packages npm installs for the root project. `peerDependencies`
+// Fields whose packages are installed for the root project. `peerDependencies`
 // is excluded deliberately: a peer is not installed here, so an import only a
 // peer could satisfy is still an unresolved import.
 const DECLARATION_FIELDS = ["dependencies", "devDependencies", "optionalDependencies"];
@@ -21,6 +22,8 @@ const DECLARATION_FIELDS = ["dependencies", "devDependencies", "optionalDependen
  * It checks the package a specifier names, not the subpath inside it — a deep
  * path such as `pkg/missing` is left to `tsc` and Vite, which resolve with the
  * package's own `exports` map.
+ *
+ * `lock` is the reduction `pnpm-lock.mjs` produces from `pnpm-lock.yaml`.
  */
 export function checkImports({ files, repoRoot, packageJson, lock }) {
   const declared = new Set(
@@ -58,15 +61,14 @@ export function checkImports({ files, repoRoot, packageJson, lock }) {
         continue;
       }
 
-      const lockKey = toRepoPath(repoRoot, packageDirectory);
-      const lockVersion = lock.packages?.[lockKey]?.version;
+      const lockVersion = lock.resolved[packageName];
       const installedVersion = readInstalledVersion(packageDirectory);
       if (lockVersion === undefined) {
         findings.push(
           finding(
             repoPath,
             line,
-            `"${specifier}" resolves to "${packageName}", which has no lockfile entry at ${lockKey}.`,
+            `"${specifier}" resolves to "${packageName}", which has no entry in ${PNPM_LOCK_FILE}.`,
           ),
         );
       } else if (installedVersion !== lockVersion) {

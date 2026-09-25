@@ -78,7 +78,7 @@ describe("checkImports", () => {
     const workspace = makeRepo(
       'import react from "react";',
       { dependencies: { react: "^19.3.0" } },
-      { packages: { "node_modules/react": { version: "19.3.0" } } },
+      { resolved: { react: "19.3.0" } },
     );
     installPackage("react", "19.3.0");
     expect(checkImports(workspace)).toEqual([]);
@@ -88,7 +88,7 @@ describe("checkImports", () => {
     const workspace = makeRepo(
       'import postcss from "postcss";',
       {},
-      { packages: {} },
+      { resolved: {} },
     );
     const findings = checkImports(workspace);
     expect(findings).toHaveLength(1);
@@ -100,7 +100,7 @@ describe("checkImports", () => {
     const workspace = makeRepo(
       'import ghost from "ghost";',
       { dependencies: { ghost: "^1.0.0" } },
-      { packages: {} },
+      { resolved: {} },
     );
     expect(checkImports(workspace)[0].message).toContain("not installed");
   });
@@ -109,19 +109,19 @@ describe("checkImports", () => {
     const workspace = makeRepo(
       'import react from "react";',
       { dependencies: { react: "^19.3.0" } },
-      { packages: { "node_modules/react": { version: "19.3.0" } } },
+      { resolved: { react: "19.3.0" } },
     );
     installPackage("react", "18.0.0");
     expect(checkImports(workspace)[0].message).toContain("lockfile pins 19.3.0");
   });
 
-  it("flags a package with no lockfile entry", () => {
+  it("flags a package with no entry in the lockfile", () => {
     const workspace = makeRepo(
       'import phantom from "phantom";',
       { devDependencies: { phantom: "^1.0.0" } },
-      { packages: {} },
+      { resolved: {} },
     );
     installPackage("phantom", "1.0.0");
-    expect(checkImports(workspace)[0].message).toContain("no lockfile entry");
+    expect(checkImports(workspace)[0].message).toContain("no entry in pnpm-lock.yaml");
   });
 });

@@ -639,7 +639,7 @@ The shortest path to "more of what the research says," in order.
 
 **Sequencing constraints from the repo:**
 
-- A pass-prompt change requires a `npm run harness` run (`AGENTS.md`).
+- A pass-prompt change requires a `pnpm run harness` run (`AGENTS.md`).
 - A schema change (e.g. §7.8) requires a migration, and `docs/migrations.md` forbids shipping a
   migration in the same deploy as a behaviour change.
 - Any new user-visible affordance must pass `scripts/gates/affordances.mjs`; none of the proposals

@@ -5,12 +5,16 @@ import { finding } from "./scan.mjs";
 /**
  * Build gate: the Content-Security-Policy has one source of truth.
  *
- * It is declared twice — `worker/securityHeaders.ts` sets it on every Cloudflare
- * response, and `vercel.json` repeats it for the second deploy target. A
- * copy-pasted security policy drifts silently, and a weaker copy is not a
- * cosmetic problem. The gate does not choose a target: it asserts the two copies
- * agree, so the duplication cannot rot unnoticed.
+ * `worker/securityHeaders.ts` sets it on every Cloudflare response, which is the
+ * supported target. `docs/reference/vercel.json` repeats it for the optional
+ * Vercel deploy path, where the Worker does not run. A copy-pasted security
+ * policy drifts silently, and a weaker copy is not a cosmetic problem, so the
+ * two must stay byte-equal — the reference may be unused, but it must not be
+ * wrong.
  */
+
+/** Where the optional Vercel reference lives, relative to the repo root. */
+export const VERCEL_REFERENCE = "docs/reference/vercel.json";
 
 /** The CSP the Worker builds, from the array it joins into a header. */
 export function workerCsp(sourceText) {
@@ -22,7 +26,7 @@ export function workerCsp(sourceText) {
     .join("; ");
 }
 
-/** The CSP `vercel.json` declares, or null when it declares none. */
+/** The CSP the Vercel reference declares, or null when it declares none. */
 export function vercelCsp(vercelJson) {
   for (const header of vercelJson.headers ?? []) {
     for (const entry of header.headers ?? []) {
@@ -34,7 +38,9 @@ export function vercelCsp(vercelJson) {
 
 export function checkSecurityHeaderParity({ repoRoot }) {
   const worker = workerCsp(readFileSync(join(repoRoot, "worker/securityHeaders.ts"), "utf8"));
-  const vercel = vercelCsp(JSON.parse(readFileSync(join(repoRoot, "vercel.json"), "utf8")));
+  const vercel = vercelCsp(
+    JSON.parse(readFileSync(join(repoRoot, VERCEL_REFERENCE), "utf8")),
+  );
 
   if (worker === null) {
     return [
@@ -42,15 +48,17 @@ export function checkSecurityHeaderParity({ repoRoot }) {
     ];
   }
   if (vercel === null) {
-    return [finding("vercel.json", 1, "vercel.json declares no Content-Security-Policy header.")];
+    return [
+      finding(VERCEL_REFERENCE, 1, `the Vercel reference declares no Content-Security-Policy header.`),
+    ];
   }
   if (worker !== vercel) {
     return [
       finding(
-        "vercel.json",
+        VERCEL_REFERENCE,
         1,
-        "the Content-Security-Policy here differs from worker/securityHeaders.ts, so one deploy\n" +
-          `        target now serves a different policy.\n        worker: ${worker}\n        vercel: ${vercel}`,
+        "the Content-Security-Policy here differs from worker/securityHeaders.ts, so the \n" +
+          `        reference would serve a different policy than the supported target.\n        worker: ${worker}\n        vercel: ${vercel}`,
       ),
     ];
   }

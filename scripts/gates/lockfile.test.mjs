@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { checkLockfileDrift } from "./lockfile.mjs";
 
-function lockWith(root, packages = { "node_modules/react": { version: "19.3.0" } }) {
-  return { packages: { "": root, ...packages } };
+/** The reduction `pnpm-lock.mjs` produces: declared specifiers + resolved versions. */
+function lockWith(specifiers, resolved = { react: "19.3.0" }) {
+  return { specifiers, resolved };
 }
 
 describe("checkLockfileDrift", () => {
@@ -17,7 +18,7 @@ describe("checkLockfileDrift", () => {
     const lock = lockWith({ dependencies: { react: "^18.0.0" } });
     const findings = checkLockfileDrift(packageJson, lock);
     expect(findings).toHaveLength(1);
-    expect(findings[0].file).toBe("package-lock.json");
+    expect(findings[0].file).toBe("pnpm-lock.yaml");
     expect(findings[0].message).toContain("^19.3.0");
   });
 

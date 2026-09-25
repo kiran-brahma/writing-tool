@@ -5,19 +5,21 @@
   "description": "Obelus — a browser-only writing tool that uses models as a copyeditor and a judge, never as a ghostwriter.",
   "license": "GPL-3.0-or-later",
   "type": "module",
+  "packageManager": "pnpm@12.5.1",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.12.0",
+    "pnpm": ">=10"
   },
   "scripts": {
     "dev": "vite",
-    "build": "npm run gates && tsc -b && vite build",
+    "build": "pnpm run gates && tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "harness": "vitest run harness/constitution.test.ts",
     "test:watch": "vitest",
     "gates": "scripts/agent-gates check",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "pnpm run build && wrangler deploy",
     "prepare": "node scripts/install-hooks.mjs"
   },
   "dependencies": {
@@ -41,6 +43,7 @@
     "typescript": "~5.9.3",
     "vite": "^8.3.0",
     "vitest": "^5.0.1",
-    "wrangler": "^4.135.0"
+    "wrangler": "^4.135.0",
+    "yaml": "^2.9.1"
   }
 }
