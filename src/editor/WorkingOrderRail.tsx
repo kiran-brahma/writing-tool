@@ -5,7 +5,12 @@ import { structuralPasses, workingOrder } from "../core/pass";
 import type { Section } from "../core/sections";
 import type { DocumentHandle } from "../useDocument";
 import { PANEL_GLOSSES, QUEUE_HINT, type HelpSectionId } from "../help/helpContent";
-import { announcementForTransition, railRunStateFromHandle, type RailRunState } from "./announcements";
+import {
+  announcementForTransition,
+  anyRunInFlight,
+  railRunStateFromHandle,
+  type RailRunState,
+} from "./announcements";
 import { BandPanel } from "./BandPanel";
 import { openFindings, selectionAfterLeavingPass, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
 import { FindingsSidebar } from "./FindingsSidebar";
@@ -229,7 +234,7 @@ export function WorkingOrderRail({
   };
 
   const hasStructuralPasses = structuralPasses(passes).length > 0;
-  const runBusy = handle.runningPassId !== null || handle.structuralRunning;
+  const runBusy = anyRunInFlight(handle);
   const documentLength = handle.document?.canonical.length ?? 0;
   const pastLimit = hasStructuralPasses && documentLength > handle.characterLimit;
   const visibleRevisions = milestonesOnly

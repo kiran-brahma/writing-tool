@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   announcementForTransition,
+  anyRunInFlight,
   emptyRailRunState,
   type RailRunState,
 } from "./announcements";
@@ -142,5 +143,23 @@ describe("announcements", () => {
     const prev = emptyRailRunState();
     const next: RailRunState = { ...emptyRailRunState(), runningPassId: "pass-1" };
     expect(announcementForTransition(prev, next)).toBeNull();
+  });
+});
+
+describe("anyRunInFlight", () => {
+  it("is idle only when every kind of Run is idle", () => {
+    expect(anyRunInFlight(emptyRailRunState())).toBe(false);
+  });
+
+  it.each([
+    ["a model pass", { runningPassId: "pass-1" }],
+    ["the structural set", { structuralRunning: true }],
+    ["a Reader run", { readerRunning: true }],
+    ["an Audit run", { auditRunning: true }],
+    ["a Judge run", { judgeRunning: true }],
+  ])("counts %s as in flight", (_label, patch) => {
+    // The Rail used to check only the model and structural flags, so the four
+    // remaining kinds left the Run buttons live underneath a running pass.
+    expect(anyRunInFlight({ ...emptyRailRunState(), ...patch })).toBe(true);
   });
 });

@@ -72,6 +72,29 @@ function isRealRunError(error: string | null): boolean {
 }
 
 /**
+ * True while any Run is in flight. There are five kinds of Run and one Writer,
+ * so a second Run must not start while any of them is going. It is spelled once
+ * here because it is one rule about the run state; the Rail used to derive it
+ * from only the model and structural flags, which left the Run buttons live
+ * during a Reader, Audit or Judge run.
+ */
+export function anyRunInFlight(state: {
+  runningPassId: string | null;
+  structuralRunning: boolean;
+  readerRunning: boolean;
+  auditRunning: boolean;
+  judgeRunning: boolean;
+}): boolean {
+  return (
+    state.runningPassId !== null ||
+    state.structuralRunning ||
+    state.readerRunning ||
+    state.auditRunning ||
+    state.judgeRunning
+  );
+}
+
+/**
  * Derives the announcement message for a transition between two rail run states.
  * Returns null if no event should be announced.
  */
