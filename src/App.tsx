@@ -21,15 +21,12 @@ import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 import { AiSettingsView } from "./settings/AiSettingsView";
 import { WorkbenchView } from "./workbench/WorkbenchView";
-
-/**
- * The Obelus shell. It opens the one Document of record and puts the Writer
- * straight into it: no account, no sign-in. Connections are configured in the
- * sidebar; nothing is sent anywhere until the Writer tests a Connection or runs
- * a pass through one.
- */
-const HEADER_BUTTON_CLASS =
-  "rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100";
+import { DocumentMenu } from "./DocumentMenu";
+import {
+  DESTINATIONS,
+  isCurrentDestination,
+  type DestinationId,
+} from "./navigation";
 
 export default function App() {
   const handle = useDocument();
@@ -94,20 +91,8 @@ export default function App() {
   } = handle;
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
-  /** Story 20: the Library is a view of its own; the Editor is the default. */
-  const [view, setView] = useState<
-    "editor" | "library" | "privacy" | "workbench" | "settings" | "help"
-  >("editor");
-  /** Which view the Privacy page returns to when the Writer leaves it. */
-  const [privacyReturn, setPrivacyReturn] = useState<"editor" | "library">("editor");
-  /** Which view the Pass workbench returns to when the Writer leaves it. */
-  const [workbenchReturn, setWorkbenchReturn] = useState<"editor" | "library">("editor");
-  /** Which view AI Settings returns to when the Writer leaves it. */
-  const [settingsReturn, setSettingsReturn] = useState<"editor" | "library">("editor");
-  /** Which view How this works returns to when the Writer leaves it. */
-  const [helpReturn, setHelpReturn] = useState<
-    "editor" | "library" | "settings" | "workbench"
-  >("editor");
+  /** Story 20 & 190: persistent destinations; the Editor is the default. */
+  const [view, setView] = useState<DestinationId>("editor");
   /** Story 178: the section How this works should open at, or null for the top. */
   const [helpSection, setHelpSection] = useState<HelpSectionId | null>(null);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
@@ -184,49 +169,40 @@ export default function App() {
     void refreshLibrary();
   }, [refreshLibrary]);
 
-  /** Story 106: the Privacy page is reachable from the Editor and the Library. */
-  const openPrivacy = useCallback(() => {
-    setPrivacyReturn(view === "library" ? "library" : "editor");
-    setView("privacy");
-  }, [view]);
-
-  /** Story 98: the Pass workbench, reachable from the Editor and the Library. */
-  const openWorkbench = useCallback(() => {
-    setWorkbenchReturn(view === "library" ? "library" : "editor");
-    setView("workbench");
-  }, [view]);
-
   /**
-   * AI Settings: Connections, Slots and the run settings, in one view reachable
-   * from the Editor and the Library.
-   */
-  const openSettings = useCallback(() => {
-    setSettingsReturn(view === "library" ? "library" : "editor");
-    setView("settings");
-  }, [view]);
-
-  /**
-   * How this works: the method, reachable from the Editor and the Library, and
+   * How this works: the method, reachable from any destination, and
    * the destination the first-run note and a panel's gloss link to. Story 178's
    * `?` opens it straight at the shortcut list.
    */
-  const openHelpSection = useCallback(
-    (sectionId: HelpSectionId | null) => {
-      if (view === "library" || view === "settings" || view === "workbench") {
-        setHelpReturn(view);
-      } else {
-        setHelpReturn("editor");
-      }
-      setHelpSection(sectionId);
-      setView("help");
-    },
-    [view],
-  );
+  const openHelpSection = useCallback((sectionId: HelpSectionId | null) => {
+    setHelpSection(sectionId);
+    setView("help");
+  }, []);
   const openHelp = useCallback(() => openHelpSection(null), [openHelpSection]);
   const openShortcuts = useCallback(
     () => openHelpSection(HELP_SECTION_IDS.shortcuts),
     [openHelpSection],
   );
+
+  /**
+   * Story 190: navigates directly to any of the six persistent destinations.
+   * Moving to the Library flushes pending edits; moving to Help clears any
+   * pinned section unless a gloss explicitly supplied one.
+   */
+  const navigateTo = useCallback(
+    (destination: DestinationId) => {
+      if (destination === "library") {
+        goToLibrary();
+      } else if (destination === "help") {
+        openHelp();
+      } else {
+        setView(destination);
+      }
+    },
+    [goToLibrary, openHelp],
+  );
+
+
 
   // Story 178: `?` opens the shortcuts from anywhere, as long as the Writer is
   // not typing, where the question mark belongs to the text. The Editor's own
@@ -389,6 +365,7 @@ export default function App() {
       setSelectionInterval(null);
       setEditorGeneration((generation) => generation + 1);
       setImportError(null);
+      setView("editor");
     } catch (error) {
       setImportError(describeError(error));
     }
@@ -396,101 +373,41 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
-      <header className="flex items-center justify-between gap-4 border-b border-stone-200 px-6 py-3">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight">Obelus</h1>
-          <p className="text-xs text-stone-500">It marks; it never holds the pen.</p>
+      <header className="flex items-center justify-between gap-3 sm:gap-4 border-b border-stone-200 px-3 sm:px-6 py-2.5 whitespace-nowrap overflow-x-auto min-w-0 bg-stone-50 text-stone-900">
+        <div className="shrink-0">
+          <h1 className="text-base font-semibold tracking-tight text-stone-900">Obelus</h1>
+          <p className="hidden sm:block text-xs text-stone-500">It marks; it never holds the pen.</p>
         </div>
-        <div className="flex items-center gap-3">
-          {view === "privacy" ? (
-            <button
-              type="button"
-              onClick={() => setView(privacyReturn)}
-              className={HEADER_BUTTON_CLASS}
-            >
-              Back to {privacyReturn === "library" ? "the Library" : "the Editor"}
-            </button>
-          ) : view === "settings" ? (
-            <button
-              type="button"
-              onClick={() => setView(settingsReturn)}
-              className={HEADER_BUTTON_CLASS}
-            >
-              Back to {settingsReturn === "library" ? "the Library" : "the Editor"}
-            </button>
-          ) : (
-            <>
-              {view === "library" && (
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <DocumentMenu
+            wordCount={document?.wordCount ?? 0}
+            onExport={onExport}
+            onImport={onImport}
+            canExport={document !== null}
+          />
+          <div className="h-4 w-px bg-stone-300" aria-hidden="true" />
+          <nav aria-label="Main navigation" className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            {DESTINATIONS.map(({ id, label }) => {
+              const isCurrent = isCurrentDestination(id, view);
+              return (
                 <button
+                  key={id}
+                  id={`nav-dest-${id}`}
                   type="button"
-                  onClick={() => setView("editor")}
-                  className={HEADER_BUTTON_CLASS}
+                  aria-current={isCurrent ? "page" : undefined}
+                  onClick={() => navigateTo(id)}
+                  className={[
+                    "rounded px-2 sm:px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600",
+                    isCurrent
+                      ? "bg-stone-900 font-semibold text-stone-50 shadow-xs"
+                      : "text-stone-600 hover:bg-stone-200/70 hover:text-stone-900",
+                  ].join(" ")}
                 >
-                  Back to the Editor
+                  {label}
                 </button>
-              )}
-              {view === "workbench" && (
-                <button
-                  type="button"
-                  onClick={() => setView(workbenchReturn)}
-                  className={HEADER_BUTTON_CLASS}
-                >
-                  Back to the {workbenchReturn === "library" ? "Library" : "Editor"}
-                </button>
-              )}
-              {view === "help" && (
-                <button
-                  type="button"
-                  onClick={() => setView(helpReturn)}
-                  className={HEADER_BUTTON_CLASS}
-                >
-                  {helpReturn === "library"
-                    ? "Back to the Library"
-                    : helpReturn === "settings"
-                      ? "Back to AI Settings"
-                      : helpReturn === "workbench"
-                        ? "Back to the Pass workbench"
-                        : "Back to the Editor"}
-                </button>
-              )}
-              {view === "editor" && (
-                <>
-                  <p className="text-xs text-stone-500">{document?.wordCount ?? 0} words</p>
-                  <label className={`cursor-pointer ${HEADER_BUTTON_CLASS}`}>
-                    Import Markdown
-                    <input
-                      type="file"
-                      accept=".md,.markdown,text/markdown"
-                      className="sr-only"
-                      onChange={(event) => void onImport(event)}
-                    />
-                  </label>
-                  <button type="button" onClick={onExport} className={HEADER_BUTTON_CLASS}>
-                    Export Markdown
-                  </button>
-                  <button type="button" onClick={goToLibrary} className={HEADER_BUTTON_CLASS}>
-                    Library
-                  </button>
-                </>
-              )}
-              {view !== "workbench" && (
-                <button type="button" onClick={openWorkbench} className={HEADER_BUTTON_CLASS}>
-                  Pass workbench
-                </button>
-              )}
-              {view !== "help" && (
-                <button type="button" onClick={openHelp} className={HEADER_BUTTON_CLASS}>
-                  How this works
-                </button>
-              )}
-              <button type="button" onClick={openSettings} className={HEADER_BUTTON_CLASS}>
-                AI Settings
-              </button>
-              <button type="button" onClick={openPrivacy} className={HEADER_BUTTON_CLASS}>
-                Privacy
-              </button>
-            </>
-          )}
+              );
+            })}
+          </nav>
         </div>
       </header>
 
