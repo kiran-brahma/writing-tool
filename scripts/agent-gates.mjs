@@ -3,10 +3,12 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkForbiddenAffordances } from "./gates/affordances.mjs";
+import { checkSecurityHeaderParity } from "./gates/headers.mjs";
 import { checkImports } from "./gates/imports.mjs";
 import { checkLockfileDrift } from "./gates/lockfile.mjs";
 import { collectSourceFiles } from "./gates/scan.mjs";
 import { checkSilentCatches } from "./gates/silent-catch.mjs";
+import { checkNoProviderRoute } from "./gates/worker.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const USAGE = "Usage: agent-gates check";
@@ -27,6 +29,8 @@ function runChecks() {
     ],
     ["no silent catch", checkSilentCatches({ files, repoRoot: REPO_ROOT })],
     ["no forbidden affordance in the UI source", checkForbiddenAffordances({ files, repoRoot: REPO_ROOT })],
+    ["no Worker route to a provider", checkNoProviderRoute({ files, repoRoot: REPO_ROOT })],
+    ["one Content-Security-Policy across deploy targets", checkSecurityHeaderParity({ repoRoot: REPO_ROOT })],
     ["lockfile in sync", checkLockfileDrift(packageJson, lock)],
   ];
 }

@@ -2,7 +2,7 @@ import { readdirSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 import ts from "typescript";
 
-const SCAN_DIRECTORIES = ["src", "worker", "scripts", "harness"];
+const SCAN_DIRECTORIES = ["src", "worker", "scripts", "harness", "public"];
 const SCAN_FILES = ["vite.config.ts"];
 const SCAN_EXTENSIONS = new Set([
   ".ts",
