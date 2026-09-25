@@ -2,8 +2,11 @@ import { canonicalText, wordCount } from "../core/canonicalText";
 import { emptyDocTree, type DocTree } from "../core/docTree";
 import type { DocumentStatus } from "../core/library";
 import { parseCanonical } from "../core/parseCanonical";
+import { isQuotaExceededError } from "../errors";
 import type { DocumentRecord } from "./obelusDatabase";
 import type { ObelusDatabase } from "./obelusDatabase";
+import { pruneRevisions } from "./revisions";
+import { clearRunCache } from "./runCache";
 
 /**
  * The one Document that always exists: the Scratchpad (story 24). A stable id
@@ -105,12 +108,73 @@ export function withTree(
   };
 }
 
-/** Persists an already-projected Document record, as `withTree` produces. */
+/**
+ * A Document save refused because the stored record is newer than the one this
+ * tab holds. Obelus writes the whole record, so persisting a stale one would
+ * silently erase whatever the other writer typed. It is thrown rather than
+ * swallowed so the Writer sees it: their prose is still in this tab, and the
+ * other version is still in storage.
+ */
+export class DocumentConflictError extends Error {
+  constructor() {
+    super(
+      "Another tab saved this Document after you opened it, so Obelus refused to " +
+        "overwrite it. Your writing is still open here: copy it somewhere safe, then " +
+        "reload this tab to pick up the other version.",
+    );
+    this.name = "DocumentConflictError";
+  }
+}
+
+/**
+ * Persists an already-projected Document record, as `withTree` produces.
+ *
+ * The write is optimistic: a stored record whose `updatedAt` is newer than the
+ * one being written belongs to another tab (metadata edits leave `updatedAt`
+ * alone, so only prose moves it), and writing over it would lose that tab's
+ * work. Two tabs on one Document cannot be merged here, so the later writer is
+ * told rather than allowed to clobber.
+ */
 export async function persistDocument(
   database: ObelusDatabase,
   document: DocumentRecord,
 ): Promise<void> {
+  const stored = await database.documents.get(document.id);
+  if (stored !== undefined && stored.updatedAt > document.updatedAt) {
+    throw new DocumentConflictError();
+  }
   await database.documents.put(document);
+}
+
+/** How a Document save ended. `trimmed` means history was dropped to fit. */
+export type DocumentSaveOutcome = "stored" | "trimmed";
+
+/**
+ * Persists a Document, recovering once from a full storage quota.
+ *
+ * The Library grows with history rather than with the prose: Revisions hold
+ * whole canonical strings and the Run cache holds whole results. When the
+ * browser refuses the write, the honest move is to spend what can be rebuilt —
+ * the Run cache, then the oldest automatic Revisions, which the spec already
+ * calls pruned — and try once more. The outcome is returned rather than logged,
+ * so the shell can tell the Writer their history was trimmed and that a backup
+ * is the real defence. A failure that is not a full quota, or a second failure,
+ * is a real one and is thrown.
+ */
+export async function saveDocument(
+  database: ObelusDatabase,
+  document: DocumentRecord,
+): Promise<DocumentSaveOutcome> {
+  try {
+    await persistDocument(database, document);
+    return "stored";
+  } catch (error) {
+    if (!isQuotaExceededError(error)) throw error;
+    await clearRunCache(database, document.id);
+    await pruneRevisions(database, document.id);
+    await persistDocument(database, document);
+    return "trimmed";
+  }
 }
 
 /**

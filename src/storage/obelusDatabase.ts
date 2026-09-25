@@ -319,5 +319,9 @@ export async function openObelusDatabase(
 
   const database = new ObelusDatabase(name);
   await database.open();
+  // A newer deployment opening the Library in another tab must not be blocked by
+  // this one. Closing is Dexie's documented answer: the upgrade proceeds, and a
+  // later write here fails visibly rather than hanging on "Opening your Library…".
+  database.on("versionchange", () => database.close());
   return database;
 }

@@ -1,17 +1,20 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BlockNode, DocTree, ParagraphNode } from "../core/docTree";
 import { HEDGES_PASS } from "../core/starterPasses";
 import {
+  DocumentConflictError,
   createDocument,
   exportDocument,
   importDocument,
   loadOrCreateDocument,
   persistDocument,
+  saveDocument,
   withTree,
 } from "./documents";
 import { listFindings } from "./findings";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import { runRulePasses } from "./ruleRuns";
+import { saveRunCache, type RunCacheInput } from "./runCache";
 
 const openedDatabases: ObelusDatabase[] = [];
 
@@ -172,5 +175,136 @@ describe("importDocument", () => {
     await importDocument(database, document, "clean prose.\n", 1_300);
 
     expect(await database.auditAccounts.count()).toBe(0);
+  });
+});
+
+describe("saveDocument", () => {
+  /** A minimal cache input, so a Run cache row can be seeded and then evicted. */
+  function cacheInput(documentId: string): RunCacheInput {
+    return {
+      documentId,
+      canonicalHash: "hash",
+      passId: "pass-1",
+      promptHash: "prompt-hash",
+      connectionId: "connection-1",
+      protocol: "openai-shaped",
+      baseUrl: "https://example.com",
+      model: "a-model",
+      screeningFrame: true,
+      characterLimit: 12_000,
+      voiceList: [],
+      target: { start: 0, end: 10 },
+    };
+  }
+
+  function quotaError(): DOMException {
+    return new DOMException("The quota has been exceeded.", "QuotaExceededError");
+  }
+
+  async function seedCache(database: ObelusDatabase, documentId: string): Promise<void> {
+    await saveRunCache(
+      database,
+      cacheInput(documentId),
+      {
+        findings: [],
+        violations: [],
+        droppedAnchors: 0,
+        rawResponse: "{}",
+        fromCache: false,
+        chunks: 1,
+      },
+      1_000,
+    );
+  }
+
+  it("stores the Document without trimming when the quota is fine", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+
+    expect(await saveDocument(database, document)).toBe("stored");
+    expect(await database.documents.get(document.id)).not.toBeUndefined();
+  });
+
+  it("drops the Run cache and retries once when the quota is full", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+    await database.documents.put(document);
+    await seedCache(database, document.id);
+
+    const put = vi.spyOn(database.documents, "put").mockRejectedValueOnce(quotaError());
+    const outcome = await saveDocument(database, { ...document, title: "Renamed" });
+
+    expect(outcome).toBe("trimmed");
+    expect(put).toHaveBeenCalledTimes(2);
+    // The retry stored the prose rather than leaving the Writer with a banner.
+    expect((await database.documents.get(document.id))?.title).toBe("Renamed");
+    // The cache is the first thing spent, because it can be rebuilt.
+    expect(await database.runCache.count()).toBe(0);
+  });
+
+  it("rethrows a failure that is not a full quota, and does not touch the cache", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+    await database.documents.put(document);
+    await seedCache(database, document.id);
+
+    vi.spyOn(database.documents, "put").mockRejectedValueOnce(new Error("the disk is gone"));
+
+    await expect(saveDocument(database, document)).rejects.toThrow("the disk is gone");
+    expect(await database.runCache.count()).toBe(1);
+  });
+
+  it("rethrows a second quota failure rather than retrying forever", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+
+    const put = vi
+      .spyOn(database.documents, "put")
+      .mockRejectedValueOnce(quotaError())
+      .mockRejectedValueOnce(quotaError());
+
+    await expect(saveDocument(database, document)).rejects.toThrow();
+    expect(put).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("cross-tab writes", () => {
+  it("refuses to overwrite a Document another tab saved more recently", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+    await database.documents.put(document);
+
+    // Another tab types: the stored record moves ahead of the one held here.
+    const otherTab = withTree(document, doc(paragraph("The other tab's paragraph.")), 2_000);
+    await database.documents.put(otherTab);
+
+    const thisTab = withTree(document, doc(paragraph("This tab's paragraph.")), 1_500);
+
+    await expect(saveDocument(database, thisTab)).rejects.toThrow(DocumentConflictError);
+    // The other tab's prose survived; nothing was clobbered.
+    expect((await database.documents.get(document.id))?.canonical).toContain("The other tab");
+  });
+
+  it("still stores a write that is at or ahead of the stored record", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+    await database.documents.put(document);
+
+    const sameMoment = withTree(document, doc(paragraph("Same millisecond.")), 1_000);
+    expect(await saveDocument(database, sameMoment)).toBe("stored");
+
+    const later = withTree(sameMoment, doc(paragraph("Later.")), 2_000);
+    expect(await saveDocument(database, later)).toBe("stored");
+  });
+
+  it("leaves a metadata edit alone, because it does not move `updatedAt`", async () => {
+    const database = await openTestDatabase();
+    const document = createDocument(1_000);
+    await database.documents.put(document);
+
+    // Tagging keeps the prose's `updatedAt`, so it is never a conflict, even
+    // when it lands after another tab's prose write.
+    const tagged = { ...document, title: "Renamed", updatedAt: document.updatedAt };
+    expect(await saveDocument(database, tagged)).toBe("stored");
   });
 });
