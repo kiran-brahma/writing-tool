@@ -9,7 +9,7 @@ import { announcementForTransition, railRunStateFromHandle, type RailRunState } 
 import { BandPanel } from "./BandPanel";
 import { openFindings, selectionAfterLeavingPass, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
 import { FindingsSidebar } from "./FindingsSidebar";
-import { formatUsd } from "./formatUsd";
+import { formatCostEstimate, formatUsd } from "./formatUsd";
 import { JudgePanel } from "./JudgePanel";
 import { MetricsPanel } from "./MetricsPanel";
 import { OutlinePanel } from "./OutlinePanel";
@@ -403,12 +403,18 @@ export function WorkingOrderRail({
                     disabled={!hasStructuralPasses || runBusy}
                     title={
                       hasStructuralPasses
-                        ? "Run every enabled document-scope Pass"
+                        ? (handle.structuralEstimate.costKnown
+                            ? `Run every enabled document-scope Pass (${formatUsd(handle.structuralEstimate.costUsd)})`
+                            : "Run every enabled document-scope Pass (cost is unknown)")
                         : "Enable a structural Pass first"
                     }
                     className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
                   >
-                    {handle.structuralRunning ? "Running structural set…" : "Run structural set"}
+                    {handle.structuralRunning
+                      ? "Running structural set…"
+                      : hasStructuralPasses
+                        ? `Run structural set · ${formatCostEstimate(handle.structuralEstimate)}`
+                        : "Run structural set"}
                   </button>
                 </div>
                 {pastLimit && (

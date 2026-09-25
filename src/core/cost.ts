@@ -1,3 +1,4 @@
+import type { Pass } from "./pass";
 import type { ModelUsage } from "../wire/modelRequest";
 
 /**
@@ -26,6 +27,26 @@ export interface CostEstimate {
   tokens: number;
   /** Tokens at the model's price, in US dollars. */
   costUsd: number;
+  /**
+   * Story 188: whether the price table carries a price for the model. When false,
+   * the control displays cost as unknown rather than $0.00.
+   */
+  costKnown: boolean;
+}
+
+export interface StructuralCostEstimate {
+  /** The characters across all qualifying passes and chunks. */
+  characters: number;
+  /** The summed tokens across all qualifying passes and chunks. */
+  tokens: number;
+  /** Tokens at the model's price, in US dollars. */
+  costUsd: number;
+  /** Whether the price table carries a price for the model. */
+  costKnown: boolean;
+  /** How many enabled document-scope passes contributed to the sum. */
+  passCount: number;
+  /** The chunk count used. */
+  chunks: number;
 }
 
 /** The spec's token estimate for a Run's characters. */
@@ -33,6 +54,29 @@ export function estimateTokens(characters: number): number {
   if (!Number.isFinite(characters) || characters <= 0) return 0;
   return Math.ceil(characters / 4);
 }
+
+/**
+ * Whether the price table has an entry pricing the model. An exact match
+ * wins; otherwise the longest key the model id starts with (at a separator)
+ * is used. When no matching entry exists, returns false.
+ */
+export function hasPriceFor(model: string, prices: PriceTable): boolean {
+  if (model === "") return false;
+  const exact = prices[model];
+  if (typeof exact === "number" && Number.isFinite(exact)) return true;
+
+  let best: string | null = null;
+  for (const key of Object.keys(prices)) {
+    if (key === "" || !model.startsWith(key)) continue;
+    const next = model.charAt(key.length);
+    if (next !== "" && !"-.:/".includes(next)) continue;
+    if (best === null || key.length > best.length) best = key;
+  }
+  const price = best === null ? undefined : prices[best];
+  return typeof price === "number" && Number.isFinite(price);
+}
+
+export const isPriceKnown = hasPriceFor;
 
 /**
  * The price for a model, or zero when the table has no entry. An exact model id
@@ -70,7 +114,89 @@ export function estimateRunCost(
 ): CostEstimate {
   const safeCharacters = Number.isFinite(characters) && characters > 0 ? characters : 0;
   const tokens = estimateTokens(safeCharacters);
-  return { characters: safeCharacters, tokens, costUsd: costForTokens(tokens, model, prices) };
+  return {
+    characters: safeCharacters,
+    tokens,
+    costUsd: costForTokens(tokens, model, prices),
+    costKnown: hasPriceFor(model, prices),
+  };
+}
+
+function isStructuralPass(pass: Pass): boolean {
+  if (pass.enabled === false) return false;
+  if (pass.scope !== "document") return false;
+  if (pass.kind !== undefined && pass.kind !== "model") return false;
+  if (pass.output !== undefined && pass.output !== "findings") return false;
+  return true;
+}
+
+/**
+ * Story 189: the summed estimate for the structural set before it is run. Sums
+ * over exactly the enabled document-scope model Passes it will execute,
+ * multiplied by the chunk count it will actually use.
+ */
+export function estimateStructuralCost(
+  passes: Pass[],
+  characters: number | Record<string, number>,
+  model: string,
+  prices: PriceTable,
+  chunkCount: number = 1,
+): StructuralCostEstimate {
+  const safeChunks = Number.isFinite(chunkCount) && chunkCount > 1 ? Math.floor(chunkCount) : 1;
+  const known = hasPriceFor(model, prices);
+
+  let totalCharacters = 0;
+  let totalTokens = 0;
+  let passCount = 0;
+
+  for (const pass of passes) {
+    if (!isStructuralPass(pass)) continue;
+
+    passCount++;
+    const rawChars = typeof characters === "number" ? characters : (characters[pass.id] ?? 0);
+    const safeChars = Number.isFinite(rawChars) && rawChars > 0 ? rawChars : 0;
+    const tokensPerChunk = estimateTokens(safeChars);
+    totalCharacters += safeChars * safeChunks;
+    totalTokens += tokensPerChunk * safeChunks;
+  }
+
+  const costUsd = costForTokens(totalTokens, model, prices);
+
+  return {
+    characters: totalCharacters,
+    tokens: totalTokens,
+    costUsd,
+    costKnown: known,
+    passCount,
+    chunks: safeChunks,
+  };
+}
+
+export const estimateStructuralSetCost = estimateStructuralCost;
+export const sumStructuralCost = estimateStructuralCost;
+
+/**
+ * A US dollar figure for an estimate or session total. Sub-cent figures keep
+ * four decimals so a cheap estimate never reads as `$0.00`; zero and anything
+ * not finite read as `$0.00`.
+ */
+export function formatUsd(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "$0.00";
+  if (value < 0.01) return `$${value.toFixed(4)}`;
+  return `$${value.toFixed(2)}`;
+}
+
+/**
+ * Formats a pre-run cost estimate for display beside or on a Run control.
+ * When the price is not configured in the price table, reports that the cost
+ * is unknown rather than displaying $0.00 (story 188, 189).
+ */
+export function formatCostEstimate(
+  estimate: { costUsd: number; costKnown: boolean } | undefined,
+): string {
+  if (estimate === undefined) return "";
+  if (!estimate.costKnown) return "cost unknown";
+  return formatUsd(estimate.costUsd);
 }
 
 /**

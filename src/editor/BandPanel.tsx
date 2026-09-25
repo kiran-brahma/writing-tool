@@ -19,7 +19,7 @@ import type { AuditRunReport } from "../useDocument";
 import { AuditAccountRow, ReaderAccountRow } from "./AccountDisplay";
 import { ElapsedTimer } from "./ElapsedTimer";
 import { FindingRow } from "./FindingRow";
-import { formatUsd } from "./formatUsd";
+import { formatCostEstimate } from "./formatUsd";
 import { RuleConfigEditor } from "./RuleConfigEditor";
 import { QuarantinedRewrite, StruckViolations } from "./ViolationDisplay";
 import { splitViolations } from "./violationMarks";
@@ -340,24 +340,31 @@ function FindingsPassBlock({
       <PassHeading
         pass={pass}
         onToggle={onToggle}
-        detail={
-          estimate === undefined ? null : (
-            <p className="mt-0.5 text-xs text-stone-600">
-              {estimate.tokens.toLocaleString()} tokens estimated · {formatUsd(estimate.costUsd)}
-            </p>
-          )
-        }
         action={
           running ? (
             <RunningBadge since={runningSince} />
           ) : (
-            <RunButton
-              disabled={!pass.enabled || busy}
-              onClick={() => onRun(pass.id)}
-              title={`Run against ${target}`}
-            >
-              Run
-            </RunButton>
+            <div className="flex shrink-0 items-center gap-2">
+              {estimate !== undefined && (
+                <span
+                  className="text-xs text-stone-600 tabular-nums"
+                  title={`${estimate.tokens.toLocaleString()} tokens estimated${estimate.costKnown ? "" : " · cost is unknown"}`}
+                >
+                  {formatCostEstimate(estimate)}
+                </span>
+              )}
+              <RunButton
+                disabled={!pass.enabled || busy}
+                onClick={() => onRun(pass.id)}
+                title={
+                  estimate !== undefined && !estimate.costKnown
+                    ? `Run against ${target} (cost is unknown)`
+                    : `Run against ${target}`
+                }
+              >
+                Run
+              </RunButton>
+            </div>
           )
         }
       />

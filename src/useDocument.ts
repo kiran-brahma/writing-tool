@@ -2,8 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { reResolveFindings, type FindingInterval, type FindingResolution } from "./core/anchor";
 import { chunkTarget, DEFAULT_CHARACTER_LIMIT } from "./core/chunking";
 import type { RunReport, RunResult } from "./core/critique";
-import { addRunCost, estimateRunCost, type CostEstimate, type PriceTable } from "./core/cost";
 import type { DocTree } from "./core/docTree";
+import {
+  addRunCost,
+  estimateRunCost,
+  estimateStructuralCost,
+  hasPriceFor,
+  type CostEstimate,
+  type PriceTable,
+  type StructuralCostEstimate,
+} from "./core/cost";
 import { openFindingsInPass, type DeclineReason, type Finding, type Violation } from "./core/finding";
 import type { DocumentStatus, LibraryEntry } from "./core/library";
 import {
@@ -189,6 +197,12 @@ export interface DocumentHandle {
    * warning never promises a split the Document cannot support.
    */
   documentChunks: number;
+  /**
+   * Story 189: the summed cost estimate for the structural set before it is
+   * run. Sums over exactly the enabled document-scope Passes it will execute,
+   * multiplied by the chunk count it will actually use.
+   */
+  structuralEstimate: StructuralCostEstimate;
   /** Story 73: every model Run's raw response, keyed by Pass id. */
   rawResponses: Record<string, string>;
   /** Stories 91–93: the Reader accounts stored for the Document, in Section order. */
@@ -1084,10 +1098,57 @@ export function useDocument(): DocumentHandle {
         documentRecord.title,
       );
       const characters = target === null ? documentRecord.canonical.length : promptCharacters(pass.prompt ?? "", target);
-      estimates[pass.id] = estimateRunCost(characters, model, priceTable);
+      const chunks = pass.scope === "document" ? documentChunks : 1;
+      const base = estimateRunCost(characters, model, priceTable);
+      estimates[pass.id] = {
+        characters: base.characters * chunks,
+        tokens: base.tokens * chunks,
+        costUsd: base.costUsd * chunks,
+        costKnown: base.costKnown,
+      };
     }
     return estimates;
-  }, [documentRecord, passes, targetBlockIndex, criticConnection, priceTable]);
+  }, [documentRecord, passes, targetBlockIndex, criticConnection, priceTable, documentChunks]);
+
+  /**
+   * Story 189: the summed cost estimate for the structural set before it is
+   * run. Sums over exactly the enabled document-scope Passes it will execute,
+   * multiplied by the chunk count it will actually use.
+   */
+  const structuralEstimate = useMemo(() => {
+    if (documentRecord === null) {
+      return {
+        characters: 0,
+        tokens: 0,
+        costUsd: 0,
+        costKnown: hasPriceFor(criticConnection?.model ?? "", priceTable),
+        passCount: 0,
+        chunks: 1,
+      };
+    }
+    const model = criticConnection?.model ?? "";
+    const charactersMap: Record<string, number> = {};
+    for (const pass of passes) {
+      if (pass.kind !== "model" || !isFindingsPass(pass)) continue;
+      const target = targetForPass(
+        pass,
+        documentRecord.tree,
+        targetBlockIndex,
+        documentRecord.title,
+      );
+      charactersMap[pass.id] =
+        target === null
+          ? documentRecord.canonical.length
+          : promptCharacters(pass.prompt ?? "", target);
+    }
+    return estimateStructuralCost(
+      passes,
+      charactersMap,
+      model,
+      priceTable,
+      documentChunks,
+    );
+  }, [documentRecord, passes, targetBlockIndex, criticConnection, priceTable, documentChunks]);
 
   /** Story 51: stores the Writer's edited price table. */
   const savePriceTable = useCallback(async (table: PriceTable) => {
@@ -1605,6 +1666,7 @@ export function useDocument(): DocumentHandle {
     firstRunNoteDismissed,
     dismissFirstRunNote,
     documentChunks,
+    structuralEstimate,
     rawResponses,
     readerAccounts,
     readerRunning,
