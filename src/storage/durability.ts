@@ -10,6 +10,7 @@
 
 import type { Pass } from "../core/pass";
 import type { Connection } from "../wire/connection";
+import type { Table } from "dexie";
 import { enqueueMutation } from "./mutationQueue";
 import type {
   AuditAccountRecord,
@@ -25,6 +26,38 @@ import type {
 
 /** The tag written into a whole-Library backup, so import can tell what it holds. */
 const LIBRARY_BACKUP_FORMAT = "obelus.library-backup";
+
+/**
+ * Every store a whole-Library backup carries. The import's transaction scope,
+ * its clear and its refill all read this one list. The export and the backup
+ * parser are held in step by the type system instead — a store added to
+ * `LibraryBackup` makes both of them fail to compile — but these three are
+ * untyped loops, and a store missing from the refill is a store that silently
+ * stops being restored.
+ */
+const LIBRARY_STORES = [
+  "documents",
+  "revisions",
+  "findings",
+  "passes",
+  "connections",
+  "settings",
+  "runResponses",
+  "readerAccounts",
+  "auditAccounts",
+  "runCache",
+] as const;
+
+type LibraryStore = (typeof LIBRARY_STORES)[number];
+
+/**
+ * The Library's stores as Dexie handles. Widened to one shape because the
+ * clear-and-refill loop is the same for every store; each store's element type
+ * is checked where it is read and written, not here.
+ */
+function libraryTables(database: ObelusDatabase): Table<unknown, unknown>[] {
+  return LIBRARY_STORES.map((store) => database[store] as unknown as Table<unknown, unknown>);
+}
 
 /** The tag written into a single-Document bundle. */
 const DOCUMENT_BUNDLE_FORMAT = "obelus.document-bundle";
@@ -346,69 +379,38 @@ export function importLibraryBackup(
 ): Promise<void> {
   // Queued with rule, model and Reader Runs, so a restore lands after any write
   // already in flight rather than being overwritten by one that predates it.
-  return enqueueMutation(database, () =>
-    database.transaction(
-      "rw",
-      [
-        database.documents,
-        database.revisions,
-        database.findings,
-        database.passes,
-        database.connections,
-        database.settings,
-        database.runResponses,
-        database.readerAccounts,
-        database.auditAccounts,
-        database.runCache,
-      ],
-      async () => {
-        // A backup that excluded keys is authoritative about prose, not about
-        // secrets: restoring it over a Library that already holds a persisted
-        // key keeps that key rather than silently blanking it. A backup that
-        // included keys wins outright.
-        const existingKeys = new Map<string, string>();
-        if (backup.includesKeys !== true) {
-          for (const existing of await database.connections.toArray()) {
-            if (existing.apiKey !== "") existingKeys.set(existing.id, existing.apiKey);
-          }
+  return enqueueMutation(database, () => {
+    const tables = libraryTables(database);
+    return database.transaction("rw", tables, async () => {
+      // A backup that excluded keys is authoritative about prose, not about
+      // secrets: restoring it over a Library that already holds a persisted
+      // key keeps that key rather than silently blanking it. A backup that
+      // included keys wins outright.
+      const existingKeys = new Map<string, string>();
+      if (backup.includesKeys !== true) {
+        for (const existing of await database.connections.toArray()) {
+          if (existing.apiKey !== "") existingKeys.set(existing.id, existing.apiKey);
         }
-        const connections = backup.connections.map((connection) => {
-          const existing = existingKeys.get(connection.id);
-          return existing !== undefined && connection.apiKey === ""
-            ? { ...connection, apiKey: existing }
-            : connection;
-        });
+      }
+      const connections = backup.connections.map((connection) => {
+        const existing = existingKeys.get(connection.id);
+        return existing !== undefined && connection.apiKey === ""
+          ? { ...connection, apiKey: existing }
+          : connection;
+      });
 
-        await Promise.all([
-          database.documents.clear(),
-          database.revisions.clear(),
-          database.findings.clear(),
-          database.passes.clear(),
-          database.connections.clear(),
-          database.settings.clear(),
-          database.runResponses.clear(),
-          database.readerAccounts.clear(),
-          database.auditAccounts.clear(),
-          database.runCache.clear(),
-        ]);
+      const refill: Record<LibraryStore, unknown[]> = { ...backup, connections };
 
-        await database.documents.bulkPut(backup.documents);
-        await database.revisions.bulkPut(backup.revisions);
-        await database.findings.bulkPut(backup.findings);
-        await database.passes.bulkPut(backup.passes);
-        await database.connections.bulkPut(connections);
-        await database.settings.bulkPut(backup.settings);
-        await database.runResponses.bulkPut(backup.runResponses);
-        await database.readerAccounts.bulkPut(backup.readerAccounts);
-        await database.auditAccounts.bulkPut(backup.auditAccounts);
-        await database.runCache.bulkPut(backup.runCache);
+      await Promise.all(tables.map((table) => table.clear()));
+      await Promise.all(
+        LIBRARY_STORES.map((store, index) => tables[index].bulkPut(refill[store])),
+      );
 
-        // The restored settings may carry a stale reminder; the file's timestamp
-        // is the honest one, because that is when the data was last captured.
-        await database.settings.put({ key: LAST_BACKED_UP_SETTING_KEY, value: backup.exportedAt });
-      },
-    ),
-  );
+      // The restored settings may carry a stale reminder; the file's timestamp
+      // is the honest one, because that is when the data was last captured.
+      await database.settings.put({ key: LAST_BACKED_UP_SETTING_KEY, value: backup.exportedAt });
+    });
+  });
 }
 
 /**
