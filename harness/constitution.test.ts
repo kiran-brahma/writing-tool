@@ -11,20 +11,26 @@ import {
 import { createFixtureTransport, type FixtureTransport } from "../src/wire/fixtureTransport";
 import {
   runConstitutionHarness,
-  type HarnessCaseResult,
+  runJudgeConstitutionHarness,
+  type HarnessCheck,
   type HarnessCheckName,
   type HarnessReport,
+  type JudgeHarnessReport,
 } from "./constitution";
 import {
   adversarialAuditResponse,
+  adversarialJudgeResponse,
   adversarialReaderResponse,
   adversarialResponse,
   FIXTURE_DROPPED,
+  FIXTURE_JUDGE_PRAISE,
+  FIXTURE_JUDGE_REWRITE,
   FIXTURE_PRAISE,
   FIXTURE_REWRITE,
   HARNESS_AUDIT_PASSES,
   HARNESS_DOCUMENTS,
   HARNESS_DOCUMENT_PASSES,
+  HARNESS_JUDGE_PASSAGES,
   HARNESS_PASSES,
   HARNESS_READER_PASSES,
 } from "./fixtures";
@@ -39,11 +45,13 @@ let documentReport: HarnessReport;
 let readerReport: HarnessReport;
 let auditReport: HarnessReport;
 let chunkedAuditReport: HarnessReport;
+let judgeReport: JudgeHarnessReport;
 let transports: FixtureTransport[];
 let voiceListTransports: FixtureTransport[];
 let framedTransports: FixtureTransport[];
 let readerTransports: FixtureTransport[];
 let auditTransports: FixtureTransport[];
+let judgeTransports: FixtureTransport[];
 
 beforeAll(async () => {
   transports = [];
@@ -150,6 +158,28 @@ beforeAll(async () => {
     transportFor: (testCase) =>
       createFixtureTransport({ respond: () => adversarialAuditResponse(testCase.target) }),
   });
+
+  // The Judge is not a Pass, so it gets its own small matrix. It is here because
+  // `DESIGN.md` Rule 2 covers every returned string, and the Judge's reasons and
+  // problem lists were the one model path no case scanned.
+  judgeTransports = [];
+  judgeReport = await runJudgeConstitutionHarness({
+    connection: connection(),
+    passages: HARNESS_JUDGE_PASSAGES,
+    transportFor: () => {
+      // The two swapped calls must agree on a side, so the label each call
+      // prefers is supplied per call: `A` first, `B` under the swapped order.
+      let call = 0;
+      const transport = createFixtureTransport({
+        respond: () => {
+          call += 1;
+          return adversarialJudgeResponse(call === 1 ? "A" : "B");
+        },
+      });
+      judgeTransports.push(transport);
+      return transport;
+    },
+  });
 });
 
 function connection(): Connection {
@@ -158,9 +188,9 @@ function connection(): Connection {
   return { ...connectionFromPrefill(prefill), model: "harness-model", apiKey: "harness-key" };
 }
 
-function check(testCase: HarnessCaseResult, name: HarnessCheckName) {
+function check(testCase: { checks: HarnessCheck[] }, name: HarnessCheckName) {
   const found = testCase.checks.find((entry) => entry.name === name);
-  if (found === undefined) throw new Error(`case ${testCase.passId} has no "${name}" check`);
+  if (found === undefined) throw new Error(`case has no "${name}" check`);
   return found;
 }
 
@@ -381,6 +411,46 @@ describe("constitution harness", () => {
 
     expect(drifted.ok).toBe(false);
     expect(check(drifted.cases[0], "promptConstitution").ok).toBe(false);
+  });
+
+  it("runs the Judge over every fixture passage pair", () => {
+    expect(HARNESS_JUDGE_PASSAGES.length).toBeGreaterThanOrEqual(2);
+    expect(judgeReport.cases).toHaveLength(HARNESS_JUDGE_PASSAGES.length);
+    expect(judgeReport.ok).toBe(true);
+  });
+
+  it("asserts the Judge's answer parses into a stable Verdict", () => {
+    for (const testCase of judgeReport.cases) {
+      expect(testCase.error).toBeNull();
+      expect(testCase.stable).toBe(true);
+      expect(check(testCase, "parses").ok).toBe(true);
+    }
+  });
+
+  it("asserts that Judge praise is flagged, not shown as an unmarked compliment", () => {
+    for (const testCase of judgeReport.cases) {
+      expect(testCase.violations).toContainEqual({ kind: "praise", text: FIXTURE_JUDGE_PRAISE });
+      expect(check(testCase, "praiseFlagged").ok).toBe(true);
+    }
+  });
+
+  it("asserts that a Judge rewrite is quarantined, never kept as prose", () => {
+    for (const testCase of judgeReport.cases) {
+      expect(testCase.violations).toContainEqual({ kind: "rewrite", text: FIXTURE_JUDGE_REWRITE });
+      expect(check(testCase, "noRewriteField").ok).toBe(true);
+    }
+  });
+
+  it("keeps the Judge's own request closed and free of a persona", () => {
+    for (const transport of judgeTransports) {
+      // Two calls: the answer and its label-swapped twin.
+      expect(transport.requests).toHaveLength(2);
+      for (const request of transport.requests) {
+        const body = JSON.stringify(request.body);
+        expect(body).not.toContain("rewrite");
+        expect(body).not.toContain("system");
+      }
+    }
   });
 
   it("stores the result locally with a timestamp", () => {

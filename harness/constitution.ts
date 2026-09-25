@@ -4,6 +4,7 @@ import { isContained } from "../src/core/containment";
 import { critique, type Target } from "../src/core/critique";
 import { describeError } from "../src/errors";
 import type { Finding, Violation } from "../src/core/finding";
+import { judge } from "../src/core/judge";
 import type { Pass } from "../src/core/pass";
 import { isAuditPass, isReaderPass } from "../src/core/pass";
 import { targetForPass } from "../src/core/passContext";
@@ -14,6 +15,10 @@ import type { Connection } from "../src/wire/connection";
 import type { Transport } from "../src/wire/transport";
 import {
   FIXTURE_DROPPED,
+  FIXTURE_IN_TARGET_ISSUES,
+  FIXTURE_JUDGE_PRAISE,
+  FIXTURE_JUDGE_REWRITE,
+  FIXTURE_OUT_OF_TARGET_ISSUES,
   FIXTURE_PRAISE,
   FIXTURE_REWRITE,
   type HarnessDocument,
@@ -310,18 +315,29 @@ function praiseCheck(violations: Violation[]): HarnessCheck {
 
 function rewriteCheck(findings: Finding[], violations: Violation[]): HarnessCheck {
   const leaked = findings.filter((finding) => "rewrite" in finding);
+  // The field check above cannot fire on its own: a Finding is built from a
+  // fixed key set, so a smuggled `rewrite` is dropped before it could appear.
+  // What can fail, and is the real property, is the quarantined string never
+  // reaching a Finding's text.
+  const smuggled = findings.filter((finding) => findingText(finding).includes(FIXTURE_REWRITE));
   const quarantined = violations.some(
     (violation) => violation.kind === "rewrite" && violation.text === FIXTURE_REWRITE,
   );
-  const ok = leaked.length === 0 && quarantined;
+  const ok = leaked.length === 0 && smuggled.length === 0 && quarantined;
 
   return {
     name: "noRewriteField",
     ok,
     detail: ok
-      ? `No Finding carried a rewrite field; "${FIXTURE_REWRITE}" was quarantined as a Violation.`
-      : `${leaked.length} Finding(s) carried a rewrite field; quarantined=${String(quarantined)}.`,
+      ? `No Finding carried a rewrite field or text; "${FIXTURE_REWRITE}" was quarantined as a Violation.`
+      : `${leaked.length} Finding(s) carried a rewrite field, ${smuggled.length} carried the ` +
+        `rewrite text; quarantined=${String(quarantined)}.`,
   };
+}
+
+/** Every string a Finding carries, for the smuggled-prose check. */
+function findingText(finding: Finding): string {
+  return [finding.issue, finding.diagnosis, finding.pattern ?? "", finding.anchor.quote].join("\n");
 }
 
 /** The reader-account half of the rewrite check: no rewrite field, quarantined. */
@@ -364,20 +380,37 @@ function containmentCheck(
   dropped: number,
   scope: Pass["scope"],
 ): HarnessCheck {
-  const outside = findings.filter(
-    (finding) => !isContained(resolveAnchor(finding.anchor, target.canonical), target.interval),
-  );
   // A structural Pass is shown the whole Document, so the fixture's
   // context-above Finding is inside its Target and must be kept, not dropped.
   const expectedDropped = scope === "document" ? 0 : FIXTURE_DROPPED;
-  const ok = outside.length === 0 && dropped === expectedDropped;
+  const expectedIssues =
+    scope === "document"
+      ? [...FIXTURE_IN_TARGET_ISSUES, ...FIXTURE_OUT_OF_TARGET_ISSUES]
+      : FIXTURE_IN_TARGET_ISSUES;
+  const forbiddenIssues = scope === "document" ? [] : FIXTURE_OUT_OF_TARGET_ISSUES;
+
+  // Asserted against the fixture's own labels rather than by re-running the
+  // containment primitives production already ran: recomputing
+  // `isContained(resolveAnchor(...))` here could never disagree with the code
+  // under test, so it could never fail.
+  const kept = findings.map((finding) => finding.issue);
+  const missing = expectedIssues.filter((issue) => !kept.includes(issue));
+  const leaked = forbiddenIssues.filter((issue) => kept.includes(issue));
+  // Secondary, and not the load-bearing assertion: this can only agree with the
+  // containment path. The label check above is what can fail.
+  const outside = findings.filter(
+    (finding) => !isContained(resolveAnchor(finding.anchor, target.canonical), target.interval),
+  );
+  const ok =
+    missing.length === 0 && leaked.length === 0 && outside.length === 0 && dropped === expectedDropped;
 
   return {
     name: "anchorsContained",
     ok,
     detail: ok
-      ? `Every kept Finding anchored inside the Target; ${dropped} outside Finding(s) dropped.`
-      : `${outside.length} kept Finding(s) fell outside the Target; dropped=${dropped}, expected ${expectedDropped}.`,
+      ? `Every expected Finding survived; ${dropped} outside Finding(s) dropped.`
+      : `missing=[${missing.join(", ")}] leaked=[${leaked.join(", ")}] ` +
+        `outside=${outside.length} dropped=${dropped}, expected ${expectedDropped}.`,
   };
 }
 
@@ -418,5 +451,123 @@ function failureCase(
     chunks: 0,
     rawResponse: null,
     error,
+  };
+}
+
+/**
+ * One Judge case: the two passages compared and what the constitution checked.
+ * The Judge is not a Pass, so it is not part of the Pass matrices above; it
+ * gets this small one because `DESIGN.md` Rule 2 covers every returned string,
+ * and the Judge's reasons and problem lists were the one model path no test
+ * scanned.
+ */
+export interface JudgeHarnessCase {
+  id: string;
+  ok: boolean;
+  checks: HarnessCheck[];
+  violations: Violation[];
+  stable: boolean;
+  error: string | null;
+}
+
+export interface JudgeHarnessReport {
+  ok: boolean;
+  ranAt: number;
+  cases: JudgeHarnessCase[];
+}
+
+export interface JudgeHarnessOptions {
+  connection: Connection;
+  passages: { id: string; before: string; after: string }[];
+  /** One Transport per case, so each case carries its own recorded response. */
+  transportFor: (id: string) => Transport;
+  now?: number;
+}
+
+/**
+ * The Judge half of the constitution harness. It runs the real `judge` entry
+ * point over each passage pair with an adversarial response and asserts the
+ * properties the constitution rests on for the Judge too: the answer parses,
+ * praise in a reason or a problem list is flagged rather than shown, and the
+ * rewrite the model offered is quarantined rather than kept.
+ */
+export async function runJudgeConstitutionHarness(
+  options: JudgeHarnessOptions,
+): Promise<JudgeHarnessReport> {
+  const ranAt = options.now ?? Date.now();
+  const cases: JudgeHarnessCase[] = [];
+
+  for (const passage of options.passages) {
+    try {
+      const result = await judge(passage.before, passage.after, options.connection, {
+        transport: options.transportFor(passage.id),
+        // Fixed so the fixture's per-call labels map to a stable Verdict; a
+        // randomised order would make the case's stability a coin flip.
+        labelOrder: ["A", "B"],
+      });
+      const checks: HarnessCheck[] = [
+        judgeParseCheck(result.stable),
+        judgePraiseCheck(result.violations),
+        judgeRewriteCheck(result.violations),
+      ];
+      cases.push({
+        id: passage.id,
+        ok: checks.every((check) => check.ok),
+        checks,
+        violations: result.violations,
+        stable: result.stable,
+        error: null,
+      });
+    } catch (error) {
+      cases.push({
+        id: passage.id,
+        ok: false,
+        checks: [{ name: "parses", ok: false, detail: describeError(error) }],
+        violations: [],
+        stable: false,
+        error: describeError(error),
+      });
+    }
+  }
+
+  return { ok: cases.every((testCase) => testCase.ok), ranAt, cases };
+}
+
+/** The Judge answered in the schema, producing a Verdict rather than Unstable. */
+function judgeParseCheck(stable: boolean): HarnessCheck {
+  return {
+    name: "parses",
+    ok: stable,
+    detail: stable
+      ? "The Judge's two answers agreed and produced a Verdict."
+      : "The Judge's answers disagreed, so the fixture never reached a Verdict.",
+  };
+}
+
+/** The Judge's praise is flagged, not rendered as an unmarked compliment. */
+function judgePraiseCheck(violations: Violation[]): HarnessCheck {
+  const flagged = violations.some(
+    (violation) => violation.kind === "praise" && violation.text === FIXTURE_JUDGE_PRAISE,
+  );
+  return {
+    name: "praiseFlagged",
+    ok: flagged,
+    detail: flagged
+      ? `The linter flagged the Judge's praise "${FIXTURE_JUDGE_PRAISE}".`
+      : `The linter did not flag the Judge's praise "${FIXTURE_JUDGE_PRAISE}".`,
+  };
+}
+
+/** The rewrite the Judge offered is quarantined, never shown as usable prose. */
+function judgeRewriteCheck(violations: Violation[]): HarnessCheck {
+  const quarantined = violations.some(
+    (violation) => violation.kind === "rewrite" && violation.text === FIXTURE_JUDGE_REWRITE,
+  );
+  return {
+    name: "noRewriteField",
+    ok: quarantined,
+    detail: quarantined
+      ? `The Judge's rewrite "${FIXTURE_JUDGE_REWRITE}" was quarantined as a Violation.`
+      : `The Judge's rewrite was not quarantined; violations=${JSON.stringify(violations)}.`,
   };
 }

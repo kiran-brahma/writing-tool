@@ -39,6 +39,19 @@ export const FIXTURE_PRAISE = "great writing";
 export const FIXTURE_REWRITE = "A much cleaner sentence.";
 /** The fixture response anchors one Finding outside the Target; Containment must drop it. */
 export const FIXTURE_DROPPED = 1;
+/**
+ * The Findings the fixture anchors inside the Target, by their `issue` label.
+ * Written down here rather than recomputed, so the harness asserts the fixture's
+ * own expectation rather than the containment path's answer about itself.
+ */
+export const FIXTURE_IN_TARGET_ISSUES = ["Cliché", "Smuggled prose"];
+/** The Finding the fixture anchors in the context above a paragraph Target. */
+export const FIXTURE_OUT_OF_TARGET_ISSUES = ["Out of scope"];
+
+/** The praise the Judge fixture plants; the linter must flag exactly this. */
+export const FIXTURE_JUDGE_PRAISE = "excellent prose";
+/** The rewrite phrase the Judge fixture plants in a problem list. */
+export const FIXTURE_JUDGE_REWRITE = "Consider rewriting";
 
 function doc(...content: BlockNode[]): DocTree {
   return { type: "doc", content };
@@ -244,4 +257,41 @@ export function adversarialReaderResponse(_target: Target): string {
   // The praise sits in the prose around the JSON, so the harness proves the
   // Reader path lints the whole response, not only the account's fields.
   return `This is ${FIXTURE_PRAISE}, honestly.\n${account}`;
+}
+
+/**
+ * The two passages the Judge matrix compares. The Judge is not a Pass: it takes
+ * two versions rather than a Target, so it gets its own small matrix. These are
+ * short, and the `after` version is the `before` with one clause tightened, so
+ * the fixture is a plausible comparison rather than lorem ipsum.
+ */
+export const HARNESS_JUDGE_PASSAGES: { id: string; before: string; after: string }[] = [
+  {
+    id: "planning",
+    before: "At the end of the day, I think we should really focus on the things that move the needle.",
+    after: "We should focus on what moves the needle.",
+  },
+  {
+    id: "migration",
+    before: "In order to move forward, we made the decision to delay the cutover.",
+    after: "We delayed the cutover.",
+  },
+];
+
+/**
+ * One misbehaving Judge response. The two calls must agree on a side, so the
+ * `preference` label is supplied per call: with the label order fixed at
+ * `["A", "B"]`, the first call prefers `A` and the swapped call prefers `B`, and
+ * both name the Writer's `before` version. It plants the two breaches the
+ * linter must catch in a problem list and a reason, and the evidence quote is
+ * empty so the fixture does not depend on either passage's text.
+ */
+export function adversarialJudgeResponse(label: "A" | "B"): string {
+  return JSON.stringify({
+    preference: label,
+    confidence: 0.7,
+    reasons: [{ evidence_quote: "", explanation: `The opening is ${FIXTURE_JUDGE_PRAISE}.` }],
+    problemsInA: [`${FIXTURE_JUDGE_REWRITE} the opening to be shorter.`],
+    problemsInB: [],
+  });
 }
