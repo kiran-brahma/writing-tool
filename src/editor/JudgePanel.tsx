@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { AnchorDraft } from "../core/finding";
+import type { AnchorDraft, Violation } from "../core/finding";
 import type { JudgeResult, JudgeSide, JudgeVerdict } from "../core/judge";
 import {
   clearPrediction,
@@ -15,6 +15,8 @@ import { lardFactor } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
 import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
+import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
+import { splitViolations } from "./violationMarks";
 
 /**
  * Story 78–90: comparing two versions of a passage. The Writer picks any two
@@ -476,6 +478,9 @@ function agreementText(agreement: PredictionAgreement, verdict: JudgeVerdict | n
 }
 
 function Verdict({ result }: { result: JudgeResult }) {
+  const { strikes, rewrites } = splitViolations(result.violations);
+  const quarantine = rewrites.length > 0 ? <QuarantinedRewrite violations={rewrites} /> : null;
+
   if (!result.stable || result.verdict === null) {
     return (
       <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -485,6 +490,12 @@ function Verdict({ result }: { result: JudgeResult }) {
           preference to report. The two versions may be equivalent, or the judge may be
           biased by which passage it read first.
         </p>
+        {strikes.length > 0 && (
+          <p className="mt-1 text-xs">
+            The judge also praised: <StruckViolations violations={strikes} />
+          </p>
+        )}
+        {quarantine}
       </div>
     );
   }
@@ -512,20 +523,39 @@ function Verdict({ result }: { result: JudgeResult }) {
                     “{reason.evidence_quote}”
                   </blockquote>
                 )}
-                <p className="mt-0.5 text-stone-800">{reason.explanation}</p>
+                <p className="mt-0.5 text-stone-800">
+                  <StruckText text={reason.explanation} violations={strikes} />
+                </p>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <ProblemList label="Problems in Version 1" problems={verdict.problemsInBefore} />
-      <ProblemList label="Problems in Version 2" problems={verdict.problemsInAfter} />
+      <ProblemList
+        label="Problems in Version 1"
+        problems={verdict.problemsInBefore}
+        strikes={strikes}
+      />
+      <ProblemList
+        label="Problems in Version 2"
+        problems={verdict.problemsInAfter}
+        strikes={strikes}
+      />
+      {quarantine}
     </div>
   );
 }
 
-function ProblemList({ label, problems }: { label: string; problems: string[] }) {
+function ProblemList({
+  label,
+  problems,
+  strikes,
+}: {
+  label: string;
+  problems: string[];
+  strikes: Violation[];
+}) {
   return (
     <div>
       <h3 className="mb-1 text-xs font-semibold text-stone-600">{label}</h3>
@@ -534,7 +564,9 @@ function ProblemList({ label, problems }: { label: string; problems: string[] })
       ) : (
         <ul className="list-disc space-y-0.5 pl-4 text-xs text-stone-800">
           {problems.map((problem, index) => (
-            <li key={index}>{problem}</li>
+            <li key={index}>
+              <StruckText text={problem} violations={strikes} />
+            </li>
           ))}
         </ul>
       )}

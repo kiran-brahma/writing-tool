@@ -175,6 +175,75 @@ describe("judge", () => {
     expect(result.verdict?.problemsInAfter).toEqual(["Vague second sentence."]);
   });
 
+  it("flags praise the Judge authored, in reasons and in problem lists", async () => {
+    const transport = responder(
+      answer({
+        reasons: [
+          { evidence_quote: "The day was pleasant", explanation: "The opening is great writing." },
+        ],
+        problemsInA: ["The second sentence is beautifully written but vague."],
+      }),
+      answer({
+        reasons: [
+          { evidence_quote: "The day was pleasant", explanation: "The opening is great writing." },
+        ],
+        problemsInA: ["The second sentence is beautifully written but vague."],
+      }),
+    );
+
+    const result = await judge(BEFORE, AFTER, connection(), config(transport, ["A", "B"]));
+
+    expect(result.violations.map((violation) => violation.kind)).toContain("praise");
+    expect(result.violations.some((violation) => violation.text === "great writing")).toBe(true);
+    expect(result.violations.some((violation) => violation.text === "beautifully written")).toBe(
+      true,
+    );
+  });
+
+  it("quarantines a rewrite the Judge authored rather than showing it as prose", async () => {
+    const transport = responder(
+      answer({ problemsInB: ["Consider rewriting the opening to be shorter."] }),
+      answer({ problemsInB: ["Consider rewriting the opening to be shorter."] }),
+    );
+
+    const result = await judge(BEFORE, AFTER, connection(), config(transport, ["A", "B"]));
+
+    expect(result.violations).toContainEqual({
+      kind: "rewrite",
+      text: "Consider rewriting",
+    });
+  });
+
+  it("surfaces a violation one call showed, even when the calls agree", async () => {
+    const transport = responder(
+      answer({ reasons: [{ evidence_quote: "x", explanation: "This is excellent prose." }] }),
+      answer({
+        preference: "B",
+        reasons: [{ evidence_quote: "x", explanation: "Plain and direct." }],
+      }),
+    );
+
+    const result = await judge(BEFORE, AFTER, connection(), config(transport, ["A", "B"]));
+
+    expect(result.stable).toBe(true);
+    expect(result.violations.some((violation) => violation.kind === "praise")).toBe(true);
+  });
+
+  it("does not lint the evidence quote, which is the Writer's own prose", async () => {
+    const transport = responder(
+      answer({
+        reasons: [{ evidence_quote: "It was a very nice day", explanation: "A concrete image." }],
+      }),
+      answer({
+        reasons: [{ evidence_quote: "It was a very nice day", explanation: "A concrete image." }],
+      }),
+    );
+
+    const result = await judge(BEFORE, AFTER, connection(), config(transport, ["A", "B"]));
+
+    expect(result.violations).toEqual([]);
+  });
+
   it("takes the lower of the two agreeing confidences, so agreement is not overconfidence", async () => {
     const transport = responder(
       answer({ preference: "A", confidence: 0.9 }),

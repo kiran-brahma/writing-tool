@@ -8,8 +8,22 @@ import {
 import type { JudgeResult } from "../core/judge";
 
 const mockJudgeResult: JudgeResult = {
-  first: { preference: "A", confidence: 0.9, reasons: [], problemsInA: [], problemsInB: [] },
-  swapped: { preference: "B", confidence: 0.9, reasons: [], problemsInA: [], problemsInB: [] },
+  first: {
+    preference: "A",
+    confidence: 0.9,
+    reasons: [],
+    problemsInA: [],
+    problemsInB: [],
+    violations: [],
+  },
+  swapped: {
+    preference: "B",
+    confidence: 0.9,
+    reasons: [],
+    problemsInA: [],
+    problemsInB: [],
+    violations: [],
+  },
   stable: true,
   labelOrder: ["A", "B"],
   verdict: {
@@ -19,6 +33,7 @@ const mockJudgeResult: JudgeResult = {
     problemsInBefore: [],
     problemsInAfter: [],
   },
+  violations: [],
 };
 
 describe("announcements", () => {

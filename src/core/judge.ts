@@ -1,7 +1,9 @@
 import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Transport } from "../wire/transport";
+import type { Violation } from "./finding";
 import { JUDGE_SCHEMA } from "./judgeSchema";
+import { dedupeViolations, lintViolations } from "./lintViolations";
 import { extractJson } from "./parseFindings";
 import { isRecord } from "./parseJson";
 
@@ -37,6 +39,8 @@ export interface JudgeAnswer {
   reasons: JudgeReason[];
   problemsInA: string[];
   problemsInB: string[];
+  /** Praise or rewrite-shaped content this call authored. */
+  violations: Violation[];
 }
 
 /** The Judge's answer mapped back to the Writer's view. */
@@ -61,6 +65,14 @@ export interface JudgeResult {
    * as a preference.
    */
   verdict: JudgeVerdict | null;
+  /**
+   * Praise or rewrite-shaped content either call authored. The linter's
+   * contract covers every returned string, so the Judge is held to it exactly
+   * as the Critic is: praise is struck through rather than stripped, and a
+   * rewrite is quarantined. Unioning both calls means a drift the model showed
+   * only under one label assignment is still surfaced.
+   */
+  violations: Violation[];
 }
 
 export interface JudgeConfig {
@@ -193,7 +205,9 @@ function assembleResult(
       }
     : null;
 
-  return { first, swapped, stable, labelOrder, verdict };
+  const violations = dedupeViolations([...first.violations, ...swapped.violations]);
+
+  return { first, swapped, stable, labelOrder, verdict, violations };
 }
 
 /** The Writer's version a preference names under a given label order. */
@@ -246,13 +260,37 @@ export function parseJudgeAnswer(raw: string): JudgeAnswer {
     throw new Error("The Judge response did not name a preference of A, B or tie.");
   }
 
+  const reasons = reasonsOf(value.reasons);
+  const problemsInA = stringList(value.problemsInA);
+  const problemsInB = stringList(value.problemsInB);
+
   return {
     preference,
     confidence: clamp01(numberOr(value.confidence, 0.5)),
-    reasons: reasonsOf(value.reasons),
-    problemsInA: stringList(value.problemsInA),
-    problemsInB: stringList(value.problemsInB),
+    reasons,
+    problemsInA,
+    problemsInB,
+    violations: judgeViolations(reasons, problemsInA, problemsInB),
   };
+}
+
+/**
+ * The strings the Judge authored, scanned for praise and rewrite-shaped
+ * content. `evidence_quote` is exempt: it quotes one of the Writer's two
+ * passages, exactly as a Finding's `quote` is the Writer's prose rather than
+ * the model's.
+ */
+function judgeViolations(
+  reasons: JudgeReason[],
+  problemsInA: string[],
+  problemsInB: string[],
+): Violation[] {
+  const authored = [
+    ...reasons.map((reason) => reason.explanation),
+    ...problemsInA,
+    ...problemsInB,
+  ];
+  return dedupeViolations(authored.flatMap((text) => lintViolations(text)));
 }
 
 /**
