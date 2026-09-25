@@ -27,6 +27,42 @@ export type Slot = "critic";
 export const PASS_SCOPES: readonly PassScope[] = ["document", "section", "paragraph"];
 
 /**
+ * The words one Pass scope is described with. The Rail, the Workbench and the
+ * Run guard all need to name a scope, and each used to spell it out itself, so
+ * the wording lives here once: `label` names it in a list, `targetPhrase`
+ * finishes "runs over …", and `emptyMessage` says what to do when the Document
+ * has nothing at that scope.
+ */
+export interface ScopeVocab {
+  label: string;
+  targetPhrase: string;
+  emptyMessage: string;
+}
+
+export function scopeVocab(scope: PassScope): ScopeVocab {
+  switch (scope) {
+    case "document":
+      return {
+        label: "Whole document",
+        targetPhrase: "the whole document",
+        emptyMessage: "Add some text before running a structural Pass.",
+      };
+    case "section":
+      return {
+        label: "Section",
+        targetPhrase: "the section your cursor is in",
+        emptyMessage: "Put the cursor inside a Section before running a Section Pass.",
+      };
+    case "paragraph":
+      return {
+        label: "Paragraph",
+        targetPhrase: "the paragraph your cursor is in",
+        emptyMessage: "Add a paragraph before running a local Pass.",
+      };
+  }
+}
+
+/**
  * Story 101: the fixed set a Pass's output shape is chosen from. A
  * user-editable JSON Schema is explicitly not supported.
  */

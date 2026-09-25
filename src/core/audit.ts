@@ -6,6 +6,7 @@ import type { RunConfig } from "./critique";
 import type { Provenance, Violation } from "./finding";
 import { dedupeViolations, lintViolations } from "./lintViolations";
 import { buildPassRequest, provenanceFor } from "./modelCall";
+import { lintProseAroundSpan } from "./parseFindings";
 import { isAuditPass, type Pass } from "./pass";
 import {
   extractJsonWithSpan,
@@ -216,10 +217,10 @@ export function parseAuditAccount(raw: string): ParsedAuditAccount {
   const account = validateAuditAccount(value);
   if (account === null) throw new AuditAccountParseError();
 
-  const prose = span === raw ? "" : raw.split(span).join(" ");
+  const prose = lintProseAroundSpan(raw, span);
   return {
     account,
-    violations: dedupeViolations([...auditViolations(value), ...lintViolations(prose)]),
+    violations: dedupeViolations([...auditViolations(value), ...prose]),
   };
 }
 

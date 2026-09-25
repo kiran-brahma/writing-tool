@@ -10,6 +10,7 @@ import {
 import {
   isAuditPass,
   isReaderPass,
+  scopeVocab,
   soloRulePass,
   type Pass,
   type RuleConfig,
@@ -74,9 +75,7 @@ export interface BandPanelProps {
 
 /** The Target a Pass of this scope runs against, for its controls and copy. */
 function targetLabel(scope: Pass["scope"]): string {
-  if (scope === "document") return "the whole document";
-  if (scope === "section") return "the section your cursor is in";
-  return "the paragraph your cursor is in";
+  return scopeVocab(scope).targetPhrase;
 }
 
 export function BandPanel({

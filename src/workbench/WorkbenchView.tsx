@@ -3,6 +3,7 @@ import {
   OUTPUT_SHAPES,
   PASS_SCOPES,
   passAcceptsFrame,
+  scopeVocab,
   type OutputShape,
   type Pass,
   type PassScope,
@@ -527,14 +528,7 @@ function frameLabel(frame: ScreeningFrame): string {
 
 /** The Writer-facing name for a Pass scope. */
 function scopeLabel(scope: PassScope): string {
-  switch (scope) {
-    case "document":
-      return "Whole document";
-    case "section":
-      return "Section";
-    case "paragraph":
-      return "Paragraph";
-  }
+  return scopeVocab(scope).label;
 }
 
 /** The Writer-facing name for an output shape. */

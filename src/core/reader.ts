@@ -1,8 +1,9 @@
 import type { Connection } from "../wire/connection";
 import type { RunConfig } from "./critique";
 import type { Provenance, Violation } from "./finding";
-import { dedupeViolations, lintViolations } from "./lintViolations";
+import { dedupeViolations } from "./lintViolations";
 import { buildPassRequest, provenanceFor } from "./modelCall";
+import { lintProseAroundSpan } from "./parseFindings";
 import { isReaderPass, type Pass } from "./pass";
 import {
   extractJsonWithSpan,
@@ -113,13 +114,10 @@ export function parseReaderAccount(raw: string): ParsedReaderAccount {
   const account = validateReaderAccount(value);
   if (account === null) throw new ReaderAccountParseError();
 
-  const prose = span === raw ? "" : raw.split(span).join(" ");
+  const prose = lintProseAroundSpan(raw, span);
   return {
     account,
-    violations: dedupeViolations([
-      ...violationsForFields(value, READER_MODEL_FIELDS),
-      ...lintViolations(prose),
-    ]),
+    violations: dedupeViolations([...violationsForFields(value, READER_MODEL_FIELDS), ...prose]),
   };
 }
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "./finding";
 import {
+  PASS_SCOPES,
   rulePassesToRun,
+  scopeVocab,
   soloRulePass,
   structuralPasses,
   workingOrder,
@@ -318,5 +320,28 @@ describe("workingOrder and the Findings queue (ADR 0010)", () => {
       "a",
       "b",
     ]);
+  });
+});
+
+describe("scopeVocab", () => {
+  it("names every scope the type allows, with no gaps", () => {
+    for (const scope of PASS_SCOPES) {
+      const vocab = scopeVocab(scope);
+      expect(vocab.label).not.toBe("");
+      expect(vocab.targetPhrase).not.toBe("");
+      expect(vocab.emptyMessage).not.toBe("");
+    }
+  });
+
+  it("uses the wording the Rail, the Workbench and the Run guard show", () => {
+    // Written out rather than recomputed: these strings are the Writer-facing
+    // contract the three surfaces used to hold separately.
+    expect(scopeVocab("document")).toEqual({
+      label: "Whole document",
+      targetPhrase: "the whole document",
+      emptyMessage: "Add some text before running a structural Pass.",
+    });
+    expect(scopeVocab("section").label).toBe("Section");
+    expect(scopeVocab("paragraph").targetPhrase).toBe("the paragraph your cursor is in");
   });
 });

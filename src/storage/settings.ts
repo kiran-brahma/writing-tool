@@ -4,26 +4,41 @@ import { normalizeVoiceList } from "../core/voiceList";
 import type { ObelusDatabase } from "./obelusDatabase";
 
 /**
- * Global settings that are not about one Document or one Connection. The
- * Screening frame is the first: it is the Critic's standing instruction, it
- * applies to critic Passes only, and the Writer can switch it off to compare
- * how a model behaves with and without it.
+ * Global settings that are not about one Document or one Connection: the
+ * Screening frame, the chunking character limit, the Voice list, and the rail's
+ * two view preferences. They share one key-value store and one shape — read the
+ * stored value, normalise it, write the normalised value back — so that shape
+ * lives here once rather than being written out per setting.
+ */
+function setting<T>(key: string, normalize: (stored: unknown) => T) {
+  return {
+    /** The stored value through `normalize`, or the default when absent. */
+    async load(database: ObelusDatabase): Promise<T> {
+      const record = await database.settings.get(key);
+      return normalize(record?.value);
+    },
+    /** Write the normalised value and return what was written. */
+    async save(database: ObelusDatabase, value: T): Promise<T> {
+      const normalized = normalize(value);
+      await database.settings.put({ key, value: normalized });
+      return normalized;
+    },
+  };
+}
+
+/**
+ * The Screening frame: the Critic's standing instruction. It applies to critic
+ * Passes only, and the Writer can switch it off to compare how a model behaves
+ * with and without it. On by default; only an explicit `false` turns it off.
  */
 const SCREENING_FRAME_SETTING_KEY = "screeningFrame";
 
-/** The Screening frame is on by default; only an explicit `false` turns it off. */
-export async function loadScreeningFrame(database: ObelusDatabase): Promise<boolean> {
-  const record = await database.settings.get(SCREENING_FRAME_SETTING_KEY);
-  return record === undefined ? true : record.value !== false;
-}
+const screeningFrameSetting = setting<boolean>(SCREENING_FRAME_SETTING_KEY, (stored) =>
+  stored === undefined ? true : stored !== false,
+);
 
-export async function saveScreeningFrame(
-  database: ObelusDatabase,
-  enabled: boolean,
-): Promise<boolean> {
-  await database.settings.put({ key: SCREENING_FRAME_SETTING_KEY, value: enabled });
-  return enabled;
-}
+export const loadScreeningFrame = screeningFrameSetting.load;
+export const saveScreeningFrame = screeningFrameSetting.save;
 
 /**
  * Story 50: the character limit above which a document-scope Run is chunked.
@@ -34,25 +49,16 @@ export async function saveScreeningFrame(
  */
 export const CHARACTER_LIMIT_SETTING_KEY = "characterLimit";
 
-export async function loadCharacterLimit(database: ObelusDatabase): Promise<number> {
-  const record = await database.settings.get(CHARACTER_LIMIT_SETTING_KEY);
-  return normalizeCharacterLimit(record?.value);
-}
-
-export async function saveCharacterLimit(
-  database: ObelusDatabase,
-  limit: number,
-): Promise<number> {
-  const normalized = normalizeCharacterLimit(limit);
-  await database.settings.put({ key: CHARACTER_LIMIT_SETTING_KEY, value: normalized });
-  return normalized;
-}
-
 /** A whole number at or above the floor, or the Core default otherwise. */
 function normalizeCharacterLimit(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_CHARACTER_LIMIT;
   return Math.max(MIN_CHARACTER_LIMIT, Math.round(value));
 }
+
+const characterLimitSetting = setting<number>(CHARACTER_LIMIT_SETTING_KEY, normalizeCharacterLimit);
+
+export const loadCharacterLimit = characterLimitSetting.load;
+export const saveCharacterLimit = characterLimitSetting.save;
 
 /**
  * Stories 149–152: the Voice list, the words and phrases the Writer has
@@ -64,20 +70,10 @@ function normalizeCharacterLimit(value: unknown): number {
  */
 export const VOICE_LIST_SETTING_KEY = "voiceList";
 
-export async function loadVoiceList(database: ObelusDatabase): Promise<string[]> {
-  const record = await database.settings.get(VOICE_LIST_SETTING_KEY);
-  return normalizeVoiceList(record?.value);
-}
+const voiceListSetting = setting<string[]>(VOICE_LIST_SETTING_KEY, normalizeVoiceList);
 
-/** Stores the Voice list and returns the normalised value that was written. */
-export async function saveVoiceList(
-  database: ObelusDatabase,
-  voiceList: string[],
-): Promise<string[]> {
-  const normalized = normalizeVoiceList(voiceList);
-  await database.settings.put({ key: VOICE_LIST_SETTING_KEY, value: normalized });
-  return normalized;
-}
+export const loadVoiceList = voiceListSetting.load;
+export const saveVoiceList = voiceListSetting.save;
 
 /**
  * ADR 0010: the rail opens on Structure the first time and on the last Band the
@@ -92,19 +88,10 @@ function normalizeRailBand(value: unknown): WorkingOrderBand {
   return isWorkingOrderBand(value) ? value : "structure";
 }
 
-export async function loadRailBand(database: ObelusDatabase): Promise<WorkingOrderBand> {
-  const record = await database.settings.get(RAIL_BAND_SETTING_KEY);
-  return normalizeRailBand(record?.value);
-}
+const railBandSetting = setting<WorkingOrderBand>(RAIL_BAND_SETTING_KEY, normalizeRailBand);
 
-export async function saveRailBand(
-  database: ObelusDatabase,
-  band: WorkingOrderBand,
-): Promise<WorkingOrderBand> {
-  const normalized = normalizeRailBand(band);
-  await database.settings.put({ key: RAIL_BAND_SETTING_KEY, value: normalized });
-  return normalized;
-}
+export const loadRailBand = railBandSetting.load;
+export const saveRailBand = railBandSetting.save;
 
 /**
  * ADR 0010, story 166: whether the rail is collapsed entirely so the Writer has
@@ -112,18 +99,10 @@ export async function saveRailBand(
  */
 export const RAIL_COLLAPSED_SETTING_KEY = "railCollapsed";
 
-export async function loadRailCollapsed(database: ObelusDatabase): Promise<boolean> {
-  const record = await database.settings.get(RAIL_COLLAPSED_SETTING_KEY);
-  return record === undefined ? false : record.value === true;
-}
+const railCollapsedSetting = setting<boolean>(RAIL_COLLAPSED_SETTING_KEY, (stored) => stored === true);
 
-export async function saveRailCollapsed(
-  database: ObelusDatabase,
-  collapsed: boolean,
-): Promise<boolean> {
-  await database.settings.put({ key: RAIL_COLLAPSED_SETTING_KEY, value: collapsed });
-  return collapsed;
-}
+export const loadRailCollapsed = railCollapsedSetting.load;
+export const saveRailCollapsed = railCollapsedSetting.save;
 
 /**
  * Story 169: whether the Writer has dismissed the first-run note in the Editor
@@ -135,15 +114,7 @@ export async function saveRailCollapsed(
  */
 export const FIRST_RUN_NOTE_SETTING_KEY = "firstRunNoteDismissed";
 
-export async function loadFirstRunNoteDismissed(database: ObelusDatabase): Promise<boolean> {
-  const record = await database.settings.get(FIRST_RUN_NOTE_SETTING_KEY);
-  return record === undefined ? false : record.value === true;
-}
+const firstRunNoteSetting = setting<boolean>(FIRST_RUN_NOTE_SETTING_KEY, (stored) => stored === true);
 
-export async function saveFirstRunNoteDismissed(
-  database: ObelusDatabase,
-  dismissed: boolean,
-): Promise<boolean> {
-  await database.settings.put({ key: FIRST_RUN_NOTE_SETTING_KEY, value: dismissed });
-  return dismissed;
-}
+export const loadFirstRunNoteDismissed = firstRunNoteSetting.load;
+export const saveFirstRunNoteDismissed = firstRunNoteSetting.save;

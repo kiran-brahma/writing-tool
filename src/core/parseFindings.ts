@@ -82,11 +82,22 @@ export function parseFindings(raw: string, shape: OutputShape): ParsedFindings {
   }
 
   // The aggregate is what the Run reports: every candidate's violations plus
-  // the model's prose around the JSON. The JSON span itself is not linted
-  // wholesale — its `quote` field is the Writer's own prose, and a Violation is
-  // never about the prose — so only the text outside it is scanned.
-  const prose = span === raw ? "" : raw.split(span).join(" ");
-  return { findings, violations: dedupeViolations([...violations, ...lintViolations(prose)]) };
+  // the model's prose around the JSON.
+  return {
+    findings,
+    violations: dedupeViolations([...violations, ...lintProseAroundSpan(raw, span)]),
+  };
+}
+
+/**
+ * The linter's treatment of the prose a model wrapped around the JSON it was
+ * asked for. The span itself is not linted wholesale — a `quote`, `passage` or
+ * `evidence_quote` inside it is the Writer's own prose, and a Violation is never
+ * about the Writer's prose — so only the text outside it is scanned. One rule
+ * for the Findings, Reader and Audit parsers, which used to spell it out each.
+ */
+export function lintProseAroundSpan(raw: string, span: string): Violation[] {
+  return lintViolations(span === raw ? "" : raw.split(span).join(" "));
 }
 
 /**
