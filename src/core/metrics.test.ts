@@ -6,10 +6,12 @@ import {
   isBeVerb,
   isPreposition,
   lardFactor,
+  lardFactorOfDiff,
   paragraphShapeMetrics,
 } from "./metrics";
 import { parseCanonical } from "./parseCanonical";
 import { countWords } from "./tokens";
+import { wordDiff } from "./wordDiff";
 
 describe("documentMetrics", () => {
   it("reports sentence count, mean length, variance and longest sentence", () => {
@@ -153,6 +155,13 @@ describe("lardFactor", () => {
 
   it("is negative when the later Revision adds words", () => {
     expect(lardFactor("one two", "one two three four")).toBe(-1);
+  });
+
+  it("reads the factor from a word diff already computed", () => {
+    // Four words before, three after: one of four cut.
+    expect(lardFactorOfDiff(wordDiff("the quick brown fox", "a quick fox"))).toBeCloseTo(0.25);
+    expect(lardFactorOfDiff(wordDiff("one two", "one two three four"))).toBe(-1);
+    expect(lardFactorOfDiff([])).toBe(0);
   });
 
   it("returns one when everything is cut and zero for an empty before", () => {

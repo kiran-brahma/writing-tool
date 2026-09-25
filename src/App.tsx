@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { blockIndexForInterval, type HighlightInterval } from "./core/anchor";
-import type { Interval } from "./core/finding";
+import type { DeclineReason, Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
-import { DocumentEditor } from "./editor/DocumentEditor";
+import { DocumentEditor, type HighlightHit } from "./editor/DocumentEditor";
+import { FindingCallout } from "./editor/FindingCallout";
+import { calloutFindings } from "./editor/callout";
 import { isTypingTarget } from "./editor/typingTarget";
 import { WorkingOrderRail } from "./editor/WorkingOrderRail";
 import { HowThisWorksView } from "./help/HowThisWorksView";
@@ -130,6 +132,7 @@ export default function App() {
   const editorHighlights = useMemo<HighlightInterval[]>(
     () =>
       highlights.map((highlight) => ({
+        findingId: highlight.findingId,
         interval: highlight.interval,
         current: highlight.findingId === currentFindingId,
       })),
@@ -160,6 +163,42 @@ export default function App() {
       }));
     },
     [document, highlights],
+  );
+
+  /** The Highlight whose callout is open, or null when none is. */
+  const [calloutHit, setCalloutHit] = useState<HighlightHit | null>(null);
+  const calloutEntries = useMemo(
+    () => (calloutHit === null ? [] : calloutFindings(calloutHit.findingIds, handle.findings)),
+    [calloutHit, handle.findings],
+  );
+  const closeCallout = useCallback(() => setCalloutHit(null), []);
+  const calloutOpen = calloutHit !== null && calloutEntries.length > 0;
+
+  /**
+   * A click on a Highlight opens its callout and nothing else moves: the
+   * Current Finding stays put, so the Rail does not scroll to a row and the
+   * Writer keeps their place in the prose.
+   */
+  const openCallout = useCallback((hit: HighlightHit | null) => setCalloutHit(hit), []);
+
+  /** A verdict given in the callout: the Finding leaves the queue and the callout. */
+  const leaveQueueFromCallout = useCallback(
+    (findingId: string, write: () => Promise<boolean>) => {
+      void write().then((written) => {
+        if (!written) return;
+        setCurrentFindingId((current) => (current === findingId ? null : current));
+      });
+    },
+    [],
+  );
+  const addressFromCallout = useCallback(
+    (findingId: string) => leaveQueueFromCallout(findingId, () => handle.markAddressed(findingId)),
+    [leaveQueueFromCallout, handle.markAddressed],
+  );
+  const declineFromCallout = useCallback(
+    (findingId: string, reason: DeclineReason) =>
+      leaveQueueFromCallout(findingId, () => handle.decline(findingId, reason)),
+    [leaveQueueFromCallout, handle.decline],
   );
 
   /**
@@ -536,10 +575,22 @@ export default function App() {
                   initialContent={document.tree}
                   onChange={handleChange}
                   highlights={editorHighlights}
+                  highlightsResolvedAgainst={document.canonical}
                   onTargetChange={setTargetBlockIndex}
                   onSelectionChange={setSelectionInterval}
                   jumpRequest={jumpRequest}
+                  onHighlightClick={openCallout}
+                  calloutOpen={calloutOpen}
                 />
+                {calloutOpen && calloutHit !== null && (
+                  <FindingCallout
+                    findings={calloutEntries}
+                    rect={calloutHit.rect}
+                    onAddress={addressFromCallout}
+                    onDecline={declineFromCallout}
+                    onClose={closeCallout}
+                  />
+                )}
               </>
             )}
           </main>

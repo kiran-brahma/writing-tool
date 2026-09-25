@@ -92,21 +92,38 @@
  * A Highlight is the visual rendering of an Anchor. Amber so it reads as a mark
  * the Writer works through, not as an error; the underline keeps it legible
  * over bold and code.
+ *
+ * The underline is a text decoration, never a box-shadow, and the span has no
+ * border-radius. A Document can carry hundreds of Highlights, and WebKit
+ * repaints an inset shadow on every one of them as the Writer types: measured in
+ * WebKit with ~490 Highlights, the shadow tripled the time a keystroke took.
  */
 .obelus-highlight {
   background-color: #fde68a;
-  box-shadow: inset 0 -0.15em 0 #d97706;
-  border-radius: 0.15rem;
+  text-decoration-line: underline;
+  text-decoration-color: #d97706;
+  text-decoration-thickness: 0.15em;
+  text-underline-offset: 0.15em;
 }
 
 /*
  * The Current Finding's Highlight, drawn beside `.obelus-highlight` rather than
  * instead of it. A deeper amber and a ring mark the one the queue is on without
- * changing what a Highlight means.
+ * changing what a Highlight means. The ring is an outline: only one Highlight is
+ * ever current, so it never costs what a ring on every Highlight would.
  */
 .obelus-highlight-current {
   background-color: #fbbf24;
-  box-shadow: inset 0 -0.15em 0 #b45309, 0 0 0 1px #b45309;
+  text-decoration-color: #b45309;
+  outline: 1px solid #b45309;
+}
+
+/*
+ * A click on a Highlight opens its Findings beside the prose; deepening it
+ * under the pointer says so without changing what a Highlight means.
+ */
+.obelus-highlight:hover {
+  background-color: #fcd34d;
 }
 
 .obelus-editor:focus {

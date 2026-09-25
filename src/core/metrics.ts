@@ -2,7 +2,7 @@ import { canonicalBlocks } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import { splitSentences, type Sentence } from "./sentences";
 import { countWords, tokenizeWords } from "./tokens";
-import { wordDiff } from "./wordDiff";
+import { wordDiff, type WordDiffSegment } from "./wordDiff";
 
 /**
  * Document rhythm metrics: sentence length and its variance, and adverb
@@ -138,9 +138,19 @@ export function documentMetrics(canonical: string): DocumentMetrics {
  * nothing gates on it.
  */
 export function lardFactor(before: string, after: string): number {
+  return lardFactorOfDiff(wordDiff(before, after));
+}
+
+/**
+ * `lardFactor` read from a word diff the caller already holds. The diff is the
+ * expensive part — between a Writer's oldest and newest Revision it can take
+ * seconds — so a view that shows the diff reads the number from the same one
+ * rather than diffing the pair twice.
+ */
+export function lardFactorOfDiff(diff: WordDiffSegment[]): number {
   let beforeWords = 0;
   let afterWords = 0;
-  for (const segment of wordDiff(before, after)) {
+  for (const segment of diff) {
     const words = countWords(segment.value);
     if (segment.kind !== "added") beforeWords += words;
     if (segment.kind !== "removed") afterWords += words;

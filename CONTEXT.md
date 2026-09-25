@@ -129,6 +129,12 @@ _Avoid_: position, range, mark
 The visual rendering of an Anchor. The Current Finding's Highlight is distinguished from the rest.
 _Avoid_: underline, marker
 
+**Callout**:
+The popover a click on a Highlight opens beside the prose: the open Findings on that text, with the
+queue's verdicts. It does not change the Current Finding, so the Rail stays where the Writer left it
+(ADR 0011).
+_Avoid_: tooltip, popup, card
+
 **Orphaned**:
 The condition of a Finding whose quoted text can no longer be found, so it points nowhere. A
 condition, never a status.

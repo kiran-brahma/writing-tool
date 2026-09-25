@@ -10,17 +10,19 @@ describe("createPersistence", () => {
     vi.useRealTimers();
   });
 
-  it("persists the Document after the short debounce and resets it on each keystroke", async () => {
+  it("saves only after a full second with no typing, and each keystroke restarts the second", async () => {
     const save = vi.fn(async () => {});
     const controller = createPersistence({ save, takeRevision: async () => {}, onError: () => {} });
 
-    controller.markDirty();
-    await vi.advanceTimersByTimeAsync(400);
-    controller.markDirty();
-    await vi.advanceTimersByTimeAsync(400);
+    // A burst of edits, each landing just inside the second, never saves; the
+    // save and the rule Passes it runs must not compete with the Writer typing.
+    for (let key = 0; key < 5; key += 1) {
+      controller.markDirty();
+      await vi.advanceTimersByTimeAsync(999);
+    }
     expect(save).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(1);
     expect(save).toHaveBeenCalledTimes(1);
   });
 

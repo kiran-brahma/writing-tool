@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   blockIndexForInterval,
   projectHighlights,
+  projectHighlightsOnto,
   projectInterval,
   reResolveFindings,
   resolveAnchor,
@@ -394,16 +395,16 @@ describe("blockIndexForInterval", () => {
  * must stay with its own interval rather than slide onto a neighbour.
  */
 describe("projectHighlights", () => {
-  it("keeps each Highlight's current flag through projection", () => {
+  it("keeps each Highlight's Finding and current flag through projection", () => {
     const tree = doc(paragraph("alpha"), paragraph("beta"));
     const projected = projectHighlights(tree, [
-      { interval: { start: 0, end: 5 }, current: false },
-      { interval: { start: 7, end: 11 }, current: true },
+      { findingId: "f1", interval: { start: 0, end: 5 }, current: false },
+      { findingId: "f2", interval: { start: 7, end: 11 }, current: true },
     ]);
 
     expect(projected).toEqual([
-      { from: 1, to: 6, current: false },
-      { from: 8, to: 12, current: true },
+      { findingId: "f1", from: 1, to: 6, current: false },
+      { findingId: "f2", from: 8, to: 12, current: true },
     ]);
   });
 
@@ -412,10 +413,34 @@ describe("projectHighlights", () => {
     const projected = projectHighlights(tree, [
       // The blank-line separator between the two Paragraphs carries no source
       // character, so this range projects to nothing.
-      { interval: { start: 5, end: 6 }, current: false },
-      { interval: { start: 7, end: 11 }, current: true },
+      { findingId: "f1", interval: { start: 5, end: 6 }, current: false },
+      { findingId: "f2", interval: { start: 7, end: 11 }, current: true },
     ]);
 
-    expect(projected).toEqual([{ from: 8, to: 12, current: true }]);
+    expect(projected).toEqual([{ findingId: "f2", from: 8, to: 12, current: true }]);
+  });
+});
+
+/**
+ * Highlights are resolved when the Writer pauses, against the text as it was
+ * then. Projected onto a tree the Writer has typed into since, their intervals
+ * would land on the wrong characters, so projection refuses.
+ */
+describe("projectHighlightsOnto", () => {
+  const highlights = [{ findingId: "f1", interval: { start: 4, end: 9 }, current: true }];
+
+  it("projects intervals resolved against the tree's own text", () => {
+    const tree = doc(paragraph("The very cat."));
+
+    expect(projectHighlightsOnto(tree, canonicalText(tree), highlights)).toEqual([
+      { findingId: "f1", from: 5, to: 10, current: true },
+    ]);
+  });
+
+  it("refuses intervals resolved against text the Writer has since changed", () => {
+    const resolvedAgainst = canonicalText(doc(paragraph("The very cat.")));
+    const edited = doc(paragraph("Oh, the very cat."));
+
+    expect(projectHighlightsOnto(edited, resolvedAgainst, highlights)).toBeNull();
   });
 });

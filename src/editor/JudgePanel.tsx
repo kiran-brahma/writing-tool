@@ -11,11 +11,13 @@ import {
   type PredictionAgreement,
 } from "../core/judgeCalibration";
 import { defaultJudgePair, extractPassages, type ExtractedPassages } from "../core/judgeSelection";
-import { lardFactor } from "../core/metrics";
+import { lardFactorOfDiff } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
 import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
+import { TYPING_PAUSE_MS } from "./persistence";
+import { useSettledValue } from "./useSettledValue";
 import { splitViolations } from "./violationMarks";
 
 /**
@@ -91,20 +93,28 @@ export function JudgePanel({
     if (afterId === null && defaultPair.after !== null) setAfterId(defaultPair.after);
   }, [defaultPair, beforeId, afterId]);
 
-  const anchor = mode === "span" ? selection : section;
+  // The panel is always mounted below the Bands, so it re-renders as the Writer
+  // types and selects. Extracting passages diffs the whole Document against
+  // both Revisions — seconds, once a Writer's Revisions differ widely — so it
+  // waits for the selection to hold still, and runs once per settled selection
+  // rather than on every render. A word selected and immediately retyped never
+  // pays for it.
+  const anchor = useSettledValue(mode === "span" ? selection : section, TYPING_PAUSE_MS);
   const beforeRevision = revisions.find((revision) => revision.id === beforeId) ?? null;
   const afterRevision = revisions.find((revision) => revision.id === afterId) ?? null;
-
-  // The extraction is Core's, so the Editor only displays what Core produced.
-  const passages: ExtractedPassages =
-    beforeRevision !== null && afterRevision !== null
-      ? extractPassages(anchor, currentCanonical, beforeRevision.canonical, afterRevision.canonical)
-      : { before: null, after: null };
-  const beforeText = passages.before;
-  const afterText = passages.after;
-
   const beforeCanonical = beforeRevision?.canonical ?? null;
   const afterCanonical = afterRevision?.canonical ?? null;
+
+  // The extraction is Core's, so the Editor only displays what Core produced.
+  const passages = useMemo<ExtractedPassages>(
+    () =>
+      beforeCanonical !== null && afterCanonical !== null
+        ? extractPassages(anchor, currentCanonical, beforeCanonical, afterCanonical)
+        : { before: null, after: null },
+    [anchor, currentCanonical, beforeCanonical, afterCanonical],
+  );
+  const beforeText = passages.before;
+  const afterText = passages.after;
   const diff = useMemo(
     () =>
       beforeCanonical !== null && afterCanonical !== null
@@ -115,10 +125,10 @@ export function JudgePanel({
 
   // Story 144: the Lard Factor for the same pair the diff is for, so the number
   // and the diff on screen cannot disagree. Display only.
-  const lard =
-    beforeCanonical !== null && afterCanonical !== null
-      ? lardFactor(beforeCanonical, afterCanonical)
-      : null;
+  const lard = useMemo(
+    () => (beforeCanonical !== null && afterCanonical !== null ? lardFactorOfDiff(diff) : null),
+    [beforeCanonical, afterCanonical, diff],
+  );
 
   // A Verdict is shown only while the passages on screen are the ones it judged,
   // so switching the pair never leaves a stale preference labelled as this one's.

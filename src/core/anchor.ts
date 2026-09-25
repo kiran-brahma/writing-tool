@@ -375,12 +375,12 @@ export function canonicalIntervalForRange(tree: DocTree, range: EditorRange): In
 /**
  * Projects many intervals with one walk of the tree, so drawing H Highlights
  * costs one canonical render rather than H of them. Discards each Finding's
- * identity; `projectHighlights` keeps the `current` flag for the Editor.
+ * identity; `projectHighlights` keeps it, and the `current` flag, for the Editor.
  */
 export function projectIntervals(tree: DocTree, intervals: Interval[]): EditorRange[] {
   return projectHighlights(
     tree,
-    intervals.map((interval) => ({ interval, current: false })),
+    intervals.map((interval) => ({ findingId: "", interval, current: false })),
   ).map(({ from, to }) => ({ from, to }));
 }
 
@@ -418,14 +418,20 @@ export function blockIndexForInterval(tree: DocTree, interval: Interval | null):
   return null;
 }
 
-/** A canonical interval paired with whether it is the Current Finding. */
+/**
+ * A canonical interval paired with the Finding it draws and whether that is the
+ * Current Finding. The id lets a click on a Highlight name its Finding; the
+ * Editor never receives the Finding itself.
+ */
 export interface HighlightInterval {
+  findingId: string;
   interval: Interval;
   current: boolean;
 }
 
-/** A projected Highlight: the Editor range and whether it is current. */
+/** A projected Highlight: the Editor range, its Finding, and whether it is current. */
 export interface ProjectedHighlight extends EditorRange {
+  findingId: string;
   current: boolean;
 }
 
@@ -439,11 +445,35 @@ export function projectHighlights(
   tree: DocTree,
   highlights: HighlightInterval[],
 ): ProjectedHighlight[] {
-  const { positions } = canonicalTextWithMap(tree);
+  return projectFromMap(canonicalTextWithMap(tree).positions, highlights);
+}
+
+/**
+ * `projectHighlights`, or null when the tree no longer renders to
+ * `resolvedAgainst`, the canonical string the intervals were resolved against.
+ * Highlights resolve when the Writer pauses; projected onto a tree they have
+ * typed into since, the intervals would name the wrong characters. The check
+ * reuses the walk projection makes anyway, so it costs nothing extra.
+ */
+export function projectHighlightsOnto(
+  tree: DocTree,
+  resolvedAgainst: string,
+  highlights: HighlightInterval[],
+): ProjectedHighlight[] | null {
+  const { text, positions } = canonicalTextWithMap(tree);
+  return text === resolvedAgainst ? projectFromMap(positions, highlights) : null;
+}
+
+function projectFromMap(
+  positions: (number | null)[],
+  highlights: HighlightInterval[],
+): ProjectedHighlight[] {
   const projected: ProjectedHighlight[] = [];
   for (const highlight of highlights) {
     const range = projectFromPositions(positions, highlight.interval);
-    if (range !== null) projected.push({ ...range, current: highlight.current });
+    if (range !== null) {
+      projected.push({ findingId: highlight.findingId, ...range, current: highlight.current });
+    }
   }
   return projected;
 }

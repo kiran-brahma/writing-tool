@@ -71,7 +71,10 @@ export interface RunsOptions {
   savedCanonicalRef: RefObject<string | null>;
   passesRef: RefObject<Pass[]>;
   voiceListRef: RefObject<string[]>;
-  /** The current Document, for the estimates and the chunk plan. */
+  /**
+   * The Document as of the last typing pause, for the estimates and the chunk
+   * plan. The Runs themselves read `documentRef`.
+   */
   documentRecord: DocumentRecord | null;
   /** The top-level block the cursor is in, the paragraph-scope Target. */
   targetBlockIndex: number;

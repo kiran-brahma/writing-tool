@@ -51,6 +51,11 @@ export interface DocumentHandle {
    */
   storageNotice: string | null;
   dismissStorageNotice: () => void;
+  /**
+   * The Document as of the Writer's last typing pause, for display. Anything
+   * that reads or writes prose uses the Document of record, which is never
+   * behind the Editor.
+   */
   document: DocumentRecord | null;
   revisions: RevisionRecord[];
   /** Story 20: every Document held in this browser, newest edited first. */

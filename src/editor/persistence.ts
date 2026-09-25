@@ -32,7 +32,16 @@ export interface PersistenceController {
   dispose(): void;
 }
 
-const SAVE_DEBOUNCE_MS = 800;
+/**
+ * How long the Writer must stop typing before the checks run: the save, the
+ * rule Passes it runs, Finding re-resolution and the views that re-derive the
+ * whole Document. A keystroke inside the pause costs the Editor's own work and
+ * recording the new text for the save, so a burst of edits on a long Document
+ * never waits on a check of text that is about to change again.
+ */
+export const TYPING_PAUSE_MS = 1_000;
+
+const SAVE_DEBOUNCE_MS = TYPING_PAUSE_MS;
 const REVISION_IDLE_MS = 60_000;
 export const REVISION_CHANGE_LIMIT = 200;
 

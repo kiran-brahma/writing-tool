@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { reResolveFindings, type FindingResolution } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
 import type { DocumentStatus, LibraryEntry } from "../core/library";
 import type { Pass } from "../core/pass";
 import { describeError } from "../errors";
-import { createPersistence, type PersistenceController } from "../editor/persistence";
+import {
+  createPersistence,
+  TYPING_PAUSE_MS,
+  type PersistenceController,
+} from "../editor/persistence";
 import {
   exportDocument,
   importDocument,
@@ -152,6 +156,11 @@ export function useDocumentLifecycle(
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  /**
+   * The pending typing-pause timer. When it fires the shell catches up with
+   * the Writer's text: the Document re-renders and Findings re-resolve.
+   */
+  const pauseTimerRef = useRef<number | null>(null);
 
   /**
    * Reads the Library list without touching persistence. Writes that change a
@@ -337,21 +346,39 @@ export function useDocumentLifecycle(
     };
   }, [status, persistenceRef]);
 
+  // A pending typing pause must not fire into an unmounted hook.
+  useEffect(
+    () => () => {
+      if (pauseTimerRef.current !== null) window.clearTimeout(pauseTimerRef.current);
+    },
+    [],
+  );
+
   const handleChange = useCallback(
     (tree: DocTree) => {
       const current = documentRef.current;
       if (current === null) return;
-      const updated = withTree(current, tree);
-      documentRef.current = updated;
-      setDocumentRecord(updated);
-      // Re-resolve immediately, not only on the save debounce, so the Highlight
-      // follows the text as the Writer types. Persistence of `anchor.state`
-      // rides the save.
-      applyResolution(
-        reResolveFindings(findingsRef.current, updated.canonical, (id) =>
-          canonicalsRef.current.get(id),
-        ),
-      );
+      // A keystroke records the text in the Document of record and restarts the
+      // pause; saves, Runs and every other write read `documentRef`, so none of
+      // them can see stale prose. Everything that re-renders or re-checks — the
+      // shell, the Rail with its Finding rows, the estimates, Finding
+      // re-resolution, and the save with its rule Passes — waits until the
+      // Writer has stopped typing for `TYPING_PAUSE_MS`. Meanwhile the Editor's
+      // Highlights follow the text through ProseMirror's own mapping, so they
+      // still track the caret.
+      documentRef.current = withTree(current, tree);
+      if (pauseTimerRef.current !== null) window.clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = window.setTimeout(() => {
+        pauseTimerRef.current = null;
+        const latest = documentRef.current;
+        if (latest === null) return;
+        setDocumentRecord(latest);
+        applyResolution(
+          reResolveFindings(findingsRef.current, latest.canonical, (id) =>
+            canonicalsRef.current.get(id),
+          ),
+        );
+      }, TYPING_PAUSE_MS);
       persistenceRef.current?.markDirty();
     },
     [documentRef, setDocumentRecord, applyResolution, findingsRef, canonicalsRef, persistenceRef],
