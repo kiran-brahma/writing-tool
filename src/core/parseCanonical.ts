@@ -356,18 +356,27 @@ function parseLink(
   if (text[index + 1] !== "(") return null;
 
   const label = text.slice(start + 1, index);
+  // `canonicalText` backslash-escapes `\`, `(` and `)` in an href; unescape
+  // them here so an unbalanced parenthesis survives the round-trip.
+  let href = "";
   let close = index + 2;
   let parens = 1;
   for (; close < text.length; close++) {
+    if (text[close] === "\\" && isHrefEscapable(text[close + 1])) {
+      href += text[close + 1];
+      close++;
+      continue;
+    }
     if (text[close] === "(") parens++;
     else if (text[close] === ")") {
       parens--;
       if (parens === 0) break;
     }
+    href += text[close];
   }
   if (close >= text.length) return null;
 
-  return { label, href: text.slice(index + 2, close), next: close + 1 };
+  return { label, href, next: close + 1 };
 }
 
 function countRun(text: string, start: number, character: string): number {
@@ -389,6 +398,10 @@ function stripCodePadding(raw: string): string {
  * The characters `canonicalText` escapes. A backslash before anything else is
  * literal, so an imported Markdown backslash is not silently dropped.
  */
+function isHrefEscapable(char: string | undefined): boolean {
+  return char === "\\" || char === "(" || char === ")";
+}
+
 function isEscapable(char: string): boolean {
   return "\\`*[]#>+-.)".includes(char);
 }

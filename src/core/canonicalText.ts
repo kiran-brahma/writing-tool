@@ -428,7 +428,7 @@ function renderText(node: TextNode, position: number): CanonicalMap {
   let suffix = "";
   if (link !== undefined) {
     prefix = "[";
-    suffix = `](${link.attrs?.href ?? ""})`;
+    suffix = `](${escapeHref(link.attrs?.href ?? "")})`;
   }
   if (marks.some((mark) => mark.type === "bold")) {
     prefix = `**${prefix}`;
@@ -466,6 +466,14 @@ function collapseWhitespace(text: string): SourceChar[] {
 
 function escapePlainCharacter(char: string): string {
   return /[\\`*[\]]/.test(char) ? `\\${char}` : char;
+}
+
+/**
+ * Backslash-escapes the characters that could end a link destination early, so
+ * an href with an unbalanced parenthesis reads back as the same href.
+ */
+function escapeHref(href: string): string {
+  return href.replace(/[\\()]/g, "\\$&");
 }
 
 /**
