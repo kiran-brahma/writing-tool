@@ -2,31 +2,149 @@
 
 /*
  * Colours named by what they mean, not by palette step. Each light value is
- * the colour the app uses today, noted beside it, so moving a class or a rule
- * onto a name changes nothing on screen: the hex values are the Editor's own,
- * and the oklch values are Tailwind's palette steps copied exactly. The palette
- * classes still work until every component has moved; no dark values are
- * defined yet.
+ * the colour the app uses today, so moving a class or a rule onto a name
+ * changes nothing on screen: the hex values are the Editor's own, and the
+ * oklch values are Tailwind's palette steps copied exactly. The palette classes
+ * still work until every component has moved; no dark values are defined yet.
  *
- * The names after the first nine exist so the Editor's stylesheet holds no
- * literal colour: a Highlight's underline and hover, inline code, and links.
+ * Moving a component is mechanical: replace each palette class with the name
+ * in the table, keeping its variant (hover:, focus-visible:, disabled:) and
+ * its opacity (/60) as they are. `bg-stone-100/60` becomes `bg-sunk/60`.
+ *
+ *   bg-white                          paper
+ *   bg-stone-50                       ground
+ *   bg-stone-100                      sunk
+ *   bg-stone-200                      sunk-strong
+ *   bg-stone-300                      rule
+ *   bg-stone-700                      quiet-ink    the hover of an ink fill
+ *   bg-stone-900                      ink          an ink fill: the primary button
+ *   text-stone-50                     on-ink       text on an ink fill
+ *   text-stone-100                    sunk         text on an ink/90 fill
+ *   text-stone-400                    ghost-ink
+ *   text-stone-500                    faint-ink
+ *   text-stone-600                    muted-ink
+ *   text-stone-700                    quiet-ink
+ *   text-stone-800                    soft-ink
+ *   text-stone-900                    ink
+ *   border-stone-100                  rule-faint
+ *   border-stone-200, divide-stone-200  rule-soft
+ *   border-stone-300                  rule
+ *   border-stone-400                  rule-strong
+ *   border-stone-500                  rule-focus   a focused field's border
+ *   border-stone-900                  ink          the selected tab or choice
+ *   border-t-stone-700                quiet-ink    the spinner's arc
+ *   ring-stone-600                    focus
+ *
+ *   bg-amber-100                      mark-wash    the Current Finding's row
+ *   bg-amber-50                       warning-surface
+ *   text-amber-50                     warning-surface  text on a warning fill
+ *   border-amber-200                  warning-rule
+ *   border-amber-300                  warning-rule-strong
+ *   text-amber-700                    warning-muted
+ *   ring-amber-700                    warning-focus
+ *   text-amber-800, bg-amber-800      warning-soft
+ *   text-amber-900, bg-amber-900      warning
+ *   bg-amber-200                      milestone    the milestone badge
+ *   text-amber-900 on that badge      milestone-ink
+ *
+ *   text-red-700                      failure
+ *   bg-red-50                         failure-surface
+ *   border-red-300                    failure-rule
+ *   ring-red-600                      failure-focus
+ *   text-emerald-700                  success      a Connection test that passed
+ *
+ *   green-50 / green-200 / green-900  agreement-surface / agreement-rule /
+ *                                     agreement    a Prediction the Judge agreed with
+ *   bg-green-100, text-green-900      added, added-ink      the Judge's word diff
+ *   bg-red-100, text-red-900          removed, removed-ink  the Judge's word diff
+ *
+ *   decoration-rose-500               violation    the strike through a Violation
+ *   text-rose-800                     violation-ink
+ *   bg-rose-50                        violation-surface
+ *   bg-rose-100                       violation-wash
+ *   border-rose-300                   violation-rule
+ *   ring-rose-600                     violation-focus
+ *
+ *   text-blue-700                     link         a link in the tool's own text
+ *   text-blue-900                     link-hover
  */
 @theme {
+  /* The page and its surroundings. */
   --color-paper: #ffffff; /* white: the page the Writer's prose sits on */
-  --color-ink: #1c1917; /* stone-900 */
-  --color-muted-ink: #57534e; /* stone-600 */
-  --color-rule: #d6d3d1; /* stone-300 */
-  --color-mark: #fde68a; /* amber-200: a Highlight */
-  --color-current-mark: #fbbf24; /* amber-400: the Current Finding's Highlight */
-  --color-warning: oklch(41.4% 0.112 45.904); /* amber-900: a notice's text */
-  --color-failure: oklch(50.5% 0.213 27.518); /* red-700 */
-  --color-milestone: oklch(92.4% 0.12 95.746); /* amber-200: a milestone badge */
+  --color-ground: oklch(98.5% 0.001 106.423); /* stone-50: the app behind the page */
+  --color-sunk: #f5f5f4; /* stone-100: a recessed surface; inline code */
+  --color-sunk-strong: oklch(92.3% 0.003 48.717); /* stone-200: a chip, a selected row */
 
+  /* Ink, from strongest to faintest. */
+  --color-ink: #1c1917; /* stone-900 */
+  --color-soft-ink: oklch(26.8% 0.007 34.298); /* stone-800 */
+  --color-quiet-ink: oklch(37.4% 0.01 67.558); /* stone-700 */
+  --color-muted-ink: #57534e; /* stone-600 */
+  --color-faint-ink: oklch(55.3% 0.013 58.071); /* stone-500 */
+  --color-ghost-ink: oklch(70.9% 0.01 56.259); /* stone-400 */
+  --color-on-ink: oklch(98.5% 0.001 106.423); /* stone-50: text on an ink fill */
+
+  /* Rules, from faintest to strongest, and the focus ring. */
+  --color-rule-faint: oklch(97% 0.001 106.424); /* stone-100 */
+  --color-rule-soft: oklch(92.3% 0.003 48.717); /* stone-200 */
+  --color-rule: #d6d3d1; /* stone-300 */
+  --color-rule-strong: oklch(70.9% 0.01 56.259); /* stone-400 */
+  --color-rule-focus: oklch(55.3% 0.013 58.071); /* stone-500 */
+  --color-focus: oklch(44.4% 0.011 73.639); /* stone-600 */
+
+  /* The mark. */
+  --color-mark: #fde68a; /* amber-200: a Highlight */
   --color-mark-line: #d97706; /* amber-600: a Highlight's underline */
-  --color-current-mark-line: #b45309; /* amber-700: its underline and ring */
   --color-mark-hover: #fcd34d; /* amber-300: a Highlight under the pointer */
-  --color-inset: #f5f5f4; /* stone-100: inline code, and a code block's text */
-  --color-link: #1d4ed8; /* blue-700 */
+  --color-current-mark: #fbbf24; /* amber-400: the Current Finding's Highlight */
+  --color-current-mark-line: #b45309; /* amber-700: its underline and ring */
+  --color-mark-wash: oklch(96.2% 0.059 95.617); /* amber-100: the Current Finding's row */
+
+  /* Warning: something to know about, not something that broke. */
+  --color-warning: oklch(41.4% 0.112 45.904); /* amber-900: a notice's text */
+  --color-warning-soft: oklch(47.3% 0.137 46.201); /* amber-800 */
+  --color-warning-muted: oklch(55.5% 0.163 48.998); /* amber-700 */
+  --color-warning-focus: oklch(55.5% 0.163 48.998); /* amber-700 */
+  --color-warning-surface: oklch(98.7% 0.022 95.277); /* amber-50 */
+  --color-warning-rule: oklch(92.4% 0.12 95.746); /* amber-200 */
+  --color-warning-rule-strong: oklch(87.9% 0.169 91.605); /* amber-300 */
+
+  /* Milestone: a Revision the Writer chose to mark. */
+  --color-milestone: oklch(92.4% 0.12 95.746); /* amber-200: a milestone badge */
+  --color-milestone-ink: oklch(41.4% 0.112 45.904); /* amber-900: its text */
+
+  /* Failure, and its opposite. */
+  --color-failure: oklch(50.5% 0.213 27.518); /* red-700 */
+  --color-failure-surface: oklch(97.1% 0.013 17.38); /* red-50 */
+  --color-failure-rule: oklch(80.8% 0.114 19.571); /* red-300 */
+  --color-failure-focus: oklch(57.7% 0.245 27.325); /* red-600 */
+  --color-success: oklch(50.8% 0.118 165.612); /* emerald-700 */
+
+  /* The Judge: a Prediction it agreed with, and its word diff. */
+  --color-agreement: oklch(39.3% 0.095 152.535); /* green-900 */
+  --color-agreement-surface: oklch(98.2% 0.018 155.826); /* green-50 */
+  --color-agreement-rule: oklch(92.5% 0.084 155.995); /* green-200 */
+  --color-added: oklch(96.2% 0.044 156.743); /* green-100 */
+  --color-added-ink: oklch(39.3% 0.095 152.535); /* green-900 */
+  --color-removed: oklch(93.6% 0.032 17.717); /* red-100 */
+  --color-removed-ink: oklch(39.6% 0.141 25.723); /* red-900 */
+
+  /* A Violation: praise or a rewrite the linter struck through. */
+  --color-violation: oklch(64.5% 0.246 16.439); /* rose-500: the strike */
+  --color-violation-ink: oklch(45.5% 0.188 13.697); /* rose-800 */
+  --color-violation-surface: oklch(96.9% 0.015 12.422); /* rose-50 */
+  --color-violation-wash: oklch(94.1% 0.03 12.58); /* rose-100 */
+  --color-violation-rule: oklch(81% 0.117 11.638); /* rose-300 */
+  --color-violation-focus: oklch(58.6% 0.253 17.585); /* rose-600 */
+
+  /*
+   * Links. A link in the Writer's prose and a link in the tool's own text are
+   * different blues today: the Editor's hex is Tailwind v3's blue-700, and the
+   * palette class is v4's, which renders brighter.
+   */
+  --color-prose-link: #1d4ed8; /* a link in the Writer's prose */
+  --color-link: oklch(48.8% 0.243 264.376); /* blue-700 */
+  --color-link-hover: oklch(37.9% 0.146 265.522); /* blue-900 */
 }
 
 /*
@@ -88,7 +206,7 @@
 }
 
 .obelus-editor code {
-  background: var(--color-inset);
+  background: var(--color-sunk);
   padding: 0.1rem 0.25rem;
   border-radius: 0.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -97,7 +215,7 @@
 
 .obelus-editor pre {
   background: var(--color-ink);
-  color: var(--color-inset);
+  color: var(--color-sunk);
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
@@ -113,7 +231,7 @@
 }
 
 .obelus-editor a {
-  color: var(--color-link);
+  color: var(--color-prose-link);
   text-decoration: underline;
 }
 
