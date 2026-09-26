@@ -95,10 +95,20 @@ every other, and no Band is gated on another.
 _Avoid_: stage, tier, phase, step, section
 
 **Rail**:
-The surface the Writer navigates by Band: the reference strip, the Band control, the selected Band's
-Passes with their Findings and accounts, the Judge, and milestones and Revisions. It collapses so the
-prose has the width.
+The surface beside the prose where the Writer works: in one Rail mode the Band control and the
+selected Band's Passes with their Findings and accounts; in the other the Judge, with milestones and
+Revisions. It collapses so the prose has the width, and overlays the prose on a narrow screen.
 _Avoid_: sidebar, panel, drawer, nav
+
+**Rail mode**:
+Which of the Rail's two jobs it is showing: Findings (the Working order) or Judge. A view choice, not
+a Band, and not remembered between sessions.
+_Avoid_: tab, view, page, section
+
+**Status line**:
+The line beneath the prose carrying the Document's word count and, on a narrow screen, the way to the
+Rail.
+_Avoid_: footer, status bar, toolbar
 
 **Target**:
 The text a Run is asked about.
@@ -130,10 +140,15 @@ The visual rendering of an Anchor. The Current Finding's Highlight is distinguis
 _Avoid_: underline, marker
 
 **Callout**:
-The popover a click on a Highlight opens beside the prose: the open Findings on that text, with the
+The popover a click on a Highlight or a Margin mark opens beside the prose: the open Findings on that text, with the
 queue's verdicts. It does not change the Current Finding, so the Rail stays where the Writer left it
 (ADR 0011).
 _Avoid_: tooltip, popup, card
+
+**Margin mark**:
+The obelus in the margin beside a Paragraph where open Findings begin, with their count. One Finding
+gives one Margin mark, beside the first Paragraph it concerns; an Orphaned Finding gives none.
+_Avoid_: obelus, gutter icon, badge, marker
 
 **Orphaned**:
 The condition of a Finding whose quoted text can no longer be found, so it points nowhere. A

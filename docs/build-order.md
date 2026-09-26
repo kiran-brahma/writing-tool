@@ -71,15 +71,17 @@ never the prose. **Every v1 and v1.1 ticket has landed**, and issues #1 and #25 
 Run-cache behaviour, so it can ship alone as `docs/migrations.md` requires: deploy the migration
 commit first, then the behaviour that uses the store.
 
-**v1.2 is the open frontier.** The spec is #34 and the sequence is the v1.2 table below. Its subject
-is the surface rather than the analysis: v1.1 made the tool recommend, and v1.2 makes the
-recommendation reachable. #35 (The Working order rail) has landed: the rail's top-level control is
-the Band — Structure, Paragraph, Word — plus All, a Band shows its Passes together with the Findings
-those Passes produced, the Judge is its own destination, the three-tab strip is gone, and the rail
-remembers its Band and collapses. #36 (How this works, and first run) has landed: a permanent How
-this works destination carries Rule 1, Rule 2, the loop, the glossary and the shortcuts; a
-dismissible first-run note sits in the Editor body; and an empty Scratchpad says what to do. With
-#35 and #36 both closed, #37–#44 are all unblocked.
+**v1.2 has landed.** #35–#44 are all in (`741aaad` through `5e76189`): the Band is the navigation,
+How this works and the first-run note exist, the Judge defaults to the last milestone against now,
+the Current Finding moves the prose, the queue is reachable from the prose, a Pass's rest can be
+declined and any Finding reopened, every panel glosses its nouns, the rail meets the accessibility
+bar, a Run's cost sits beside its control, and the header is persistent navigation. The follow-up
+bugs from the Thermos review are #45–#55; they are independent of v1.3 and can be taken any time.
+
+**v1.3 is the open frontier.** The spec is #57 and the sequence is the v1.3 table below. Its subject
+is the page and the mark: an identity for the prose and its marks, a dark scheme, the Rail in two
+Rail modes, and a layout that works down to tablet width. **#58 is the only ticket that can start
+now.**
 
 ## How to work a ticket
 
@@ -139,15 +141,14 @@ parallel.
 |---|---|---|---|---|
 | 23 | **#35** | The Working order rail | — | The Band is the navigation: Structure, Paragraph, Word, All; a Band shows its Passes and their Findings in one view; the Judge is its own destination; the three-tab strip is gone; the rail remembers its Band and collapses | - Completed
 | 24 | **#36** | How this works, and first run | — | A permanent page carrying Rule 1, Rule 2, the loop, the terms and the shortcuts; a dismissible first-run note; an empty Scratchpad that says what to do | - Completed
-| 25 | **#37** | The Judge's default pair | — | The default comparison is the last flagged Revision against now, not two autosaves |
-| 26 | **#38** | The Current Finding | #35 | Selecting a Finding scrolls the prose to it and distinguishes its Highlight |
-| 27 | **#39** | Reaching the queue from the prose | #35 | A modifier shortcut that steps the queue while typing; a hint bar that tells the truth; `?` |
-| 28 | **#40** | Decline the rest, and reopen | #35 | Declining a whole Pass in one action, and the first path back to `open` — closes audit §5.3 |
-| 29 | **#41** | Plain-language glosses | #35, #36 | Every panel explains its own nouns once, linking into How this works |
-| 30 | **#42** | Accessibility | #35 | Tab-panel linkage, an announced Run result, 4.5:1 contrast, no text under 12px |
-| 31 | **#43** | What a Run will cost | #35 | The estimate beside the control that spends, and a summed estimate for the structural set |
-| 32 | **#44** | Header and navigation | #36 | Persistent navigation over six destinations; document actions separated; the three "Back to the Editor" buttons and their state deleted |
-
+| 25 | **#37** | The Judge's default pair | — | The default comparison is the last flagged Revision against now, not two autosaves | - Completed
+| 26 | **#38** | The Current Finding | #35 | Selecting a Finding scrolls the prose to it and distinguishes its Highlight | - Completed
+| 27 | **#39** | Reaching the queue from the prose | #35 | A modifier shortcut that steps the queue while typing; a hint bar that tells the truth; `?` | - Completed
+| 28 | **#40** | Decline the rest, and reopen | #35 | Declining a whole Pass in one action, and the first path back to `open` — closes audit §5.3 | - Completed
+| 29 | **#41** | Plain-language glosses | #35, #36 | Every panel explains its own nouns once, linking into How this works | - Completed
+| 30 | **#42** | Accessibility | #35 | Tab-panel linkage, an announced Run result, 4.5:1 contrast, no text under 12px | - Completed
+| 31 | **#43** | What a Run will cost | #35 | The estimate beside the control that spends, and a summed estimate for the structural set | - Completed
+| 32 | **#44** | Header and navigation | #36 | Persistent navigation over six destinations; document actions separated; the three "Back to the Editor" buttons and their state deleted | - Completed
 **Why this order.** #35 restructures nearly every file the other nine touch, so it lands before the
 tickets that decorate it — otherwise an AFK agent resolves conflicts it cannot see. #36 is in the
 first wave rather than beside #44 because the header ticket needs the fourth destination to exist
@@ -230,3 +231,52 @@ Steps 1 and 2 are the critical path: slice 2 cannot start until the `audit` shap
 are settled, or a fresh context window invents a second coordinate system for the account. Steps 3–8
 are independent of each other once the shape lands, and 6 needs the rule passes from 3 to have
 something to silence.
+
+## The order — v1.3
+
+Parent: **#57**, `docs/specs/obelus-v1.3.md`. The decision is
+`docs/adr/0012-the-judge-is-a-rail-mode.md`, and the design was chosen in
+`docs/decisions/the-page-and-the-mark-goldilocks.md`.
+
+The colour work is a **wide refactor**, so it runs expand–contract rather than as one slice: #58 adds
+colour names with exactly today's light values, #59–#61 move the UI onto them in batches that change
+nothing visible, and #62 contracts — dark values go live, the Light | Dark | System choice appears, and
+an agent gate forbids raw palette classes. Dark values must not ship before every batch has moved:
+System is the default, so a Writer whose OS is dark would otherwise see a half-dark app.
+
+Every ticket is presentation. No prompt changes, **no Dexie migration** (the two new keys,
+`colorScheme` and `showRawResponse`, go in the existing settings store), and no DOM test layer.
+
+| Step | # | Ticket | Blocked by | What it makes work |
+|---|---|---|---|---|
+| 33 | **#58** | Colour names with today's colours | — | Named colours by meaning, light values identical to today; the Editor stylesheet uses them |
+| 34 | **#59** | Move the Editor surface to colour names, with focus rings | #58 | Shell, Editor, toolbar, Callout, banners on names; warnings stop borrowing the mark colour |
+| 35 | **#60** | Move the Rail to colour names, with focus rings | #58 | Every Rail panel on names; the Milestone badge gets its own colour |
+| 36 | **#61** | Move the other screens to colour names, type scale and focus rings | #58 | Library, Workbench, AI Settings, How this works, Privacy |
+| 37 | **#62** | Dark scheme and the Light \| Dark \| System choice | #59, #60, #61 | Dark values, the stored choice, `theme-color`, the gate against raw palette classes |
+| 38 | **#63** | The page | #62 | Bundled Literata, a ~68-character measure, the title in the column, a quieter toolbar, the Status line |
+| 39 | **#64** | The mark | #62 | Blue pencil; underlined at rest, filled for the Current Finding and on hover |
+| 40 | **#65** | Margin marks | #63, #64 | An obelus with a count beside each Paragraph where open Findings begin; a click opens the Callout |
+| 41 | **#66** | Rail modes | #62 | Findings \| Judge; queue keys only in Findings; one-line hint; raw response in AI Settings |
+| 42 | **#67** | The Outline in the left margin | #63 | The Outline beside the page at ≥1440px, in the Rail below |
+| 43 | **#68** | Header destinations and the Callout's verdicts | #62 | Editor and Library as the destinations; Addressed as the Callout's primary action |
+| 44 | **#69** | Narrow layout | #63 | Below 1024px the Rail overlays the prose, opened from the Status line |
+
+Waves, each workable in parallel:
+
+- **Wave 1:** #58
+- **Wave 2:** #59, #60, #61
+- **Wave 3:** #62
+- **Wave 4:** #63, #64, #66, #68
+- **Wave 5:** #65, #67, #69
+
+**Why this order.** #65 waits on #63 as well as #64 because the right margin only exists once the
+column is capped; #67 needs the left margin for the same reason, and #69 needs the Status line #63
+creates. #66 and #69 both touch the Rail and may conflict on merge, but neither gates the other.
+
+**The standing constraints**, in every ticket: no affordance that inserts model-derived text; ADR
+0010's four properties and ADR 0011's Callout rule hold; `CONTEXT.md` terms only (Margin mark, Rail
+mode, Status line are new; the Rail is never a "drawer"); the WebKit Highlight budget — no shadow and
+no radius on a Highlight, and typing with ~490 Highlights no slower; every markup ticket is checked
+by eye in both schemes and at the widths its ticket names.
+
