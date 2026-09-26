@@ -11,7 +11,14 @@
  * stealing a letter. Alt-arrow is not a browser or system-wide shortcut, and
  * `preventDefault` takes it from the caret's own paragraph movement; ProseMirror
  * binds the bare arrows and a few Alt-letters, never an Alt-arrow.
+ *
+ * ADR 0012: the queue is on screen only in Findings mode, so the keys act only
+ * there — `j`/`k` never move a selection the Writer cannot see. The modifier
+ * step is the one exception: it works from anywhere, so in Judge mode it
+ * switches the Rail to Findings first, as it already opens a collapsed Rail.
  */
+
+import type { RailMode } from "./railTabs";
 
 /** What a bound key asks the queue to do. */
 export type QueueAction =
@@ -28,6 +35,13 @@ export interface QueueKeyEvent {
   readonly metaKey: boolean;
   /** True when the target is the Editor or a field, where plain letters reach the prose. */
   readonly typing: boolean;
+}
+
+/** What a key event asks of the queue, and whether the Rail must show Findings first. */
+export interface QueueKeyDecision {
+  readonly action: QueueAction;
+  /** True for the modifier step in Judge mode: the Rail switches to Findings, then steps. */
+  readonly switchToFindings: boolean;
 }
 
 /** One key the queue binds: what fires it, and what it does. */
@@ -63,11 +77,13 @@ export function queueShortcutKeys(shortcut: QueueShortcut): readonly string[] {
 }
 
 /**
- * The action a key event asks for, or null when the event is not a queue key.
- * `typing` is the target kind: the plain letters stand down while the Writer is
- * in the Editor or a field; the modifier shortcut does not.
+ * The action a key event asks for, or null when the event is not a queue key or
+ * the Rail mode leaves it nothing to do. `typing` is the target kind: the plain
+ * letters stand down while the Writer is in the Editor or a field; the modifier
+ * shortcut does not. In Judge mode only the modifier step acts, and it asks the
+ * Rail to switch to Findings.
  */
-export function queueActionFor(event: QueueKeyEvent): QueueAction | null {
+export function queueActionFor(event: QueueKeyEvent, railMode: RailMode): QueueKeyDecision | null {
   // Ctrl and Cmd belong to the browser, never to the queue.
   if (event.ctrlKey || event.metaKey) return null;
 
@@ -75,7 +91,12 @@ export function queueActionFor(event: QueueKeyEvent): QueueAction | null {
     if (shortcut.alt !== event.altKey) continue;
     if (shortcut.eventKey !== event.key) continue;
     if (!shortcut.alt && event.typing) return null;
-    return shortcut.action;
+    if (railMode === "findings") return { action: shortcut.action, switchToFindings: false };
+    // Judge mode: the queue is not on screen, so only the modifier step acts.
+    if (shortcut.alt && shortcut.action.kind === "step") {
+      return { action: shortcut.action, switchToFindings: true };
+    }
+    return null;
   }
   return null;
 }

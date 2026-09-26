@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MIN_CHARACTER_LIMIT } from "../core/chunking";
+import { COLOR_SCHEME_SETTINGS, type ColorSchemeSetting } from "../core/colorScheme";
 import { parsePriceTable, serializePriceTable, type PriceTable } from "../core/cost";
 import { describeError } from "../errors";
 import type { Slot, SlotAssignment, SlotBinding } from "../storage/connections";
@@ -14,7 +15,7 @@ import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
  * the Judge; the two may share one Connection while running different models,
  * so an independent Judge needs no second route to the Provider. Connections
  * hold the keys, base URLs and concurrency. The run settings shape what a model
- * Run sends.
+ * Run sends. The colour scheme sits last: it is about the app, not the model.
  */
 export interface AiSettingsViewProps {
   connections: Connection[];
@@ -28,6 +29,10 @@ export interface AiSettingsViewProps {
   /** Stories 149–152: the words and phrases the Writer has declared theirs. */
   voiceList: string[];
   priceTable: PriceTable;
+  /** Stories 201–202: Light, Dark or System. */
+  colorScheme: ColorSchemeSetting;
+  /** Stories 73 and 238: whether Finding rows in the Rail show their raw provider response. */
+  showRawResponse: boolean;
   onSaveConnection: (connection: Connection) => void;
   onAddCustom: () => void;
   onRemoveConnection: (connectionId: string) => void;
@@ -36,6 +41,8 @@ export interface AiSettingsViewProps {
   onSetCharacterLimit: (limit: number) => void;
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
+  onSetColorScheme: (setting: ColorSchemeSetting) => void;
+  onToggleRawResponse: (show: boolean) => void;
   onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
@@ -48,6 +55,8 @@ export function AiSettingsView({
   characterLimit,
   voiceList,
   priceTable,
+  colorScheme,
+  showRawResponse,
   onSaveConnection,
   onAddCustom,
   onRemoveConnection,
@@ -56,6 +65,8 @@ export function AiSettingsView({
   onSetCharacterLimit,
   onSaveVoiceList,
   onSavePriceTable,
+  onSetColorScheme,
+  onToggleRawResponse,
   onOpenHelp,
 }: AiSettingsViewProps) {
   return (
@@ -72,7 +83,7 @@ export function AiSettingsView({
         onOpenHelp={onOpenHelp}
       />
 
-      <div className="overflow-hidden rounded border border-stone-300 bg-white">
+      <div className="overflow-hidden rounded border border-rule bg-paper">
         <ConnectionsPanel
           connections={connections}
           onSave={onSaveConnection}
@@ -87,13 +98,61 @@ export function AiSettingsView({
         characterLimit={characterLimit}
         voiceList={voiceList}
         priceTable={priceTable}
+        showRawResponse={showRawResponse}
         onToggleScreening={onToggleScreening}
         onSetCharacterLimit={onSetCharacterLimit}
         onSaveVoiceList={onSaveVoiceList}
         onSavePriceTable={onSavePriceTable}
+        onToggleRawResponse={onToggleRawResponse}
         onOpenHelp={onOpenHelp}
       />
+
+      <ColorSchemePanel colorScheme={colorScheme} onSetColorScheme={onSetColorScheme} />
     </div>
+  );
+}
+
+/**
+ * Stories 201–202: the Writer's colour scheme. System is the default and
+ * follows the operating system as it changes; Light and Dark override it.
+ */
+function ColorSchemePanel({
+  colorScheme,
+  onSetColorScheme,
+}: {
+  colorScheme: ColorSchemeSetting;
+  onSetColorScheme: (setting: ColorSchemeSetting) => void;
+}) {
+  return (
+    <section className="overflow-hidden rounded border border-rule bg-paper">
+      <div className="border-b border-rule-soft px-4 py-2">
+        <h2 className="text-sm font-semibold">Colour scheme</h2>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <div role="group" aria-label="Colour scheme" className="flex gap-1.5">
+          {COLOR_SCHEME_SETTINGS.map(({ setting, label }) => {
+            const active = setting === colorScheme;
+            return (
+              <button
+                key={setting}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onSetColorScheme(setting)}
+                className={[
+                  "rounded border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                  active
+                    ? "border-ink bg-ink text-on-ink focus-visible:ring-offset-2"
+                    : "border-rule bg-paper text-quiet-ink hover:bg-sunk",
+                ].join(" ")}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-ink">System follows your computer’s setting as it changes.</p>
+      </div>
+    </section>
   );
 }
 
@@ -111,21 +170,21 @@ function SlotsPanel({
   onOpenHelp?: (sectionId: HelpSectionId) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded border border-stone-300 bg-white">
-      <div className="border-b border-stone-200 px-4 py-2">
+    <section className="overflow-hidden rounded border border-rule bg-paper">
+      <div className="border-b border-rule-soft px-4 py-2">
         <h2 className="text-sm font-semibold">Slots</h2>
       </div>
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+      <p className="border-b border-rule-soft px-4 py-2 text-xs text-faint-ink">
         {PANEL_GLOSSES.slots.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.slots.sectionId)}
-          className="underline hover:text-stone-700"
+          className="underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           How this works
         </button>
       </p>
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+      <p className="border-b border-rule-soft px-4 py-2 text-xs text-faint-ink">
         The critic runs model passes; the judge compares two versions. Each slot names its own
         model, so both may share one connection and still run different models, keeping the judge
         independent without a second route. A connection's own model is used only when a slot's
@@ -229,22 +288,22 @@ function SlotEditor({
   };
 
   return (
-    <div className="rounded border border-stone-200 p-3">
+    <div className="rounded border border-rule-soft p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-stone-700">{label}</span>
+        <span className="text-xs font-semibold text-quiet-ink">{label}</span>
         {connection !== null && (
-          <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-500">
+          <span className="rounded bg-sunk px-1.5 py-0.5 text-xs text-faint-ink">
             {connection.protocol}
           </span>
         )}
       </div>
 
-      <label className="mt-2 block text-xs text-stone-500">
+      <label className="mt-2 block text-xs text-faint-ink">
         Connection
         <select
           value={binding?.connectionId ?? ""}
           onChange={(event) => selectConnection(event.target.value)}
-          className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+          className="mt-0.5 w-full rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           <option value="">Not set</option>
           {connections.map((candidate) => (
@@ -255,7 +314,7 @@ function SlotEditor({
         </select>
       </label>
 
-      <label className="mt-2 block text-xs text-stone-500">
+      <label className="mt-2 block text-xs text-faint-ink">
         Model
         <div className="mt-0.5 flex gap-1.5">
           <input
@@ -269,13 +328,13 @@ function SlotEditor({
             onKeyDown={(event) => {
               if (event.key === "Enter") event.currentTarget.blur();
             }}
-            className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800 disabled:bg-stone-100"
+            className="min-w-0 flex-1 rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink disabled:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
           <button
             type="button"
             disabled={connection === null || busy}
             onClick={() => void listModels()}
-            className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
+            className="shrink-0 rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             List
           </button>
@@ -288,10 +347,10 @@ function SlotEditor({
       </label>
 
       {connection !== null && model.trim() === "" && connection.model !== "" && (
-        <p className="mt-1 text-[11px] text-stone-500">Inherits “{connection.model}”.</p>
+        <p className="mt-1 text-xs text-faint-ink">Inherits “{connection.model}”.</p>
       )}
-      {note !== null && <p className="mt-1 text-[11px] text-stone-500">{note}</p>}
-      {error !== null && <p className="mt-1 break-words text-[11px] text-red-700">{error}</p>}
+      {note !== null && <p className="mt-1 text-xs text-faint-ink">{note}</p>}
+      {error !== null && <p className="mt-1 break-words text-xs text-failure">{error}</p>}
 
       {models.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1">
@@ -300,7 +359,7 @@ function SlotEditor({
               key={id}
               type="button"
               onClick={() => pickModel(id)}
-              className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 hover:bg-stone-200"
+              className="rounded bg-sunk px-1.5 py-0.5 text-xs text-muted-ink hover:bg-sunk-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               {id}
             </button>
@@ -316,67 +375,83 @@ function RunSettingsPanel({
   characterLimit,
   voiceList,
   priceTable,
+  showRawResponse,
   onToggleScreening,
   onSetCharacterLimit,
   onSaveVoiceList,
   onSavePriceTable,
+  onToggleRawResponse,
   onOpenHelp,
 }: {
   screeningFrame: boolean;
   characterLimit: number;
   voiceList: string[];
   priceTable: PriceTable;
+  showRawResponse: boolean;
   onToggleScreening: (enabled: boolean) => void;
   onSetCharacterLimit: (limit: number) => void;
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
+  onToggleRawResponse: (show: boolean) => void;
   onOpenHelp?: (sectionId: HelpSectionId) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded border border-stone-300 bg-white">
-      <div className="border-b border-stone-200 px-4 py-2">
+    <section className="overflow-hidden rounded border border-rule bg-paper">
+      <div className="border-b border-rule-soft px-4 py-2">
         <h2 className="text-sm font-semibold">Runs</h2>
       </div>
 
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+      <p className="border-b border-rule-soft px-4 py-2 text-xs text-faint-ink">
         {PANEL_GLOSSES.runSettings.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.runSettings.sectionId)}
-          className="underline hover:text-stone-700"
+          className="underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           How this works
         </button>
       </p>
 
-      <label className="flex items-center gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
+      <label className="flex items-center gap-2 border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
         <input
           type="checkbox"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           checked={screeningFrame}
           onChange={(event) => onToggleScreening(event.target.checked)}
         />
         Screening frame (critic finding passes only)
       </label>
 
-      <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
+      {/* Stories 73 and 238: a debugging aid, so it lives here rather than above the queue. */}
+      <label className="flex items-center gap-2 border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
+        <input
+          type="checkbox"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          checked={showRawResponse}
+          onChange={(event) => onToggleRawResponse(event.target.checked)}
+        />
+        Show the raw provider response on each Finding in the Rail
+      </label>
+
+      <div className="flex items-center justify-between gap-2 border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
         <label htmlFor="character-limit" className="shrink-0">
           Character limit
         </label>
         <CharacterLimitField value={characterLimit} onCommit={onSetCharacterLimit} />
       </div>
 
-      <details className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600" open>
-        <summary className="cursor-pointer select-none">Voice list</summary>
-        <p className="mt-1 text-stone-500">
+      <details className="border-b border-rule-soft px-4 py-2 text-xs text-muted-ink" open>
+        <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">Voice list</summary>
+        <p className="mt-1 text-faint-ink">
           Words and phrases you have declared yours. A rule pass drops them, and a model pass is
           told not to flag them. A model finding that still does is marked, never hidden.
         </p>
         <VoiceListField value={voiceList} onCommit={onSaveVoiceList} />
       </details>
 
-      <details className="px-4 py-2 text-xs text-stone-600">
-        <summary className="cursor-pointer select-none">Price table</summary>
-        <p className="mt-1 text-stone-500">
+      <details className="px-4 py-2 text-xs text-muted-ink">
+        <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">Price table</summary>
+        <p className="mt-1 text-faint-ink">
           USD per million tokens. An entry prices a model id, or any model id it prefixes. The
           estimate is characters ÷ 4 and never blocks a run.
         </p>
@@ -426,7 +501,7 @@ function CharacterLimitField({
       onKeyDown={(event) => {
         if (event.key === "Enter") event.currentTarget.blur();
       }}
-      className="w-28 rounded border border-stone-300 bg-white px-2 py-1 text-right tabular-nums"
+      className="w-28 rounded border border-rule bg-paper px-2 py-1 text-right tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
     />
   );
 }
@@ -458,7 +533,7 @@ function VoiceListField({
       rows={4}
       spellCheck={false}
       placeholder={"leverage\nat its core"}
-      className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1 font-mono text-xs"
+      className="mt-1 w-full resize-y rounded border border-rule bg-paper px-2 py-1 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
     />
   );
 }
@@ -488,7 +563,7 @@ function PriceTableField({
       rows={4}
       spellCheck={false}
       placeholder={"gpt-4o = 5\ngpt-4o-mini = 0.6"}
-      className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1 font-mono text-xs"
+      className="mt-1 w-full resize-y rounded border border-rule bg-paper px-2 py-1 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
     />
   );
 }

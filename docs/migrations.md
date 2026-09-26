@@ -47,20 +47,24 @@ opened, then deploy the behaviour. Rolling the behaviour deploy back to the migr
 because the migration deploy's code already understands schema version 7; rolling back past the
 migration deploy is the Library outage this rule exists to prevent.
 
-Rolling back a deploy that shipped **no** migration is safe once the service worker is forced to
-advance. `public/sw.js` names its cache for the release (bumped on every deploy), so `activate`
-deletes the previous release's cache wholesale; it also calls `skipWaiting()` and `clients.claim()` so
-the rolled-back shell reaches the Writer immediately, and prunes any asset the current shell no longer
-references on every successful navigation. If a migration did ship, a rollback is a Library outage
-until forward code returns.
+Rolling back a deploy that shipped **no** migration is safe once the Writer's browser re-syncs its
+cached shell. `public/sw.js` keeps one cache under a constant name, and the mechanism that does the
+work is the navigation-time prune: navigations are network-first, and on every successful online
+navigation `syncShellAssets` stores the served `index.html` and deletes every hashed asset it no
+longer references, so the next load fetches the rolled-back shell's own assets. That runs in
+whichever worker is active, so a rollback needs no worker update; `skipWaiting()` and
+`clients.claim()` only make a changed worker take over at once. Until the Writer makes an online
+navigation, the cache still holds the shell it last saw. If a migration did ship, a rollback is a
+Library outage until forward code returns.
 
 ## What enforces it
 
 - `src/storage/obelusDatabase.ts` — the versions and `openObelusDatabase`'s refusal.
 - `src/storage/obelusDatabase.test.ts` — an upgrade path from every prior version with existing data
   intact, and the newer-database refusal leaving the database untouched.
-- `public/sw.js` — a release-keyed cache name, `skipWaiting`/`clients.claim`, precached hashed
-  assets, and navigation-time pruning, so offline opening and rollback both work.
+- `public/sw.js` — navigation-time pruning (`syncShellAssets`), precached hashed assets and
+  `skipWaiting`/`clients.claim`, so offline opening and rollback both work. The cache name is a
+  constant; nothing bumps it per deploy.
 - The service worker, the CSP header and offline opening are **deploy-time properties**: the
   in-memory IndexedDB tests prove the logic, not quota, eviction or a partial migration.
 

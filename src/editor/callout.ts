@@ -1,3 +1,6 @@
+import type { FindingInterval } from "../core/anchor";
+import { canonicalBlocks } from "../core/canonicalText";
+import type { DocTree } from "../core/docTree";
 import { isOpenFinding, type Finding } from "../core/finding";
 
 /**
@@ -20,6 +23,62 @@ export function calloutFindings(findingIds: string[], findings: Finding[]): Find
     if (finding !== undefined && isOpenFinding(finding)) shown.push(finding);
   }
   return shown;
+}
+
+/**
+ * A Margin mark: the top-level block it sits beside, and the Findings that
+ * begin there. The count it shows is the number of ids.
+ */
+export interface MarginMark {
+  blockIndex: number;
+  findingIds: string[];
+}
+
+/**
+ * The Margin marks for a Document: one per top-level block where at least one
+ * resolved Highlight begins, in Document order, each naming its Findings once
+ * and in the order given. A Finding that spans several Paragraphs is counted
+ * beside the first of them only, so the counts are honest (story 221).
+ *
+ * It reads the resolved Highlights, which hold only open, attached Findings:
+ * an Orphaned Finding has no interval and a Finding that has left the queue
+ * draws no Highlight, so neither gets a mark. Like the Callout it never sees a
+ * Finding's text — only ids and intervals.
+ */
+export function marginMarks(tree: DocTree, highlights: readonly FindingInterval[]): MarginMark[] {
+  // One render of the Document for every Highlight: a Document can carry
+  // hundreds, and each would otherwise render it again.
+  const blocks = canonicalBlocks(tree);
+  const byBlock = new Map<number, Set<string>>();
+  for (const { findingId, interval } of highlights) {
+    const blockIndex = blockBeginning(blocks, interval.start);
+    if (blockIndex === null) continue;
+    const ids = byBlock.get(blockIndex) ?? new Set<string>();
+    ids.add(findingId);
+    byBlock.set(blockIndex, ids);
+  }
+  return [...byBlock.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([blockIndex, ids]) => ({ blockIndex, findingIds: [...ids] }));
+}
+
+/**
+ * The top-level block a canonical offset falls in, or in the gap after, as
+ * `blockIndexForInterval` decides it: the first block whose end lies past the
+ * offset. Blocks are in canonical order, so this is a binary search.
+ */
+function blockBeginning(
+  blocks: readonly { index: number; end: number }[],
+  start: number,
+): number | null {
+  let low = 0;
+  let high = blocks.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (start < blocks[middle].end) high = middle;
+    else low = middle + 1;
+  }
+  return low < blocks.length ? blocks[low].index : null;
 }
 
 /** Where a Highlight sits on screen, in viewport pixels. */

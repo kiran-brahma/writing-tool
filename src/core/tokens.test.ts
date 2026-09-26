@@ -3,7 +3,7 @@ import { wordCount } from "./canonicalText";
 import { countWords } from "./tokens";
 
 /**
- * The header word count and the metrics panel must agree on what a word is.
+ * The Status line's word count and the metrics panel must agree on what a word is.
  * They did not before this module existed: the header counted whitespace runs,
  * so a hyphenated compound was one word, while the metrics tokenizer saw two.
  */

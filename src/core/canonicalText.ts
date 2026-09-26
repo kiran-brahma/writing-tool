@@ -56,6 +56,22 @@ interface Rendered {
    * second walk that could disagree about a node's size.
    */
   size: number;
+  /**
+   * Where the Paragraphs inside a list's items sit in `value`, in document
+   * order. Only a list reports them, so `canonicalParagraphs` can find a
+   * Paragraph nested under a list item from the same traversal that rendered it.
+   */
+  paragraphs?: ParagraphLine[];
+}
+
+/**
+ * A list item's Paragraph always renders as one whole line (its internal breaks
+ * collapse to spaces): `line` counts the `\n`s before it in the rendered value,
+ * and `column` is the width of the marker or indent that precedes its prose.
+ */
+interface ParagraphLine {
+  line: number;
+  column: number;
 }
 
 /** A source character and the index it held before any normalisation. */
@@ -131,9 +147,65 @@ export function canonicalBlocks(tree: DocTree): CanonicalBlock[] {
 }
 
 /**
+ * One Paragraph's place in the canonical string: a top-level Paragraph, or a
+ * Paragraph inside a list item (at any depth of nesting). `index` is the
+ * top-level block that holds it, and the interval covers the Paragraph's prose
+ * only — never a list marker or indent.
+ */
+export interface CanonicalParagraph {
+  /** The index in `tree.content` of the top-level block that holds it. */
+  index: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+/**
+ * Every Paragraph with prose, in document order, with its canonical offsets. A
+ * local Pass's Target is one of these; descending into lists, as the renderer
+ * does, means a Document written as a list still has a Paragraph to examine.
+ */
+export function canonicalParagraphs(tree: DocTree): CanonicalParagraph[] {
+  const paragraphs: CanonicalParagraph[] = [];
+  let position = 0;
+  let start = 0;
+
+  for (const [index, block] of (tree.content ?? []).entries()) {
+    const rendered = renderBlock(block, position);
+    position += rendered.size;
+    if (rendered.value.text.length === 0) continue;
+
+    const text = trimTrailingWhitespace(rendered.value).text;
+    if (block.type === "paragraph") {
+      paragraphs.push({ index, start, end: start + text.length, text });
+    }
+
+    // Trimming never adds or removes a line, so a Paragraph's line index still
+    // holds in the trimmed text, and its trimmed line ends where its prose does.
+    const lines = text.split("\n");
+    const lineStarts: number[] = [];
+    let offset = start;
+    for (const line of lines) {
+      lineStarts.push(offset);
+      offset += line.length + 1;
+    }
+    for (const { line, column } of rendered.paragraphs ?? []) {
+      const prose = lines[line].slice(column);
+      if (prose === "") continue;
+      const proseStart = lineStarts[line] + column;
+      paragraphs.push({ index, start: proseStart, end: proseStart + prose.length, text: prose });
+    }
+
+    start += text.length + 2;
+  }
+
+  return paragraphs;
+}
+
+/**
  * Word count over a canonical string. A line's leading block marker (`#`, `>`,
  * `-`, `N.`) is syntax, not prose, so it is skipped, and the words are then
- * counted by the one token definition in `tokens.ts`. The header word count and
+ * counted by the one token definition in `tokens.ts`. The Status line's word count and
  * the metrics panel's sentence lengths therefore agree on what a word is.
  */
 export function wordCount(canonical: string): number {
@@ -253,6 +325,8 @@ function renderList(
   const ordered = node.type === "orderedList";
   const start = ordered ? node.attrs?.start ?? 1 : 1;
   const lines: CanonicalMap[] = [];
+  const paragraphs: ParagraphLine[] = [];
+  let lineCount = 0;
   let itemPosition = position + 1;
   let size = 0;
 
@@ -260,11 +334,15 @@ function renderList(
     const marker = ordered ? `${start + index}.` : "-";
     const rendered = renderListItem(item, marker, depth, itemPosition);
     lines.push(rendered.value);
+    for (const paragraph of rendered.paragraphs ?? []) {
+      paragraphs.push({ line: lineCount + paragraph.line, column: paragraph.column });
+    }
+    lineCount += countLines(rendered.value);
     itemPosition += rendered.size;
     size += rendered.size;
   });
 
-  return { value: join(lines, syntax("\n")), size: size + 2 };
+  return { value: join(lines, syntax("\n")), size: size + 2, paragraphs };
 }
 
 function renderListItem(
@@ -275,15 +353,23 @@ function renderListItem(
 ): Rendered {
   const pad = "  ".repeat(depth);
   const lines: CanonicalMap[] = [];
+  const paragraphs: ParagraphLine[] = [];
   let markerPlaced = false;
   let childPosition = position + 1;
   let size = 0;
+  /** The lines pushed so far, so a Paragraph knows which line it lands on. */
+  let lineCount = 0;
+  const push = (value: CanonicalMap): void => {
+    lines.push(value);
+    lineCount += countLines(value);
+  };
 
   for (const block of item.content ?? []) {
     if (block.type === "paragraph") {
       const inline = renderInlines(block.content, childPosition + 1);
       const prefix = markerPlaced ? `${pad}  ` : `${pad}${marker} `;
-      lines.push(concat([syntax(prefix), inline.value]));
+      paragraphs.push({ line: lineCount, column: prefix.length });
+      push(concat([syntax(prefix), inline.value]));
       markerPlaced = true;
       size += inline.size + 2;
       childPosition += inline.size + 2;
@@ -292,28 +378,31 @@ function renderListItem(
 
     if (block.type === "bulletList" || block.type === "orderedList") {
       if (!markerPlaced) {
-        lines.push(syntax(`${pad}${marker}`));
+        push(syntax(`${pad}${marker}`));
         markerPlaced = true;
       }
       const rendered = renderList(block, childPosition, depth + 1);
-      lines.push(rendered.value);
+      for (const paragraph of rendered.paragraphs ?? []) {
+        paragraphs.push({ line: lineCount + paragraph.line, column: paragraph.column });
+      }
+      push(rendered.value);
       size += rendered.size;
       childPosition += rendered.size;
       continue;
     }
 
     if (!markerPlaced) {
-      lines.push(syntax(`${pad}${marker}`));
+      push(syntax(`${pad}${marker}`));
       markerPlaced = true;
     }
     const rendered = renderBlock(block, childPosition);
-    lines.push(prefixLines(rendered.value, `${pad}  `));
+    push(prefixLines(rendered.value, `${pad}  `));
     size += rendered.size;
     childPosition += rendered.size;
   }
 
-  if (!markerPlaced) lines.push(syntax(`${pad}${marker}`));
-  return { value: join(lines, syntax("\n")), size: size + 2 };
+  if (!markerPlaced) push(syntax(`${pad}${marker}`));
+  return { value: join(lines, syntax("\n")), size: size + 2, paragraphs };
 }
 
 function renderBlockquote(blocks: BlockNode[], position: number): Rendered {
@@ -428,7 +517,7 @@ function renderText(node: TextNode, position: number): CanonicalMap {
   let suffix = "";
   if (link !== undefined) {
     prefix = "[";
-    suffix = `](${link.attrs?.href ?? ""})`;
+    suffix = `](${escapeHref(link.attrs?.href ?? "")})`;
   }
   if (marks.some((mark) => mark.type === "bold")) {
     prefix = `**${prefix}`;
@@ -466,6 +555,27 @@ function collapseWhitespace(text: string): SourceChar[] {
 
 function escapePlainCharacter(char: string): string {
   return /[\\`*[\]]/.test(char) ? `\\${char}` : char;
+}
+
+/**
+ * Emits an href raw when the parser would read it back unchanged: its
+ * parentheses balance and it holds no backslash. Otherwise backslash-escapes
+ * `\`, `(` and `)`, so an unbalanced parenthesis reads back as the same href.
+ * Keeping balanced hrefs raw leaves existing canonical strings, and the Anchors
+ * over them, where they were.
+ */
+function escapeHref(href: string): string {
+  return isRawHref(href) ? href : href.replace(/[\\()]/g, "\\$&");
+}
+
+function isRawHref(href: string): boolean {
+  if (href.includes("\\")) return false;
+  let depth = 0;
+  for (const char of href) {
+    if (char === "(") depth++;
+    else if (char === ")" && --depth < 0) return false;
+  }
+  return depth === 0;
 }
 
 /**
@@ -534,6 +644,13 @@ function slice(value: CanonicalMap, from: number, to: number = value.text.length
 function prefixLines(value: CanonicalMap, prefix: string): CanonicalMap {
   const lines = splitLines(value).map((line) => concat([syntax(prefix), line]));
   return join(lines, syntax("\n"));
+}
+
+/** How many lines an annotated run spans once joined with `\n`. */
+function countLines(value: CanonicalMap): number {
+  let count = 1;
+  for (const char of value.text) if (char === "\n") count++;
+  return count;
 }
 
 /** Removes trailing spaces and tabs from every line, dropping their positions. */

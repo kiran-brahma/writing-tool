@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DeclineReason, Finding } from "../core/finding";
 import { calloutPosition, type CalloutPosition, type HighlightRect } from "./callout";
+import { NoteLabel } from "./FindingRow";
 import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
 import { splitViolations, violationsOutsideText } from "./violationMarks";
 
@@ -72,7 +73,7 @@ export function FindingCallout({
       role="dialog"
       aria-label={findings.length === 1 ? "Finding" : `${findings.length} Findings`}
       style={{ left: position.left, top: position.top }}
-      className="fixed z-40 w-72 divide-y divide-stone-200 rounded-md border border-stone-300 bg-white text-sm shadow-md"
+      className="fixed z-40 w-72 divide-y divide-rule-soft rounded-md border border-rule bg-paper text-sm shadow-md"
     >
       {findings.map((finding) => (
         <CalloutEntry
@@ -99,23 +100,46 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
 
   return (
     <div className="px-3 py-2.5">
-      <p className="font-medium text-stone-900">
-        <StruckText text={finding.issue} violations={violations} />
-      </p>
-      <p className="mt-0.5 text-stone-600">
+      {finding.severity === "note" ? (
+        // Story 138: a note reads lighter than an error, here as in the Rail.
+        <p className="flex items-start gap-2 text-quiet-ink">
+          <NoteLabel />
+          <span>
+            <StruckText text={finding.issue} violations={violations} />
+          </span>
+        </p>
+      ) : (
+        <p className="font-medium text-ink">
+          <StruckText text={finding.issue} violations={violations} />
+        </p>
+      )}
+      <p className="mt-0.5 text-muted-ink">
         <StruckText text={finding.diagnosis} violations={violations} />
       </p>
+      {/* Story 239: each Finding's provenance, where the Writer judges it. */}
+      <p className="mt-1 text-xs text-muted-ink">
+        {finding.provenance.model} · {new Date(finding.provenance.at).toLocaleString()}
+      </p>
       {elsewhere.length > 0 && (
-        <p className="mt-1 text-xs text-stone-600">
+        <p className="mt-1 text-xs text-muted-ink">
           Praise from the model: <StruckViolations violations={elsewhere} />
         </p>
       )}
       {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
-      <p className="mt-2 flex gap-3 text-xs">
-        <CalloutAction onClick={() => onAddress(finding.id)}>Addressed</CalloutAction>
-        <CalloutAction onClick={() => onDecline(finding.id, "advice")}>Decline</CalloutAction>
+      {/*
+        Stories 248–250: the verdicts ranked by how often they are given, and no
+        key hints — the queue keys act on the Current Finding, not on this one
+        (ADR 0011).
+      */}
+      <p className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+        <CalloutAction rank="primary" onClick={() => onAddress(finding.id)}>
+          Addressed
+        </CalloutAction>
+        <CalloutAction rank="secondary" onClick={() => onDecline(finding.id, "advice")}>
+          Decline
+        </CalloutAction>
         {violations.length > 0 && (
-          <CalloutAction onClick={() => onDecline(finding.id, "violation")}>
+          <CalloutAction rank="quiet" onClick={() => onDecline(finding.id, "violation")}>
             Decline as violation
           </CalloutAction>
         )}
@@ -124,12 +148,28 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
   );
 }
 
-function CalloutAction({ onClick, children }: { onClick: () => void; children: string }) {
+/** Addressed is a filled button, Decline an outlined one, Decline as violation a text link. */
+const CALLOUT_ACTION_RANK = {
+  primary:
+    "border border-ink bg-ink px-2.5 py-1 font-semibold text-on-ink hover:bg-soft-ink focus-visible:ring-offset-2",
+  secondary: "border border-rule px-2.5 py-1 text-quiet-ink hover:bg-sunk hover:text-ink",
+  quiet: "px-1 py-1 text-muted-ink underline underline-offset-2 hover:text-ink",
+} as const;
+
+function CalloutAction({
+  rank,
+  onClick,
+  children,
+}: {
+  rank: keyof typeof CALLOUT_ACTION_RANK;
+  onClick: () => void;
+  children: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded font-medium text-stone-600 underline-offset-2 hover:text-stone-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+      className={`rounded font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${CALLOUT_ACTION_RANK[rank]}`}
     >
       {children}
     </button>

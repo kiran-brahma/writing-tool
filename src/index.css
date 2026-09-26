@@ -1,39 +1,406 @@
 @import "tailwindcss";
 
 /*
+ * Stories 193–195: the page's typeface. Literata is a variable book serif
+ * under the SIL Open Font License; the package's woff2 files are bundled by
+ * Vite into `/assets/`, so they are served from Obelus's own origin and the
+ * Content Security Policy's `font-src 'self'` needs no change. Nothing is
+ * fetched from a font service. Only the weight axis is bundled, upright and
+ * italic; each subset loads only when its characters appear.
+ */
+@import "@fontsource-variable/literata/wght.css";
+@import "@fontsource-variable/literata/wght-italic.css";
+
+/*
+ * Stories 201–203: the dark scheme. With System no attribute is set and the
+ * stylesheet follows `prefers-color-scheme` on its own, live and with no flash
+ * on load; a Light or Dark choice sets `data-theme` on the root element, which
+ * wins over the system. `dark:` means exactly that, so a rule written with it
+ * and the colour names below can never disagree about which scheme is drawn.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:not(:where([data-theme="light"], [data-theme="light"] *)) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/*
+ * Colours named by what they mean, not by palette step. Each light value is
+ * the colour the app uses today, so moving a class or a rule onto a name
+ * changes nothing on screen: the hex values are the Editor's own, and the
+ * oklch values are Tailwind's palette steps copied exactly. Every name has a
+ * dark value too, below the light ones. A palette class in UI source fails the
+ * build (`scripts/gates/palette.mjs`), so the table is how to read old code,
+ * not a choice still open.
+ *
+ * Moving a component is mechanical: replace each palette class with the name
+ * in the table, keeping its variant (hover:, focus-visible:, disabled:) and
+ * its opacity (/60) as they are. `bg-stone-100/60` becomes `bg-sunk/60`.
+ *
+ *   bg-white                          paper
+ *   bg-stone-50                       ground
+ *   bg-stone-100                      sunk
+ *   bg-stone-200                      sunk-strong
+ *   bg-stone-300                      rule
+ *   bg-stone-700                      quiet-ink    the hover of an ink fill
+ *   bg-stone-900                      ink          an ink fill: the primary button
+ *   text-stone-50                     on-ink       text on an ink fill
+ *   text-stone-100                    sunk         text on an ink/90 fill
+ *   text-stone-400                    ghost-ink
+ *   text-stone-500                    faint-ink
+ *   text-stone-600                    muted-ink
+ *   text-stone-700                    quiet-ink
+ *   text-stone-800                    soft-ink
+ *   text-stone-900                    ink
+ *   border-stone-100                  rule-faint
+ *   border-stone-200, divide-stone-200  rule-soft
+ *   border-stone-300                  rule
+ *   border-stone-400                  rule-strong
+ *   border-stone-500                  rule-focus   a focused field's border
+ *   border-stone-900                  ink          the selected tab or choice
+ *   border-t-stone-700                quiet-ink    the spinner's arc
+ *   ring-stone-600                    focus
+ *
+ *   bg-amber-100                      mark-wash    the Current Finding's row
+ *                                     (blue pencil now, as the mark: story 214)
+ *   (new in v1.3)                     mark         the blue pencil itself: text
+ *                                                  or a glyph drawn in it
+ *   bg-amber-50                       warning-surface
+ *   text-amber-50                     warning-surface  text on a warning fill
+ *   border-amber-200                  warning-rule
+ *   border-amber-300                  warning-rule-strong
+ *   text-amber-700                    warning-muted
+ *   ring-amber-700                    warning-focus
+ *   text-amber-800, bg-amber-800      warning-soft
+ *   text-amber-900, bg-amber-900      warning
+ *   bg-amber-200                      milestone    the milestone badge
+ *   text-amber-900 on that badge      milestone-ink  (both violet now: story 208)
+ *
+ *   text-red-700                      failure
+ *   bg-red-50                         failure-surface
+ *   border-red-300                    failure-rule
+ *   ring-red-600                      failure-focus
+ *   text-emerald-700                  success      a Connection test that passed
+ *
+ *   green-50 / green-200 / green-900  agreement-surface / agreement-rule /
+ *                                     agreement    a Prediction the Judge agreed with
+ *   bg-green-100, text-green-900      added, added-ink      the Judge's word diff
+ *   bg-red-100, text-red-900          removed, removed-ink  the Judge's word diff
+ *
+ *   decoration-rose-500               violation    the strike through a Violation
+ *   text-rose-800                     violation-ink
+ *   bg-rose-50                        violation-surface
+ *   bg-rose-100                       violation-wash
+ *   border-rose-300                   violation-rule
+ *   ring-rose-600                     violation-focus
+ *
+ *   text-blue-700                     link         a link in the tool's own text
+ *   text-blue-900                     link-hover
+ */
+@theme {
+  /* The page and its surroundings. */
+  --color-paper: #ffffff; /* white: the page the Writer's prose sits on */
+  --color-ground: oklch(98.5% 0.001 106.423); /* stone-50: the app behind the page */
+  --color-sunk: #f5f5f4; /* stone-100: a recessed surface; inline code */
+  --color-sunk-strong: oklch(92.3% 0.003 48.717); /* stone-200: a chip, a selected row */
+
+  /* Ink, from strongest to faintest. */
+  --color-ink: #1c1917; /* stone-900 */
+  --color-soft-ink: oklch(26.8% 0.007 34.298); /* stone-800 */
+  --color-quiet-ink: oklch(37.4% 0.01 67.558); /* stone-700 */
+  --color-muted-ink: #57534e; /* stone-600 */
+  --color-faint-ink: oklch(55.3% 0.013 58.071); /* stone-500 */
+  --color-ghost-ink: oklch(70.9% 0.01 56.259); /* stone-400 */
+  --color-on-ink: oklch(98.5% 0.001 106.423); /* stone-50: text on an ink fill */
+
+  /* Rules, from faintest to strongest, and the focus ring. */
+  --color-rule-faint: oklch(97% 0.001 106.424); /* stone-100 */
+  --color-rule-soft: oklch(92.3% 0.003 48.717); /* stone-200 */
+  --color-rule: #d6d3d1; /* stone-300 */
+  --color-rule-strong: oklch(70.9% 0.01 56.259); /* stone-400 */
+  --color-rule-focus: oklch(55.3% 0.013 58.071); /* stone-500 */
+  --color-focus: oklch(44.4% 0.011 73.639); /* stone-600 */
+
+  /*
+   * The mark: an editor's blue pencil (story 214), not amber, so a mark never
+   * reads as a warning or a failure (story 207). It is sky, a cyan-leaning blue
+   * (hue near 200°), where both links are a royal blue (near 222°): a link is
+   * blue text, a mark is a blue line and a blue fill under ink-coloured text.
+   * A Highlight at rest has no fill, only the line (story 211).
+   */
+  --color-mark: #0369a1; /* sky-700: the blue pencil, 5.9:1 as text on paper */
+  --color-mark-line: #0284c7; /* sky-600: a Highlight's underline */
+  --color-mark-hover: #bae6fd; /* sky-200: a Highlight under the pointer */
+  --color-current-mark: #7dd3fc; /* sky-300: the Current Finding's Highlight */
+  --color-current-mark-line: #0369a1; /* sky-700: its underline and ring */
+  --color-mark-wash: #e0f2fe; /* sky-100: the Current Finding's row */
+
+  /* Warning: something to know about, not something that broke. */
+  --color-warning: oklch(41.4% 0.112 45.904); /* amber-900: a notice's text */
+  --color-warning-soft: oklch(47.3% 0.137 46.201); /* amber-800 */
+  --color-warning-muted: oklch(55.5% 0.163 48.998); /* amber-700 */
+  --color-warning-focus: oklch(55.5% 0.163 48.998); /* amber-700 */
+  --color-warning-surface: oklch(98.7% 0.022 95.277); /* amber-50 */
+  --color-warning-rule: oklch(92.4% 0.12 95.746); /* amber-200 */
+  --color-warning-rule-strong: oklch(87.9% 0.169 91.605); /* amber-300 */
+
+  /*
+   * Milestone: a Revision the Writer chose to mark. Violet rather than amber, so
+   * a milestone never reads as a warning or a mark (story 208).
+   */
+  --color-milestone: oklch(89.4% 0.057 293.283); /* violet-200: a milestone badge */
+  --color-milestone-ink: oklch(38% 0.189 293.745); /* violet-900: its text */
+
+  /* Failure, and its opposite. */
+  --color-failure: oklch(50.5% 0.213 27.518); /* red-700 */
+  --color-failure-surface: oklch(97.1% 0.013 17.38); /* red-50 */
+  --color-failure-rule: oklch(80.8% 0.114 19.571); /* red-300 */
+  --color-failure-focus: oklch(57.7% 0.245 27.325); /* red-600 */
+  --color-success: oklch(50.8% 0.118 165.612); /* emerald-700 */
+
+  /* The Judge: a Prediction it agreed with, and its word diff. */
+  --color-agreement: oklch(39.3% 0.095 152.535); /* green-900 */
+  --color-agreement-surface: oklch(98.2% 0.018 155.826); /* green-50 */
+  --color-agreement-rule: oklch(92.5% 0.084 155.995); /* green-200 */
+  --color-added: oklch(96.2% 0.044 156.743); /* green-100 */
+  --color-added-ink: oklch(39.3% 0.095 152.535); /* green-900 */
+  --color-removed: oklch(93.6% 0.032 17.717); /* red-100 */
+  --color-removed-ink: oklch(39.6% 0.141 25.723); /* red-900 */
+
+  /* A Violation: praise or a rewrite the linter struck through. */
+  --color-violation: oklch(64.5% 0.246 16.439); /* rose-500: the strike */
+  --color-violation-ink: oklch(45.5% 0.188 13.697); /* rose-800 */
+  --color-violation-surface: oklch(96.9% 0.015 12.422); /* rose-50 */
+  --color-violation-wash: oklch(94.1% 0.03 12.58); /* rose-100 */
+  --color-violation-rule: oklch(81% 0.117 11.638); /* rose-300 */
+  --color-violation-focus: oklch(58.6% 0.253 17.585); /* rose-600 */
+
+  /*
+   * Links. A link in the Writer's prose and a link in the tool's own text are
+   * different blues today: the Editor's hex is Tailwind v3's blue-700, and the
+   * palette class is v4's, which renders brighter.
+   */
+  --color-prose-link: #1d4ed8; /* a link in the Writer's prose */
+  --color-link: oklch(48.8% 0.243 264.376); /* blue-700 */
+  --color-link-hover: oklch(37.9% 0.146 265.522); /* blue-900 */
+}
+
+/*
+ * The same names in the dark scheme. The page is a dark paper, warm and not
+ * black (story 206), lifted a step above the ground behind it as the white page
+ * is in light. Ink runs the other way, light on dark, and never pure white, so
+ * a long session does not glare. An ink fill becomes a light fill with dark
+ * text on it; `on-ink` follows.
+ *
+ * Contrast is story 187's, kept in dark (story 210): `muted-ink`, the Rail's
+ * quiet text and a disabled Pass name, is at least 4.5:1 on paper, sunk and
+ * sunk-strong, and so is `faint-ink` on paper and ground. `ghost-ink` is for
+ * what is decorative, as in light.
+ *
+ * The mark is the same blue pencil: a bright sky underline on the dark paper,
+ * and deep blue fills, so the light ink stays at least 4.5:1 on a filled
+ * Highlight (story 215).
+ * `mark` itself, the pencil as text, is 7.9:1 on paper and 8.3:1 on ground.
+ */
+@layer theme {
+  :root {
+    color-scheme: light;
+
+    @variant dark {
+      color-scheme: dark;
+
+      --color-paper: #1f1d1a;
+      --color-ground: #191816;
+      --color-sunk: #292724;
+      --color-sunk-strong: #34312d;
+
+      --color-ink: #ebe7e1;
+      --color-soft-ink: #ddd8d1;
+      --color-quiet-ink: #cbc5bd;
+      --color-muted-ink: #b3aca3;
+      --color-faint-ink: #a29b92;
+      --color-ghost-ink: #7a746c;
+      --color-on-ink: #1c1a18;
+
+      --color-rule-faint: #25231f;
+      --color-rule-soft: #322f2b;
+      --color-rule: #45413b;
+      --color-rule-strong: #5d5850;
+      --color-rule-focus: #8a837a;
+      --color-focus: #b3aca3;
+
+      --color-mark: #38bdf8;
+      --color-mark-line: #38bdf8;
+      --color-mark-hover: #173a52;
+      --color-current-mark: #1e4f6e;
+      --color-current-mark-line: #7dd3fc;
+      --color-mark-wash: #172a36;
+
+      --color-warning: #f2c872;
+      --color-warning-soft: #e9b75a;
+      --color-warning-muted: #dcaa52;
+      --color-warning-focus: #dcaa52;
+      --color-warning-surface: #2c2414;
+      --color-warning-rule: #5a4619;
+      --color-warning-rule-strong: #7a5f22;
+
+      --color-milestone: #3d3163;
+      --color-milestone-ink: #d9ccff;
+
+      --color-failure: #f5958c;
+      --color-failure-surface: #321c1a;
+      --color-failure-rule: #6e302b;
+      --color-failure-focus: #f5958c;
+      --color-success: #6fd6a6;
+
+      --color-agreement: #93dcaa;
+      --color-agreement-surface: #17281c;
+      --color-agreement-rule: #2e5539;
+      --color-added: #1e3a26;
+      --color-added-ink: #a8e4ba;
+      --color-removed: #401f1e;
+      --color-removed-ink: #f6aea7;
+
+      --color-violation: #f7768a;
+      --color-violation-ink: #fca5b3;
+      --color-violation-surface: #2f1a1e;
+      --color-violation-wash: #45222a;
+      --color-violation-rule: #7a2e3b;
+      --color-violation-focus: #f7768a;
+
+      --color-prose-link: #8fb4ff;
+      --color-link: #93b6ff;
+      --color-link-hover: #c4d6ff;
+    }
+  }
+}
+
+/*
+ * The root is the ground, so the loading screen, an overscroll and the moment
+ * before the app mounts are the scheme's colour, never the browser's own.
+ *
+ * A focus ring's offset is drawn in the page's colour rather than Tailwind's
+ * white, so an ink-filled control's ring in dark is not set off by a white band.
+ */
+@layer base {
+  html {
+    background-color: var(--color-ground);
+  }
+
+  *,
+  ::before,
+  ::after {
+    --tw-ring-offset-color: var(--color-paper);
+  }
+}
+
+/*
+ * The page's typeface as a utility, `font-page`. Serif is the Writer's words,
+ * sans is the tool's (story 193): the prose and the Document's title use this,
+ * and everything else keeps the system sans. Georgia is the fallback, so an
+ * offline first open before Literata has loaded still shows a book serif
+ * (story 195).
+ */
+@theme {
+  --font-page: "Literata Variable", Georgia, "Times New Roman", serif;
+}
+
+/*
+ * The column (story 192). The prose is held to a measure of about 68
+ * characters at 18px and centred; the title, the toolbar and the Status line
+ * share this width so they line up with it. The measure is in rem, not ch,
+ * so the toolbar and the Status line, set smaller in the sans, align with the
+ * prose exactly. 37rem is about 33em of the 18px prose: about 68 characters of
+ * Literata in running English, measured at 1440px.
+ */
+.obelus-column {
+  width: 100%;
+  max-width: calc(37rem + 4rem);
+  margin-inline: auto;
+  padding-inline: 2rem;
+}
+
+/*
+ * The Outline's placement (stories 241 and 242). Both the margin Outline and
+ * the Rail's Outline render; this breakpoint alone shows one, so resizing
+ * across it swaps them without a reload and no script decides. At 1440px and
+ * wider the Outline sits in the left margin the capped column leaves empty,
+ * held in view while the prose scrolls; below it, it stays in the Rail. The
+ * margin clips rather than scrolls, so the sticky list inside it follows
+ * whichever element scrolls the prose, and a long Outline scrolls on its own.
+ */
+.obelus-left-margin {
+  display: none;
+}
+
+@media (min-width: 1440px) {
+  .obelus-left-margin {
+    display: block;
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: calc((100% - 37rem - 4rem) / 2);
+    overflow: clip;
+  }
+
+  .obelus-left-margin-body {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .obelus-rail-outline {
+    display: none;
+  }
+}
+
+/*
  * The rich text surface. Tailwind's preflight resets list and heading styling,
  * so the editor restates what a Writer expects from a document. These are the
  * rendered forms the Writer edits; the Markdown that Core derives is separate.
+ * Headings follow a scale in the page's own family, in em so they keep their
+ * proportion to the prose.
  */
 .obelus-editor {
-  font-size: 1rem;
-  line-height: 1.75;
-  color: #1c1917;
+  font-family: var(--font-page);
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--color-ink);
 }
 
 .obelus-editor > * + * {
-  margin-top: 0.75rem;
+  margin-top: 0.8em;
 }
 
 .obelus-editor h1 {
-  font-size: 1.875rem;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-top: 1.5rem;
+  font-size: 1.6em;
+  font-weight: 650;
+  line-height: 1.25;
+  margin-top: 1.4em;
 }
 
 .obelus-editor h2 {
-  font-size: 1.5rem;
+  font-size: 1.3em;
   font-weight: 600;
-  line-height: 1.25;
-  margin-top: 1.25rem;
+  line-height: 1.3;
+  margin-top: 1.3em;
 }
 
 .obelus-editor h3 {
-  font-size: 1.25rem;
+  font-size: 1.1em;
   font-weight: 600;
-  line-height: 1.3;
-  margin-top: 1rem;
+  line-height: 1.35;
+  margin-top: 1.2em;
+}
+
+.obelus-editor > :first-child {
+  margin-top: 0;
 }
 
 .obelus-editor ul {
@@ -52,14 +419,14 @@
 }
 
 .obelus-editor blockquote {
-  border-left: 3px solid #d6d3d1;
+  border-left: 3px solid var(--color-rule);
   padding-left: 1rem;
-  color: #57534e;
+  color: var(--color-muted-ink);
   font-style: italic;
 }
 
 .obelus-editor code {
-  background: #f5f5f4;
+  background: var(--color-sunk);
   padding: 0.1rem 0.25rem;
   border-radius: 0.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -67,8 +434,8 @@
 }
 
 .obelus-editor pre {
-  background: #1c1917;
-  color: #f5f5f4;
+  background: var(--color-ink);
+  color: var(--color-sunk);
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
@@ -84,46 +451,128 @@
 }
 
 .obelus-editor a {
-  color: #1d4ed8;
+  color: var(--color-prose-link);
   text-decoration: underline;
 }
 
 /*
- * A Highlight is the visual rendering of an Anchor. Amber so it reads as a mark
- * the Writer works through, not as an error; the underline keeps it legible
- * over bold and code.
+ * A Highlight is the visual rendering of an Anchor. At rest it is only an
+ * underline in blue pencil (story 211): the Writer sees where the marks are
+ * without the page becoming about them. Blue so it reads as an editing mark,
+ * not as an error; the underline keeps it legible over bold and code.
  *
  * The underline is a text decoration, never a box-shadow, and the span has no
  * border-radius. A Document can carry hundreds of Highlights, and WebKit
  * repaints an inset shadow on every one of them as the Writer types: measured in
  * WebKit with ~490 Highlights, the shadow tripled the time a keystroke took.
+ * A fill is drawn only on the Current Finding's Highlight and the one under the
+ * pointer, so at most two spans carry one.
  */
 .obelus-highlight {
-  background-color: #fde68a;
   text-decoration-line: underline;
-  text-decoration-color: #d97706;
+  text-decoration-color: var(--color-mark-line);
   text-decoration-thickness: 0.15em;
   text-underline-offset: 0.15em;
 }
 
 /*
- * The Current Finding's Highlight, drawn beside `.obelus-highlight` rather than
- * instead of it. A deeper amber and a ring mark the one the queue is on without
- * changing what a Highlight means. The ring is an outline: only one Highlight is
- * ever current, so it never costs what a ring on every Highlight would.
+ * A click on a Highlight opens its Findings beside the prose; filling it under
+ * the pointer says so without changing what a Highlight means (story 213).
  */
-.obelus-highlight-current {
-  background-color: #fbbf24;
-  text-decoration-color: #b45309;
-  outline: 1px solid #b45309;
+.obelus-highlight:hover {
+  background-color: var(--color-mark-hover);
 }
 
 /*
- * A click on a Highlight opens its Findings beside the prose; deepening it
- * under the pointer says so without changing what a Highlight means.
+ * The Current Finding's Highlight, drawn beside `.obelus-highlight` rather than
+ * instead of it. A deeper fill and a ring mark the one the queue is on without
+ * changing what a Highlight means (story 212); it keeps that fill under the
+ * pointer, which is why the rule names both classes and comes after the hover.
+ * The ring is an outline: only one Highlight is ever current, so it never costs
+ * what a ring on every Highlight would.
  */
-.obelus-highlight:hover {
-  background-color: #fcd34d;
+.obelus-highlight.obelus-highlight-current {
+  background-color: var(--color-current-mark);
+  text-decoration-color: var(--color-current-mark-line);
+  outline: 1px solid var(--color-current-mark-line);
+}
+
+/*
+ * A Margin mark: the obelus and its count in the right-hand margin, between
+ * the prose and the Rail (stories 217–223). Its holder is a widget between two
+ * top-level blocks — never inside a textblock, where WebKit's caret suffers —
+ * with no height and no margin of its own, so the blocks' spacing collapses
+ * through it and the page lays out exactly as it would without it. The button
+ * hangs from the holder into the column's right padding, one line high, at the
+ * top of the block below: the spacing a block's top margin would put there,
+ * as a multiple of the prose's 1.125rem, since the button's own size is smaller.
+ *
+ * Both are contained, so a keystroke that reflows the prose does not lay out
+ * or repaint the marks: measured in Chromium at 4× CPU throttle with ~480
+ * Highlights and 29 marks, uncontained marks added about 7% to a keystroke's
+ * median, contained ones about 3%.
+ */
+.obelus-editor > .obelus-margin-mark {
+  position: relative;
+  height: 0;
+  margin: 0;
+  contain: layout style;
+  --obelus-margin-mark-top: 0.8;
+  --obelus-margin-mark-line: 1.6;
+}
+
+/*
+ * Beside a heading, the heading's own top margin and line, in its own size:
+ * 1.4em of a 1.6em h1 with a 1.25 line, and so on. The Highlight plugin sets
+ * the class from the block's kind, so no selector looks past the mark.
+ */
+.obelus-editor > .obelus-margin-mark-h1 {
+  --obelus-margin-mark-top: 2.24;
+  --obelus-margin-mark-line: 2;
+}
+
+.obelus-editor > .obelus-margin-mark-h2 {
+  --obelus-margin-mark-top: 1.69;
+  --obelus-margin-mark-line: 1.69;
+}
+
+.obelus-editor > .obelus-margin-mark-h3 {
+  --obelus-margin-mark-top: 1.32;
+  --obelus-margin-mark-line: 1.485;
+}
+
+.obelus-editor > .obelus-margin-mark:first-child {
+  --obelus-margin-mark-top: 0;
+}
+
+/* The mark before the first block leaves it at the top of the page. */
+.obelus-editor > .obelus-margin-mark:first-child + * {
+  margin-top: 0;
+}
+
+.obelus-margin-mark > button {
+  position: absolute;
+  top: calc(var(--obelus-margin-mark-top) * 1.125rem);
+  left: calc(100% + 0.375rem);
+  /* One line of the block beside it, so the count sits on its first line. */
+  height: calc(var(--obelus-margin-mark-line) * 1.125rem);
+  padding-inline: 0.125rem;
+  contain: layout paint style;
+  /* The tool's mark, not the Writer's words: the system sans, as the chrome. */
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-mark);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+.obelus-margin-mark > button:hover {
+  background-color: var(--color-mark-hover);
 }
 
 .obelus-editor:focus {

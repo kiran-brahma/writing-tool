@@ -26,13 +26,13 @@ export function ReaderAccountRow({
   );
 
   return (
-    <li className="border-b border-stone-200/70 bg-white px-4 py-3 last:border-b-0">
+    <li className="border-b border-rule-soft/70 bg-paper px-4 py-3 last:border-b-0">
       {first && (
-        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-600">
+        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-ink">
           {account.section.heading}
         </h4>
       )}
-      <p className="text-xs text-stone-600">
+      <p className="text-xs text-muted-ink">
         Read at {new Date(account.provenance.at).toLocaleString()} · {account.provenance.model}
       </p>
 
@@ -47,7 +47,7 @@ export function ReaderAccountRow({
       {violations.length > 0 && (
         <div className="mt-2">
           {elsewhere.length > 0 && (
-            <p className="text-xs text-stone-600">
+            <p className="text-xs text-muted-ink">
               Praise from the model: <StruckViolations violations={elsewhere} />
             </p>
           )}
@@ -66,11 +66,11 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
   const elsewhere = violationsOutsideText(renderedTexts(account), violations);
 
   return (
-    <li className="border-b border-stone-200/70 bg-white px-4 py-3 last:border-b-0">
-      <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">
+    <li className="border-b border-rule-soft/70 bg-paper px-4 py-3 last:border-b-0">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-ink">
         {account.type === "argument" ? "Argument" : "Observation"}
       </p>
-      <p className="mt-0.5 text-xs text-stone-600">
+      <p className="mt-0.5 text-xs text-muted-ink">
         Audited {new Date(account.provenance.at).toLocaleString()} · {account.provenance.model}
       </p>
 
@@ -78,7 +78,7 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
 
       {account.argumentMap !== undefined && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-stone-600">Argument map</p>
+          <p className="text-xs font-medium text-muted-ink">Argument map</p>
           <StringList label="Premises" entries={account.argumentMap.premises} strikes={strikes} />
           <StringList
             label="Sub-conclusions"
@@ -95,7 +95,7 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
 
       {account.reasoning !== undefined && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-stone-600">
+          <p className="text-xs font-medium text-muted-ink">
             {account.reasoning.kind === "deductive" ? "Deductive reasoning" : "Inductive reasoning"}
           </p>
           {account.reasoning.form !== undefined && (
@@ -112,25 +112,25 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
 
       {account.fallacies.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-stone-600">Fallacies and faults</p>
+          <p className="text-xs font-medium text-muted-ink">Fallacies and faults</p>
           <ul className="mt-1 space-y-2">
             {account.fallacies.map((fallacy, index) => (
               <li
                 key={index}
-                className="rounded border border-stone-200 bg-white px-2.5 py-2 text-sm text-stone-800"
+                className="rounded border border-rule-soft bg-paper px-2.5 py-2 text-sm text-soft-ink"
               >
-                <p className="text-xs font-semibold text-stone-700">
+                <p className="text-xs font-semibold text-quiet-ink">
                   {fallacy.name ?? "Unlabelled fault"}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm italic text-stone-700">
+                <p className="mt-1 whitespace-pre-wrap text-sm italic text-quiet-ink">
                   <StruckText text={fallacy.passage} violations={[]} />
                 </p>
                 <p className="mt-1 text-sm">
-                  <span className="text-xs font-medium text-stone-600">Why it fails: </span>
+                  <span className="text-xs font-medium text-muted-ink">Why it fails: </span>
                   <StruckText text={fallacy.why} violations={strikes} />
                 </p>
                 <p className="mt-0.5 text-sm">
-                  <span className="text-xs font-medium text-stone-600">What is missing: </span>
+                  <span className="text-xs font-medium text-muted-ink">What is missing: </span>
                   <StruckText text={fallacy.missing} violations={strikes} />
                 </p>
               </li>
@@ -141,7 +141,7 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
 
       {account.definitions !== undefined && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-stone-600">Definitions</p>
+          <p className="text-xs font-medium text-muted-ink">Definitions</p>
           <MarkedField
             label="Intensional"
             text={account.definitions.intensional}
@@ -159,10 +159,10 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
 
       {account.priority.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-stone-600">Fix first</p>
+          <p className="text-xs font-medium text-muted-ink">Fix first</p>
           <ol className="mt-1 list-decimal space-y-1 pl-5">
             {account.priority.map((item, index) => (
-              <li key={index} className="text-sm text-stone-800">
+              <li key={index} className="text-sm text-soft-ink">
                 <StruckText text={item} violations={strikes} />
               </li>
             ))}
@@ -173,7 +173,7 @@ export function AuditAccountRow({ account }: { account: AuditAccountRecord }) {
       {violations.length > 0 && (
         <div className="mt-2">
           {elsewhere.length > 0 && (
-            <p className="text-xs text-stone-600">
+            <p className="text-xs text-muted-ink">
               Praise from the model: <StruckViolations violations={elsewhere} />
             </p>
           )}
@@ -198,11 +198,11 @@ function MarkedField({
 }) {
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-stone-600">{label}</p>
+      <p className="text-xs font-medium text-muted-ink">{label}</p>
       {nullable && text === null ? (
-        <p className="mt-0.5 text-sm italic text-stone-600">None given.</p>
+        <p className="mt-0.5 text-sm italic text-muted-ink">None given.</p>
       ) : (
-        <p className="mt-0.5 whitespace-pre-wrap text-sm text-stone-800">
+        <p className="mt-0.5 whitespace-pre-wrap text-sm text-soft-ink">
           <StruckText text={text ?? ""} violations={strikes} />
         </p>
       )}
@@ -223,10 +223,10 @@ function StringList({
   if (entries.length === 0) return null;
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-stone-600">{label}</p>
+      <p className="text-xs font-medium text-muted-ink">{label}</p>
       <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
         {entries.map((entry, index) => (
-          <li key={index} className="text-sm text-stone-800">
+          <li key={index} className="text-sm text-soft-ink">
             <StruckText text={entry} violations={strikes} />
           </li>
         ))}

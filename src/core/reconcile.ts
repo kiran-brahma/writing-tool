@@ -91,8 +91,14 @@ export function reconcileFindings(
     // fields and the coordinates stay. A violation the Run no longer produces
     // must clear, so `violations` is dropped from the match before it is set.
     // The Voice-list annotation is Run-derived too (story 152): a fresh Run
-    // decides it, so a stale one is dropped from the match as well.
-    const { violations: _previousViolations, inVoiceList: _previousInVoiceList, ...writerFields } = match;
+    // decides it, so a stale one is dropped from the match as well. So is the
+    // severity (story 138): the rule that produced the Finding decides it.
+    const {
+      violations: _previousViolations,
+      inVoiceList: _previousInVoiceList,
+      severity: _previousSeverity,
+      ...writerFields
+    } = match;
     entries.push({
       finding: {
         ...writerFields,
@@ -103,6 +109,7 @@ export function reconcileFindings(
         anchor: { ...match.anchor, state: "attached" },
         ...(finding.violations === undefined ? {} : { violations: finding.violations }),
         ...(finding.inVoiceList === undefined ? {} : { inVoiceList: finding.inVoiceList }),
+        ...(finding.severity === undefined ? {} : { severity: finding.severity }),
       },
       interval,
     });

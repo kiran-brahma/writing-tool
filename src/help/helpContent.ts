@@ -74,7 +74,7 @@ export const RULE_ONE: readonly string[] = [
 export const RULE_TWO: readonly string[] = [
   "No encouragement.",
   "Every string a model returns is scanned for praise and for rewrite-shaped content. Praise is shown struck through rather than hidden, so you can see when a prompt has drifted.",
-  "You can decline a Finding, recording whether you rejected the advice or the model breached the constitution, and you can show the raw provider response whenever you want to check the linter yourself.",
+  "You can decline a Finding, recording whether you rejected the advice or the model breached the constitution, and you can show the raw provider response, from AI Settings, whenever you want to check the linter yourself.",
   "A Verdict from the Judge compares two passages; it is not a score for your prose. A Finding is a problem to weigh, not a compliment to keep.",
 ];
 
@@ -209,7 +209,12 @@ export const HELP_GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Rail",
     definition:
-      "The surface where you move by Band, run Passes, work the queue, and reach the Judge, milestones and Revisions.",
+      "The surface beside the prose, in two Rail modes: Findings, where you move by Band, run Passes and work the queue, and Judge, where you compare Revisions and flag milestones.",
+  },
+  {
+    term: "Rail mode",
+    definition:
+      "One of the Rail's two views, Findings and Judge, switched at its top. The Rail opens on Findings each session, and the queue keys act only there.",
   },
   {
     term: "Screening frame",
@@ -316,12 +321,13 @@ export const HELP_SHORTCUTS: readonly HelpShortcut[] = [
 ];
 
 /**
- * Story 177: the rail's hint bar. It states the condition under which the plain
- * keys are live and names the modifier shortcut that works anywhere, rather than
- * advertising `j`/`k`/`a`/`x`/`v` unconditionally into the prose.
+ * Stories 177 and 236: the Rail's hint bar, one line at its foot. It still
+ * states the condition under which the plain keys are live — Findings mode, and
+ * not typing — and names the modifier step that works anywhere, rather than
+ * advertising `j`/`k`/`a`/`x`/`v` unconditionally into the prose. Story 237: the
+ * full explanation is the shortcuts section, which the bar links to.
  */
-export const QUEUE_HINT =
-  "j / k move · a address · x decline · v decline as a violation · ? shows every shortcut. These work when you are not typing, because in the Editor they belong to the prose. Alt + ↓ / Alt + ↑ step the queue from anywhere.";
+export const QUEUE_HINT = "Keys work in Findings when not typing · Alt + ↓ ↑ anywhere";
 
 /**
  * Story 168: the first-run note in the Editor body. It is not a modal; it sits
@@ -385,7 +391,7 @@ export const PANEL_GLOSSES = {
     sectionId: HELP_SECTION_IDS.glossary,
   },
   metrics: {
-    text: "Measurements of rhythm and sentence structure across your document. A metric is a diagnostic signal, never a score.",
+    text: "Measurements of rhythm and sentence structure across your document. A metric is a diagnostic signal, never a score. A paragraph that opens with a number and a period, such as \"1984. The year it began.\", is counted as one sentence, because that shape is also how a numbered list item starts.",
     sectionId: HELP_SECTION_IDS.glossary,
   },
   outline: {
@@ -452,6 +458,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
     heading: "Shortcuts",
     paragraphs: [
       "The plain queue keys are live when you are not typing. While the Editor or a field has focus they stand down, because j, k, a, x and v are ordinary letters that must reach the prose. The Alt shortcut works anywhere, including the prose.",
+      "The queue keys act only in Findings mode, where the queue is on screen, so j and k never move a selection you cannot see. From Judge mode, the Alt shortcut switches the Rail to Findings and then steps, as it opens a hidden Rail.",
     ],
     items: HELP_SHORTCUTS.map((shortcut) => ({
       title: shortcut.keys.join(" / "),

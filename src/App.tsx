@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { blockIndexForInterval, type HighlightInterval } from "./core/anchor";
-import type { DeclineReason, Interval } from "./core/finding";
+import { isOpenFinding, type DeclineReason, type Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor, type HighlightHit } from "./editor/DocumentEditor";
 import { FindingCallout } from "./editor/FindingCallout";
+import { MarginOutline } from "./editor/OutlinePanel";
+import { StatusLine } from "./editor/StatusLine";
 import { calloutFindings } from "./editor/callout";
+import { railPresentation } from "./editor/railPresentation";
 import { isTypingTarget } from "./editor/typingTarget";
+import { useWideLayout } from "./editor/useWideLayout";
 import { WorkingOrderRail } from "./editor/WorkingOrderRail";
 import { HowThisWorksView } from "./help/HowThisWorksView";
 import {
@@ -22,10 +26,12 @@ import { SCRATCHPAD_DOCUMENT_ID } from "./storage/documents";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 import { AiSettingsView } from "./settings/AiSettingsView";
+import { useColorScheme } from "./settings/useColorScheme";
 import { WorkbenchView } from "./workbench/WorkbenchView";
 import { DocumentMenu } from "./DocumentMenu";
+import { HelpMenu } from "./HelpMenu";
 import {
-  DESTINATIONS,
+  destinationsAt,
   isCurrentDestination,
   type DestinationId,
 } from "./navigation";
@@ -92,7 +98,12 @@ export default function App() {
     judgeIsDefault,
     firstRunNoteDismissed,
     dismissFirstRunNote,
+    colorScheme,
+    setColorScheme,
+    showRawResponse,
+    setShowRawResponse,
   } = handle;
+  useColorScheme(colorScheme);
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20 & 190: persistent destinations; the Editor is the default. */
@@ -100,7 +111,6 @@ export default function App() {
   /** Story 178: the section How this works should open at, or null for the top. */
   const [helpSection, setHelpSection] = useState<HelpSectionId | null>(null);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
-  const [showRawResponse, setShowRawResponse] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
@@ -113,6 +123,32 @@ export default function App() {
     nonce: number;
     focus?: boolean;
   } | null>(null);
+
+  /**
+   * Stories 251–255: how the Rail is drawn. At 1024px and wider the stored
+   * collapsed preference decides; below that only this local flag does. It is
+   * false on every load, never stored, and cleared on crossing to wide, so a
+   * desktop preference never covers the prose.
+   */
+  const wide = useWideLayout();
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  useEffect(() => {
+    if (wide) setOverlayOpen(false);
+  }, [wide]);
+  const { railCollapsed, setRailCollapsed } = handle;
+  const presentation = railPresentation(wide, railCollapsed, overlayOpen);
+  const showRail = useCallback(() => {
+    if (wide) void setRailCollapsed(false);
+    else setOverlayOpen(true);
+  }, [wide, setRailCollapsed]);
+  const hideRail = useCallback(() => {
+    if (wide) void setRailCollapsed(true);
+    else setOverlayOpen(false);
+  }, [wide, setRailCollapsed]);
+  const openFindingCount = useMemo(
+    () => handle.findings.filter(isOpenFinding).length,
+    [handle.findings],
+  );
 
   /** Story 25: the outline, derived from the Document's headings. */
   const outlineSections = useMemo(
@@ -366,7 +402,7 @@ export default function App() {
   if (status === "loading") {
     return (
       <CenteredMessage>
-        <p className="text-stone-500">Opening your Library…</p>
+        <p className="text-faint-ink">Opening your Library…</p>
       </CenteredMessage>
     );
   }
@@ -374,8 +410,8 @@ export default function App() {
   if (status === "error") {
     return (
       <CenteredMessage>
-        <h1 className="text-lg font-semibold text-stone-900">Obelus could not open your Library</h1>
-        <p className="mt-2 max-w-md text-sm text-stone-600">{openError}</p>
+        <h1 className="text-lg font-semibold text-ink">Obelus could not open your Library</h1>
+        <p className="mt-2 max-w-md text-sm text-muted-ink">{openError}</p>
       </CenteredMessage>
     );
   }
@@ -413,22 +449,49 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
-      <header className="flex items-center justify-between gap-3 sm:gap-4 border-b border-stone-200 px-3 sm:px-6 py-2.5 whitespace-nowrap overflow-x-auto min-w-0 bg-stone-50 text-stone-900">
+    <div className="flex min-h-screen flex-col bg-ground text-ink">
+      {/*
+        The header's three zones: brand, document actions, navigation. It wraps
+        rather than scrolling sideways, so nothing clips the Document menu or
+        the help control's list when they open.
+      */}
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4 border-b border-rule-soft px-3 sm:px-6 py-2.5 whitespace-nowrap bg-ground text-ink">
         <div className="shrink-0">
-          <h1 className="text-base font-semibold tracking-tight text-stone-900">Obelus</h1>
-          <p className="hidden sm:block text-xs text-stone-500">It marks; it never holds the pen.</p>
+          <h1 className="text-base font-semibold tracking-tight text-ink">Obelus</h1>
+          <p className="hidden sm:block text-xs text-faint-ink">It marks; it never holds the pen.</p>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-4">
           <DocumentMenu
-            wordCount={document?.wordCount ?? 0}
             onExport={onExport}
             onImport={onImport}
             canExport={document !== null}
           />
-          <div className="h-4 w-px bg-stone-300" aria-hidden="true" />
-          <nav aria-label="Main navigation" className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-            {DESTINATIONS.map(({ id, label }) => {
+          <div className="hidden sm:block h-4 w-px bg-rule" aria-hidden="true" />
+          <nav aria-label="Main navigation" className="flex items-center gap-1 sm:gap-2">
+            {/* Stories 244–245: Editor and Library are the tabs; the tools follow, quieter. */}
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              {destinationsAt("tab").map(({ id, label }) => {
+                const isCurrent = isCurrentDestination(id, view);
+                return (
+                  <button
+                    key={id}
+                    id={`nav-dest-${id}`}
+                    type="button"
+                    aria-current={isCurrent ? "page" : undefined}
+                    onClick={() => navigateTo(id)}
+                    className={[
+                      "rounded px-2.5 sm:px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                      isCurrent
+                        ? "bg-ink font-semibold text-on-ink focus-visible:ring-offset-2"
+                        : "font-medium text-quiet-ink hover:bg-sunk-strong hover:text-ink",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {destinationsAt("link").map(({ id, label }) => {
               const isCurrent = isCurrentDestination(id, view);
               return (
                 <button
@@ -438,33 +501,34 @@ export default function App() {
                   aria-current={isCurrent ? "page" : undefined}
                   onClick={() => navigateTo(id)}
                   className={[
-                    "rounded px-2 sm:px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600",
+                    "rounded px-1.5 sm:px-2 py-1 text-xs underline-offset-4 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
                     isCurrent
-                      ? "bg-stone-900 font-semibold text-stone-50 shadow-xs"
-                      : "text-stone-600 hover:bg-stone-200/70 hover:text-stone-900",
+                      ? "font-semibold text-ink underline decoration-rule-strong"
+                      : "font-medium text-faint-ink",
                   ].join(" ")}
                 >
                   {label}
                 </button>
               );
             })}
+            <HelpMenu view={view} onNavigate={navigateTo} />
           </nav>
         </div>
       </header>
 
       {saveError !== null && (
-        <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="border-b border-failure-rule bg-failure-surface px-6 py-2 text-sm text-failure">
           Could not save your document: {saveError}
         </div>
       )}
 
       {storageNotice !== null && (
-        <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="flex items-center justify-between gap-4 border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
           <span>{storageNotice}</span>
           <button
             type="button"
             onClick={dismissStorageNotice}
-            className="shrink-0 rounded border border-amber-300 px-2 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700"
+            className="shrink-0 rounded border border-warning-rule-strong px-2 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus"
           >
             Dismiss
           </button>
@@ -472,7 +536,7 @@ export default function App() {
       )}
 
       {importError !== null && (
-        <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="border-b border-failure-rule bg-failure-surface px-6 py-2 text-sm text-failure">
           Could not import that markdown: {importError}
         </div>
       )}
@@ -510,6 +574,8 @@ export default function App() {
           characterLimit={characterLimit}
           voiceList={voiceList}
           priceTable={priceTable}
+          colorScheme={colorScheme}
+          showRawResponse={showRawResponse}
           onSaveConnection={(connection) => void saveConnection(connection)}
           onAddCustom={() => void addCustomConnection()}
           onRemoveConnection={(connectionId) => void removeConnection(connectionId)}
@@ -518,6 +584,8 @@ export default function App() {
           onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
           onSaveVoiceList={(entries) => void setVoiceList(entries)}
           onSavePriceTable={(table) => void savePriceTable(table)}
+          onSetColorScheme={(setting) => void setColorScheme(setting)}
+          onToggleRawResponse={(show) => void setShowRawResponse(show)}
           onOpenHelp={openHelpSection}
         />
       )}
@@ -544,14 +612,9 @@ export default function App() {
 
       {view === "editor" && (
         <div className="flex min-h-0 flex-1">
-          <main className="flex min-h-0 flex-1 flex-col bg-white">
+          <main className="flex min-h-0 flex-1 flex-col bg-paper">
             {document !== null && (
               <>
-                <DocumentTitleField
-                  key={document.id}
-                  title={document.title}
-                  onCommit={(title) => void renameDocument(document.id, title)}
-                />
                 {!firstRunNoteDismissed && (
                   <EditorNote
                     heading={FIRST_RUN_NOTE.heading}
@@ -581,6 +644,32 @@ export default function App() {
                   jumpRequest={jumpRequest}
                   onHighlightClick={openCallout}
                   calloutOpen={calloutOpen}
+                  leftMargin={
+                    <MarginOutline
+                      sections={outlineSections}
+                      activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
+                      onJump={jumpToSection}
+                    />
+                  }
+                  pageHeading={
+                    <DocumentTitleField
+                      key={document.id}
+                      title={document.title}
+                      onCommit={(title) => void renameDocument(document.id, title)}
+                    />
+                  }
+                />
+                <StatusLine
+                  wordCount={document.wordCount}
+                  rail={
+                    wide
+                      ? null
+                      : {
+                          openFindingCount,
+                          open: presentation === "overlay",
+                          onToggle: presentation === "overlay" ? hideRail : showRail,
+                        }
+                  }
                 />
                 {calloutOpen && calloutHit !== null && (
                   <FindingCallout
@@ -597,13 +686,16 @@ export default function App() {
 
           <WorkingOrderRail
             handle={handle}
+            presentation={presentation}
+            wide={wide}
+            onShowRail={showRail}
+            onHideRail={hideRail}
             outlineSections={outlineSections}
             activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
             onJumpToSection={jumpToSection}
             currentFindingId={currentFindingId}
             onSelectFinding={selectFinding}
             showRawResponse={showRawResponse}
-            onToggleRawResponse={setShowRawResponse}
             selection={selection}
             section={section}
             milestoneNote={milestoneNote}
@@ -622,7 +714,9 @@ export default function App() {
 /**
  * The Document's title, editable in place. It is the Writer's name for the
  * Document, never a model's (story 74): the field commits on blur or Enter and
- * holds no generated text.
+ * holds no generated text. It sits at the head of the column in the page's
+ * typeface, so it reads as the top of the Document rather than a form field
+ * (story 196).
  */
 function DocumentTitleField({
   title,
@@ -649,7 +743,7 @@ function DocumentTitleField({
       }}
       aria-label="Document title"
       placeholder="Untitled"
-      className="border-b border-stone-200 bg-white px-8 py-3 text-xl font-semibold tracking-tight text-stone-900 focus:outline-none"
+      className="mb-6 block w-full rounded-sm bg-transparent font-page text-[2rem] leading-tight font-semibold text-ink placeholder:text-ghost-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-4"
     />
   );
 }
@@ -676,19 +770,19 @@ function EditorNote({
   onDismiss?: () => void;
 }) {
   return (
-    <aside className="border-b border-stone-200 bg-stone-50 px-8 py-3">
+    <aside className="border-b border-rule-soft bg-ground px-8 py-3">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-stone-900">{heading}</h2>
+          <h2 className="text-sm font-semibold text-ink">{heading}</h2>
           {body.map((paragraph) => (
-            <p key={paragraph} className="mt-1 text-sm leading-relaxed text-stone-600">
+            <p key={paragraph} className="mt-1 text-sm leading-relaxed text-muted-ink">
               {paragraph}
             </p>
           ))}
           <button
             type="button"
             onClick={onAction}
-            className="mt-2 text-sm font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+            className="mt-2 rounded text-sm font-medium text-link underline underline-offset-2 hover:text-link-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {actionLabel}
           </button>
@@ -697,7 +791,7 @@ function EditorNote({
           <button
             type="button"
             onClick={onDismiss}
-            className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="shrink-0 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {dismissLabel}
           </button>
@@ -730,7 +824,7 @@ function slug(title: string): string {
 
 function CenteredMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-stone-50 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-ground text-center">
       {children}
     </div>
   );

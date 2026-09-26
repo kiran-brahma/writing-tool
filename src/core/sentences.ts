@@ -12,7 +12,10 @@
  * ordered-list marker keeps `1.` from splitting. A fenced code block is skipped entirely, because a code sample is
  * not prose. This is a deterministic rule, not a grammatical analysis: an
  * abbreviation inside a sentence will split it, which the Writer can see through
- * the metrics it produces.
+ * the metrics it produces. A Paragraph that opens with a number and a period
+ * (`1984. The year…`) escapes to the same shape as a list marker, so it reads
+ * as one sentence; the Writer accepted that and the metrics panel states it
+ * (issue #51).
  */
 
 export interface Sentence {

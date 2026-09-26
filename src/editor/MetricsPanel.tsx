@@ -29,8 +29,8 @@ export function MetricsPanel({
   const shape = useMemo(() => paragraphShapeMetrics(tree), [tree]);
 
   return (
-    <section className="border-b border-stone-200 px-4 py-3">
-      <h2 className="text-sm font-semibold">Rhythm</h2>
+    <section className="border-b border-rule-soft px-4 py-3">
+      <h2 className="text-base font-semibold">Rhythm</h2>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <Metric label="Sentences" value={String(metrics.sentenceCount)} />
         <Metric label="Avg length" value={format(metrics.meanSentenceLength)} />
@@ -51,12 +51,12 @@ export function MetricsPanel({
           value={`${shape.longestUniformParagraphRun} in a row`}
         />
       </dl>
-      <p className="mt-2 text-xs text-stone-600">
+      <p className="mt-2 text-xs text-muted-ink">
         {PANEL_GLOSSES.metrics.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.metrics.sectionId)}
-          className="rounded px-0.5 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="rounded px-0.5 underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           How this works
         </button>
@@ -70,8 +70,8 @@ export function MetricsPanel({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-stone-600">{label}</dt>
-      <dd className="font-medium text-stone-800">{value}</dd>
+      <dt className="text-muted-ink">{label}</dt>
+      <dd className="font-medium text-soft-ink">{value}</dd>
     </div>
   );
 }
@@ -80,15 +80,15 @@ function Metric({ label, value }: { label: string; value: string }) {
 function ChipRow({ label, values }: { label: string; values: number[] }) {
   return (
     <div className="mt-2">
-      <p className="text-xs text-stone-600">{label}</p>
+      <p className="text-xs text-muted-ink">{label}</p>
       <p className="mt-1 flex flex-wrap gap-1">
         {values.length === 0 ? (
-          <span className="text-xs text-stone-600">—</span>
+          <span className="text-xs text-muted-ink">—</span>
         ) : (
           values.map((value, index) => (
             <span
               key={index}
-              className="rounded bg-stone-200 px-1.5 py-0.5 font-mono text-xs text-stone-700"
+              className="rounded bg-sunk-strong px-1.5 py-0.5 font-mono text-xs text-quiet-ink"
             >
               {value}
             </span>

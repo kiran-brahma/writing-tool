@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DocTree } from "../core/docTree";
 import { hashPass, type Pass } from "../core/pass";
 import { STARTER_PASSES } from "../core/starterPasses";
@@ -185,5 +185,36 @@ describe("runReaderPass", () => {
     await importDocument(database, document, "# Replacement\n\nDifferent prose.");
 
     expect(await listReaderAccounts(database, document.id)).toEqual([]);
+  });
+});
+
+describe("cancellation (#46)", () => {
+  it("an aborted Reader Run stores nothing and frees the queue for later writes", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runReaderPass(database, document, runOptions());
+    const controller = new AbortController();
+    const transport = createFixtureTransport({
+      respond: () => new Promise<string>(() => {
+        // Never resolves: a stalled Provider, which only the abort can end.
+      }),
+    });
+
+    const pending = runReaderPass(database, document, {
+      ...runOptions(),
+      transport,
+      signal: controller.signal,
+    });
+    // Queued behind the stalled Run; it can only land once the Run lets go.
+    const later = clearReaderAccounts(database, document.id);
+    // Let the Run reach its first Section's call before the Writer cancels.
+    await vi.waitFor(() => expect(transport.requests).toHaveLength(1));
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: "CancelledError" });
+    await later;
+    expect(await listReaderAccounts(database, document.id)).toEqual([]);
+    // The Run stopped at the Section it was on rather than reading the rest.
+    expect(transport.requests).toHaveLength(1);
   });
 });

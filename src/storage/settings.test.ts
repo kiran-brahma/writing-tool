@@ -3,21 +3,27 @@ import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
   CHARACTER_LIMIT_SETTING_KEY,
+  COLOR_SCHEME_SETTING_KEY,
   FIRST_RUN_NOTE_SETTING_KEY,
   RAIL_BAND_SETTING_KEY,
   RAIL_COLLAPSED_SETTING_KEY,
+  SHOW_RAW_RESPONSE_SETTING_KEY,
   VOICE_LIST_SETTING_KEY,
   loadCharacterLimit,
+  loadColorScheme,
   loadFirstRunNoteDismissed,
   loadRailBand,
   loadRailCollapsed,
   loadScreeningFrame,
+  loadShowRawResponse,
   loadVoiceList,
   saveCharacterLimit,
+  saveColorScheme,
   saveFirstRunNoteDismissed,
   saveRailBand,
   saveRailCollapsed,
   saveScreeningFrame,
+  saveShowRawResponse,
   saveVoiceList,
 } from "./settings";
 
@@ -176,5 +182,58 @@ describe("the first-run note setting", () => {
     await database.settings.put({ key: FIRST_RUN_NOTE_SETTING_KEY, value: "yes" });
 
     await expect(loadFirstRunNoteDismissed(database)).resolves.toBe(false);
+  });
+});
+
+describe("the colour scheme setting", () => {
+  it("follows the system by default", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadColorScheme(database)).resolves.toBe("system");
+  });
+
+  it("persists the Writer's choice", async () => {
+    const database = await openTestDatabase();
+
+    await expect(saveColorScheme(database, "dark")).resolves.toBe("dark");
+    await expect(loadColorScheme(database)).resolves.toBe("dark");
+
+    await expect(saveColorScheme(database, "light")).resolves.toBe("light");
+    await expect(loadColorScheme(database)).resolves.toBe("light");
+
+    await expect(saveColorScheme(database, "system")).resolves.toBe("system");
+    await expect(loadColorScheme(database)).resolves.toBe("system");
+  });
+
+  it("falls back to System for a stored value that is not a scheme", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: COLOR_SCHEME_SETTING_KEY, value: "sepia" });
+
+    await expect(loadColorScheme(database)).resolves.toBe("system");
+  });
+});
+
+describe("the raw-response setting", () => {
+  it("is off by default, so rows show no raw responses", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadShowRawResponse(database)).resolves.toBe(false);
+  });
+
+  it("persists the Writer's choice", async () => {
+    const database = await openTestDatabase();
+
+    await expect(saveShowRawResponse(database, true)).resolves.toBe(true);
+    await expect(loadShowRawResponse(database)).resolves.toBe(true);
+
+    await expect(saveShowRawResponse(database, false)).resolves.toBe(false);
+    await expect(loadShowRawResponse(database)).resolves.toBe(false);
+  });
+
+  it("treats a stored value that is not true as off", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: SHOW_RAW_RESPONSE_SETTING_KEY, value: "yes" });
+
+    await expect(loadShowRawResponse(database)).resolves.toBe(false);
   });
 });

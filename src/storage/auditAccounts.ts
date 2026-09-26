@@ -73,7 +73,10 @@ export interface AuditRunOptions {
 export interface AuditRunOutcome {
   /** The stored account, or null when the Document had no text to audit. */
   account: AuditAccountRecord | null;
-  /** Story 131: how many chunks the Run was split into; 1 when it fit. */
+  /**
+   * Story 131: how many model calls the Run took; 1 when it fit, one per chunk
+   * plus the synthesis when it was chunked.
+   */
   chunks: number;
   /** Praise or a rewrite the linter caught across the Run. */
   violations: Violation[];

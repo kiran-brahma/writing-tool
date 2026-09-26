@@ -1,5 +1,5 @@
 import { resolveAnchor } from "./anchor";
-import type { AnchorDraft, Finding } from "./finding";
+import type { AnchorDraft, Finding, FindingSeverity } from "./finding";
 import { cleanTerms, literalTermSpans, termPattern } from "./literalTerms";
 import { hashPass, type Pass, type RuleConfig } from "./pass";
 import { splitSentences, type Sentence } from "./sentences";
@@ -25,6 +25,8 @@ export interface RuleMatch extends AnchorDraft {
   issue: string;
   diagnosis: string;
   pattern?: string;
+  /** Story 138: set by a rule that reports at note severity; absent otherwise. */
+  severity?: FindingSeverity;
 }
 
 export interface RuleRunContext {
@@ -147,6 +149,7 @@ function findingsFromMatches(
       issue: match.issue,
       diagnosis: match.diagnosis,
       ...(match.pattern === undefined ? {} : { pattern: match.pattern }),
+      ...(match.severity === undefined ? {} : { severity: match.severity }),
       status: "open",
       provenance: {
         // A rule Pass is not a Provider and has no model; `local`/`rule` says so
@@ -435,6 +438,7 @@ function matchPassiveVoice(canonical: string, auxiliaries: string[]): RuleMatch[
     issue: `Passive construction: "${span.quote.replace(/\s+/g, " ")}"`,
     diagnosis: WILLIAMS_EXCEPTION,
     pattern: `${span.auxiliary} ${span.participle}`,
+    severity: "note" as const,
   }));
 }
 

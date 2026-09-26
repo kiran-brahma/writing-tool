@@ -62,31 +62,32 @@ export function BackupPanel({
   };
 
   return (
-    <section className="mt-6 rounded border border-stone-200 bg-white p-4">
+    <section className="mt-6 rounded border border-rule-soft bg-paper p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Backup</h3>
-          <p className="mt-0.5 text-xs text-stone-500">
+          <p className="mt-0.5 text-xs text-faint-ink">
             {PANEL_GLOSSES.backup.text}{" "}
             {onOpenHelp !== undefined && (
               <button
                 type="button"
                 onClick={() => onOpenHelp(PANEL_GLOSSES.backup.sectionId)}
-                className="text-stone-500 underline hover:text-stone-800"
+                className="text-faint-ink underline hover:text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 How this works
               </button>
             )}
           </p>
-          <p className={reminder.stale ? "mt-1 text-sm text-amber-800" : "mt-1 text-sm text-stone-500"}>
+          <p className={reminder.stale ? "mt-1 text-sm text-warning-soft" : "mt-1 text-sm text-faint-ink"}>
             {reminder.label}
             {reminder.stale && " Back up the library before clearing this browser."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-stone-600">
+          <label className="flex items-center gap-1.5 text-xs text-muted-ink">
             <input
               type="checkbox"
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               checked={includeKeys}
               onChange={(event) => setIncludeKeys(event.target.checked)}
             />
@@ -95,7 +96,7 @@ export function BackupPanel({
           <button
             type="button"
             onClick={backUp}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
+            className="rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             Back up library
           </button>
@@ -103,13 +104,13 @@ export function BackupPanel({
       </div>
 
       {includeKeys && (
-        <p className="mt-2 text-xs text-amber-800">
+        <p className="mt-2 text-xs text-warning-soft">
           The backup will carry your API keys in plain text. Do not share the file.
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-stone-100 pt-3">
-        <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
+      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-rule-faint pt-3">
+        <label className="cursor-pointer rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk has-focus-visible:ring-2 has-focus-visible:ring-focus">
           Restore from backup
           <input
             type="file"
@@ -118,7 +119,7 @@ export function BackupPanel({
             onChange={(event) => void chooseRestore(event)}
           />
         </label>
-        <label className="cursor-pointer rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
+        <label className="cursor-pointer rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk has-focus-visible:ring-2 has-focus-visible:ring-focus">
           Import document bundle
           <input
             type="file"
@@ -127,15 +128,15 @@ export function BackupPanel({
             onChange={(event) => void importBundle(event)}
           />
         </label>
-        <span className="text-xs text-stone-500">
+        <span className="text-xs text-faint-ink">
           A restore replaces the library. Keys already stored in this browser are kept; keys omitted
           from a backup cannot be restored.
         </span>
       </div>
 
       {pending !== null && (
-        <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3">
-          <p className="text-sm text-amber-900">
+        <div className="mt-3 rounded border border-warning-rule-strong bg-warning-surface p-3">
+          <p className="text-sm text-warning">
             Restore <span className="font-semibold">{pending.name}</span>? This replaces every
             document, revision, finding and setting in this browser. The current library cannot be
             recovered afterwards unless it is itself backed up.
@@ -145,7 +146,7 @@ export function BackupPanel({
               type="button"
               onClick={() => void confirmRestore()}
               disabled={busy}
-              className="rounded bg-amber-900 px-3 py-1.5 text-sm font-medium text-amber-50 hover:bg-amber-800 disabled:opacity-50"
+              className="rounded bg-warning px-3 py-1.5 text-sm font-medium text-warning-surface hover:bg-warning-soft disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus focus-visible:ring-offset-2"
             >
               Replace library
             </button>
@@ -153,7 +154,7 @@ export function BackupPanel({
               type="button"
               onClick={() => setPending(null)}
               disabled={busy}
-              className="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100"
+              className="rounded border border-rule bg-paper px-3 py-1.5 text-sm font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               Cancel
             </button>
@@ -162,12 +163,12 @@ export function BackupPanel({
       )}
 
       {error !== null && (
-        <div className="mt-3 flex items-start justify-between gap-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="mt-3 flex items-start justify-between gap-3 rounded border border-warning-rule bg-warning-surface p-3 text-sm text-warning">
           <span>{error}</span>
           <button
             type="button"
             onClick={onDismissError}
-            className="text-amber-700 hover:text-amber-900"
+            className="text-warning-muted hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus"
           >
             Dismiss
           </button>

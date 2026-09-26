@@ -1,20 +1,25 @@
 import { useCallback, useState, type RefObject } from "react";
 import { DEFAULT_CHARACTER_LIMIT } from "../core/chunking";
+import { DEFAULT_COLOR_SCHEME_SETTING, type ColorSchemeSetting } from "../core/colorScheme";
 import type { WorkingOrderBand } from "../core/pass";
 import { describeError } from "../errors";
 import type { ObelusDatabase } from "../storage/obelusDatabase";
 import {
   loadCharacterLimit,
+  loadColorScheme,
   loadFirstRunNoteDismissed,
   loadRailBand,
   loadRailCollapsed,
   loadScreeningFrame,
+  loadShowRawResponse,
   loadVoiceList,
   saveCharacterLimit,
+  saveColorScheme,
   saveFirstRunNoteDismissed,
   saveRailBand,
   saveRailCollapsed,
   saveScreeningFrame,
+  saveShowRawResponse,
   saveVoiceList,
 } from "../storage/settings";
 
@@ -22,7 +27,7 @@ import {
  * One global setting: the stored value in React state, the write path, and the
  * load path. Every setting in `src/storage/settings.ts` shares the same shape —
  * read the stored value, write the normalised value back, surface a write
- * failure — so that shape lives here once instead of six times. The setters are
+ * failure — so that shape lives here once instead of eight times. The setters are
  * the only place `databaseRef` and `setSaveError` are touched.
  */
 interface SettingHandle<T> {
@@ -115,14 +120,21 @@ export interface GlobalSettingsHandle {
   /** Story 169: whether the Writer has dismissed the first-run note. */
   firstRunNoteDismissed: boolean;
   dismissFirstRunNote: () => Promise<void>;
+  /** Stories 201–204: Light, Dark or System, System by default. */
+  colorScheme: ColorSchemeSetting;
+  setColorScheme: (setting: ColorSchemeSetting) => Promise<void>;
+  /** Stories 73 and 238: whether Finding rows show their raw provider response. */
+  showRawResponse: boolean;
+  setShowRawResponse: (show: boolean) => Promise<void>;
   /** Reads every global setting, in the order the shell reads them. */
   load: (database: ObelusDatabase) => Promise<void>;
 }
 
 /**
  * The global settings that are not about one Document or one Connection: the
- * Screening frame, the chunking character limit, the Voice list, and the rail's
- * two view preferences plus the first-run note. Each is the same `useSetting`
+ * Screening frame, the chunking character limit, the Voice list, the rail's
+ * two view preferences plus the first-run note, the colour scheme, and the
+ * raw-response toggle. Each is the same `useSetting`
  * over its bound storage functions; the Voice list additionally mirrors its
  * value into a ref and re-runs the rule Passes when it changes.
  */
@@ -180,6 +192,26 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     optimistic: true,
   });
 
+  // The scheme changes the moment the Writer chooses it, not after the write.
+  const colorScheme = useSetting({
+    load: loadColorScheme,
+    save: saveColorScheme,
+    initial: DEFAULT_COLOR_SCHEME_SETTING,
+    databaseRef,
+    onError,
+    optimistic: true,
+  });
+
+  // A debugging aid: the rows answer the toggle at once.
+  const showRawResponse = useSetting({
+    load: loadShowRawResponse,
+    save: saveShowRawResponse,
+    initial: false,
+    databaseRef,
+    onError,
+    optimistic: true,
+  });
+
   const dismissFirstRunNote = useCallback(async () => {
     await firstRunNote.set(true);
   }, [firstRunNote.set]);
@@ -194,6 +226,8 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
       await railBand.load(database);
       await railCollapsed.load(database);
       await firstRunNote.load(database);
+      await colorScheme.load(database);
+      await showRawResponse.load(database);
     },
     [
       screeningFrame.load,
@@ -203,6 +237,8 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
       railBand.load,
       railCollapsed.load,
       firstRunNote.load,
+      colorScheme.load,
+      showRawResponse.load,
     ],
   );
 
@@ -219,6 +255,10 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     setRailCollapsed: railCollapsed.set,
     firstRunNoteDismissed: firstRunNote.value,
     dismissFirstRunNote,
+    colorScheme: colorScheme.value,
+    setColorScheme: colorScheme.set,
+    showRawResponse: showRawResponse.value,
+    setShowRawResponse: showRawResponse.set,
     load,
   };
 }

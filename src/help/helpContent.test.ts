@@ -84,6 +84,7 @@ describe("the glossary", () => {
       "Judge",
       "Band",
       "Rail",
+      "Rail mode",
       "Revision",
       "Reader account",
       "Audit account",
@@ -133,10 +134,19 @@ describe("the shortcuts", () => {
   });
 });
 
+/**
+ * Story 236: the hint bar is one line at the Rail's foot. It still says when
+ * the plain keys are live and names the modifier step; story 237 moves the full
+ * explanation to the shortcuts section.
+ */
 describe("the hint bar", () => {
+  it("is the one line written here", () => {
+    expect(QUEUE_HINT).toBe("Keys work in Findings when not typing · Alt + ↓ ↑ anywhere");
+  });
+
   it("states when the plain keys are live rather than advertising them unconditionally", () => {
     expect(QUEUE_HINT).toContain("not typing");
-    expect(QUEUE_HINT.toLowerCase()).toContain("editor");
+    expect(QUEUE_HINT).toContain("Findings");
   });
 
   it("names the modifier shortcut that works anywhere", () => {
@@ -144,12 +154,25 @@ describe("the hint bar", () => {
     expect(QUEUE_HINT).toContain("anywhere");
   });
 
-  it("names every plain shortcut the page lists", () => {
-    for (const shortcut of HELP_SHORTCUTS.filter(
-      (entry) => !entry.keys.includes("Alt"),
-    )) {
-      expect(QUEUE_HINT, shortcut.keys.join(" / ")).toContain(shortcut.keys.join(" / "));
-    }
+  it("fits one line at the Rail's foot", () => {
+    expect(QUEUE_HINT).not.toContain("\n");
+    expect(QUEUE_HINT.length).toBeLessThanOrEqual(60);
+  });
+});
+
+describe("the shortcuts section", () => {
+  const shortcuts = HELP_SECTIONS.find((section) => section.id === HELP_SECTION_IDS.shortcuts);
+  const text = (shortcuts?.paragraphs ?? []).join(" ");
+
+  it("carries the full explanation the hint bar leaves out", () => {
+    expect(text).toContain("live when you are not typing");
+    expect(text).toContain("j, k, a, x and v are ordinary letters that must reach the prose");
+    expect(text).toContain("The Alt shortcut works anywhere");
+  });
+
+  it("says the queue keys act only in Findings mode, and the Alt step switches to it", () => {
+    expect(text).toContain("only in Findings mode");
+    expect(text).toContain("switches the Rail to Findings");
   });
 });
 
@@ -275,6 +298,15 @@ describe("panel glosses", () => {
         ).not.toMatch(midSentenceRegex);
       }
     }
+  });
+
+  it("says in the metrics gloss that a number and a period opening a paragraph is one sentence", () => {
+    // Issue #51: the segmentation cannot tell "1984. The year" from an escaped
+    // list marker, and the Writer chose to state that where the metrics are.
+    const text = PANEL_GLOSSES.metrics.text;
+    expect(text).toMatch(/paragraph that opens with a number and a period/);
+    expect(text).toContain("1984.");
+    expect(text).toMatch(/counted as one sentence/);
   });
 
   it("never praises the prose or characterises skill", () => {

@@ -19,7 +19,9 @@ import { fnv1a } from "./hash";
  * The Connection belongs in the key because two Connections can serve the same
  * model id — and a Custom Connection's base URL and Protocol can be edited in
  * place under the same id, so all three wire-shaping fields are keyed, not just
- * the id. The text hash ties the entry to the exact Document text, so any edit
+ * the id. The same holds for every Connection setting that reaches the wire:
+ * the output ceiling, the reasoning effort and the extra headers are editable
+ * in place too, so each is keyed. The text hash ties the entry to the exact Document text, so any edit
  * anywhere misses rather than returning Findings for prose that no longer
  * exists.
  *
@@ -49,6 +51,16 @@ export interface RunCacheKeyInput {
   protocol: string;
   baseUrl: string;
   model: string;
+  /**
+   * The Connection's output ceiling, reasoning effort and extra headers: each
+   * is sent on every request and editable in place under the same id, so a
+   * change to any of them must miss rather than reuse the previous setting's
+   * Findings. `reasoningEffort` is a plain string for the same reason
+   * `protocol` is; empty means the field is not sent.
+   */
+  maxOutputTokens: number;
+  reasoningEffort: string;
+  extraHeaders: Record<string, string>;
   screeningFrame: boolean;
   characterLimit: number;
   /**
@@ -89,10 +101,27 @@ export function runCacheKey(input: RunCacheKeyInput): string {
     input.protocol,
     input.baseUrl,
     input.model,
+    input.maxOutputTokens,
+    input.reasoningEffort,
+    hashHeaders(input.extraHeaders),
     input.screeningFrame,
     input.characterLimit,
     input.voiceList,
     input.target.start,
     input.target.end,
   ]);
+}
+
+/**
+ * The extra headers as one hash, in an order that does not depend on how the
+ * record was built: `JSON.stringify` follows insertion order, so the same
+ * headers saved in a different order would otherwise miss. Hashed rather than
+ * embedded because the key is stored, and a header may carry a credential.
+ * Sorted by code unit, not `localeCompare`, so the key is the same everywhere.
+ */
+function hashHeaders(headers: Record<string, string>): string {
+  const entries = Object.entries(headers).sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  );
+  return fnv1a(JSON.stringify(entries));
 }

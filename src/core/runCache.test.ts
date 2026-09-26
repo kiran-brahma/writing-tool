@@ -10,6 +10,9 @@ function key(overrides: Partial<RunCacheKeyInput> = {}): string {
     protocol: "openai-shaped",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o",
+    maxOutputTokens: 4096,
+    reasoningEffort: "",
+    extraHeaders: {},
     screeningFrame: true,
     characterLimit: 20_000,
     voiceList: [],
@@ -61,6 +64,33 @@ describe("runCacheKey", () => {
     // Section is a different Run and must not reuse this entry.
     expect(key({ target: { start: 10, end: 42 } })).not.toBe(base);
     expect(key({ target: { start: 0, end: 41 } })).not.toBe(base);
+  });
+
+  // A Connection's output ceiling, reasoning effort and extra headers are all
+  // edited in place under the same id, and all three reach the wire, so each
+  // must miss rather than return the previous setting's Findings.
+  it("misses when the output ceiling changes", () => {
+    expect(key({ maxOutputTokens: 16_384 })).not.toBe(key());
+  });
+
+  it("misses when reasoning effort changes", () => {
+    // Empty means the field is not sent; any value puts it on the wire.
+    expect(key({ reasoningEffort: "low" })).not.toBe(key());
+    expect(key({ reasoningEffort: "low" })).not.toBe(key({ reasoningEffort: "high" }));
+  });
+
+  it("misses when an extra header is added, changed or removed", () => {
+    const base = key({ extraHeaders: { "X-Tenant": "a" } });
+    expect(key()).not.toBe(base);
+    expect(key({ extraHeaders: { "X-Tenant": "b" } })).not.toBe(base);
+    expect(key({ extraHeaders: { "X-Other": "a" } })).not.toBe(base);
+    expect(key({ extraHeaders: { "X-Tenant": "a", "X-Other": "b" } })).not.toBe(base);
+  });
+
+  it("hits for the same extra headers in a different insertion order", () => {
+    expect(key({ extraHeaders: { a: "1", b: "2" } })).toBe(
+      key({ extraHeaders: { b: "2", a: "1" } }),
+    );
   });
 
   it("does not collide when a field contains the separator characters", () => {

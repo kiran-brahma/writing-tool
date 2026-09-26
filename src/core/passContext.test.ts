@@ -21,6 +21,10 @@ function paragraph(text: string): BlockNode {
   return { type: "paragraph", content: [{ type: "text", text }] };
 }
 
+function bulletList(...items: BlockNode[][]): BlockNode {
+  return { type: "bulletList", content: items.map((content) => ({ type: "listItem", content })) };
+}
+
 const FOUR_PARAGRAPHS = doc(
   heading(1, "Title"),
   paragraph("First paragraph."),
@@ -62,6 +66,55 @@ describe("passContext", () => {
     expect(target?.text).toBe("First paragraph.");
     expect(target?.contextAbove).toBe("");
     expect(target?.contextBelow).toBe("Target paragraph.");
+  });
+
+  it("finds a Paragraph inside a list item when the Document is only a list", () => {
+    const onlyAList = doc(
+      bulletList([paragraph("First item.")], [paragraph("Second item.")], [paragraph("Third item.")]),
+    );
+    const target = passContext(onlyAList, 0, "T");
+
+    expect(target).not.toBeNull();
+    expect(target?.text).toBe("First item.");
+    expect(target?.contextAbove).toBe("");
+    expect(target?.contextBelow).toBe("Second item.");
+    const { start, end } = target!.interval;
+    expect(target!.canonical).toBe(canonicalText(onlyAList));
+    expect(target!.canonical.slice(start, end)).toBe("First item.");
+  });
+
+  it("keeps a list item's Paragraph interval inside the one canonical string", () => {
+    const nested = doc(
+      paragraph("Before."),
+      {
+        type: "orderedList",
+        attrs: { start: 1 },
+        content: [
+          { type: "listItem", content: [paragraph("One.")] },
+          {
+            type: "listItem",
+            content: [paragraph("Two."), bulletList([paragraph("Two, nested.")])],
+          },
+        ],
+      },
+      paragraph("After."),
+    );
+    const canonical = canonicalText(nested);
+    const target = passContext(nested, 1, "T");
+
+    expect(target?.text).toBe("One.");
+    expect(target?.contextAbove).toBe("Before.");
+    expect(target?.contextBelow).toBe("Two.");
+    expect(canonical.slice(target!.interval.start, target!.interval.end)).toBe("One.");
+    // A cursor on a top-level Paragraph still resolves to that Paragraph.
+    const after = passContext(nested, 2, "T");
+    expect(after?.text).toBe("After.");
+    expect(after?.contextAbove).toBe("Two, nested.");
+    expect(canonical.slice(after!.interval.start, after!.interval.end)).toBe("After.");
+  });
+
+  it("gives no Target for a list whose items hold no prose", () => {
+    expect(passContext(doc(bulletList([], [paragraph("")])), 0, "T")).toBeNull();
   });
 
   it("returns null only when the Document has no Paragraph", () => {

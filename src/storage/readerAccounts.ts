@@ -72,6 +72,8 @@ export interface ReaderRunOptions {
   connection: Connection;
   transport: Transport;
   screeningFrame: boolean;
+  /** #46: cancels the Run; an aborted Run stores no account. */
+  signal?: AbortSignal;
   now?: number;
 }
 
@@ -114,6 +116,7 @@ async function runReaderPassNow(
       screeningFrame: options.screeningFrame,
       revisionId: revision.id,
       now,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
 
     accounts.push({

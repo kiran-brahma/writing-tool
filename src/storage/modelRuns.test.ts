@@ -349,6 +349,9 @@ describe("the Run cache (story 53)", () => {
         protocol: connection().protocol,
         baseUrl: connection().baseUrl,
         model: connection().model,
+        maxOutputTokens: connection().maxOutputTokens,
+        reasoningEffort: connection().reasoningEffort,
+        extraHeaders: connection().extraHeaders,
         screeningFrame: true,
         characterLimit: DEFAULT_CHARACTER_LIMIT,
         voiceList: [],
@@ -417,6 +420,24 @@ describe("the Run cache (story 53)", () => {
     });
 
     expect(transport.requests).toHaveLength(1);
+  });
+
+  it("misses when the Connection's output ceiling, reasoning effort or extra headers change in place", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runModelPass(database, document, optionsWith(document, createFixtureTransport({ respond: () => RESPONSE })));
+
+    // Each is edited under the same id and reaches the wire, so each must
+    // re-run rather than return the previous setting's Findings.
+    for (const reconfigured of [
+      { ...connection(), maxOutputTokens: connection().maxOutputTokens * 2 },
+      { ...connection(), reasoningEffort: "low" as const },
+      { ...connection(), extraHeaders: { "X-Tenant": "acme" } },
+    ]) {
+      const transport = createFixtureTransport({ respond: () => RESPONSE });
+      await runModelPass(database, document, { ...optionsWith(document, transport), connection: reconfigured });
+      expect(transport.requests).toHaveLength(1);
+    }
   });
 
   it("misses when the canonical text is edited", async () => {

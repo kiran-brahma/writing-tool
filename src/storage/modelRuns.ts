@@ -120,6 +120,12 @@ async function runModelPassNow(
     protocol: options.connection.protocol,
     baseUrl: options.connection.baseUrl,
     model: options.connection.model,
+    // The same goes for the Connection's other wire-shaping settings: raising
+    // the ceiling, turning reasoning on or adding a header a proxy requires
+    // must re-run rather than look ignored.
+    maxOutputTokens: options.connection.maxOutputTokens,
+    reasoningEffort: options.connection.reasoningEffort,
+    extraHeaders: options.connection.extraHeaders,
     screeningFrame: options.screeningFrame,
     characterLimit: options.characterLimit,
     voiceList: options.voiceList ?? [],
