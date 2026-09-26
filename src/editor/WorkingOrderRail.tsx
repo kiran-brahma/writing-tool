@@ -341,12 +341,15 @@ export function WorkingOrderRail({
             type="button"
             onClick={onShowRail}
             title="Show the rail"
-            className="flex w-8 shrink-0 items-center justify-center border-l border-rule-soft bg-sunk/60 text-xs font-medium text-muted-ink hover:bg-sunk-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+            className="sticky top-0 flex max-h-screen w-8 shrink-0 items-center justify-center border-l border-rule-soft bg-sunk/60 text-xs font-medium text-muted-ink hover:bg-sunk-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
           >
             <span className="[writing-mode:vertical-rl]">Show rail</span>
           </button>
         )
       ) : (
+        // Docked, the Rail is bounded to the viewport and sticks there, so its
+        // body scrolls inside itself while the window scrolls a long Document
+        // (#92); the margin Outline and the Status line rely on the window.
         <aside
           ref={railRef}
           id={RAIL_ELEMENT_ID}
@@ -354,7 +357,7 @@ export function WorkingOrderRail({
           className={
             presentation === "overlay"
               ? "fixed inset-y-0 right-0 z-30 flex w-96 max-w-[calc(100vw-2rem)] flex-col border-l border-rule-soft bg-sunk shadow-md"
-              : "flex w-96 flex-col border-l border-rule-soft bg-sunk/60"
+              : "sticky top-0 flex max-h-screen w-96 flex-col border-l border-rule-soft bg-sunk/60"
           }
         >
           {/* ADR 0012, story 228: the two Rail modes, switched at the Rail's top. */}
