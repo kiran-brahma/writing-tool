@@ -11,15 +11,15 @@ export function PrivacyView() {
     <div className="min-h-0 flex-1 overflow-y-auto">
       <article className="mx-auto max-w-2xl px-6 py-8">
         <h2 className="text-lg font-semibold tracking-tight">Privacy</h2>
-        <p className="mt-1 text-sm text-stone-500">
+        <p className="mt-1 text-sm text-faint-ink">
           What happens to your words, and how to check it yourself.
         </p>
 
         {PRIVACY_SECTIONS.map((section) => (
           <section key={section.heading} className="mt-8">
-            <h3 className="text-base font-semibold text-stone-900">{section.heading}</h3>
+            <h3 className="text-lg font-semibold text-ink">{section.heading}</h3>
             {section.paragraphs.map((paragraph) => (
-              <p key={paragraph} className="mt-3 text-sm leading-relaxed text-stone-700">
+              <p key={paragraph} className="mt-3 text-sm leading-relaxed text-quiet-ink">
                 {paragraph}
               </p>
             ))}
@@ -28,9 +28,9 @@ export function PrivacyView() {
               <ol className="mt-4 space-y-4">
                 {section.steps.map((step) => (
                   <li key={step.title}>
-                    <h4 className="text-sm font-semibold text-stone-900">{step.title}</h4>
+                    <h4 className="text-sm font-semibold text-ink">{step.title}</h4>
                     {step.body.map((paragraph) => (
-                      <p key={paragraph} className="mt-1 text-sm leading-relaxed text-stone-700">
+                      <p key={paragraph} className="mt-1 text-sm leading-relaxed text-quiet-ink">
                         {paragraph}
                       </p>
                     ))}
@@ -61,7 +61,7 @@ function LinkList({ links }: { links: readonly PrivacyLink[] }) {
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-blue-700 underline underline-offset-2 hover:text-blue-900"
+            className="text-sm text-link underline underline-offset-2 hover:text-link-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {link.label}
             <span aria-hidden="true"> ↗</span>
