@@ -20,7 +20,7 @@ In September 2026, I finally read William Zinsser's *On Writing Well*. The book�
 Ptacek in his posts laid down two rules:
 - Avoid using words suggested by AI
 - Avoid encouragement by AI
-- 
+  
 Ptacek’s argument was simple: AI is trained to be helpful even when you are wrong. His posts goes into further details on how to build a workflow that actually helps you write better. Luckily, I had done most of what he had recommended already as ‘Skills’ for my AI workflows. However, I never restricted AI from giving me suggestions.
 
 This app is my attempt on how to incorporate Ptacek’s rules along with numerous other rules and ideas that I accumulated. The app will always be a work in progress, but it will just inform me where my writing is poor.
