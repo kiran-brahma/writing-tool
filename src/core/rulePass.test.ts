@@ -407,6 +407,50 @@ describe("runRulePass", () => {
 
     expect(silenced).toEqual([]);
   });
+
+  it("reports the passive pass at note severity (story 138)", () => {
+    const findings = runRulePass("The report was completed.\n", PASSIVE_PASS, context);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe("note");
+    // The exception is still stated: the severity sits beside it, not instead of it.
+    expect(findings[0].diagnosis).toMatch(/agent is unknown or irrelevant/i);
+  });
+
+  it("reports the passive at note severity from a Writer's own pass carrying the passive rule", () => {
+    const pass = passWith({ passiveVoiceAuxiliaries: ["got"] });
+
+    const [finding] = runRulePass("The report got completed.\n", pass, context);
+
+    expect(finding.severity).toBe("note");
+  });
+
+  it("gives Orwell's passive, the same span, no severity: it reports a failure of rule 4", () => {
+    const [finding] = runRulePass("The report was completed.\n", ORWELL_RULES_PASS, context);
+
+    expect(finding.anchor.quote).toBe("was completed");
+    expect(finding.severity).toBeUndefined();
+  });
+
+  it("gives no other rule pass a severity", () => {
+    const canonical =
+      "There is a very good implementation. In order to decide, we decide again and again. " +
+      "The report was completed. It is pivotal. Time will tell. And it continues. " +
+      "Writing is hard. Writing is slow.\n";
+    let others = 0;
+
+    for (const pass of STARTER_PASSES) {
+      for (const finding of runRulePass(canonical, pass, context)) {
+        if (finding.passId === PASSIVE_PASS.id) {
+          expect(finding.severity).toBe("note");
+        } else {
+          others += 1;
+          expect(finding.severity).toBeUndefined();
+        }
+      }
+    }
+    expect(others).toBeGreaterThan(0);
+  });
 });
 
 /**
