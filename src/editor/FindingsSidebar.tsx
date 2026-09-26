@@ -80,10 +80,10 @@ export function FindingsSidebar({
         const openCount = group.findings.filter((finding) => finding.status === "open").length;
         return (
           <section key={group.id} className="border-b border-rule-soft">
-            <h3 className="flex items-baseline justify-between gap-2 bg-sunk-strong/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-ink">
+            <h3 className="flex items-baseline justify-between gap-2 bg-sunk-strong/40 px-4 py-2 text-base font-semibold text-ink">
               <span>{group.name}</span>
-              <span className="flex items-baseline gap-2">
-                <span className="font-normal normal-case text-muted-ink">{openCount} open</span>
+              <span className="flex items-baseline gap-2 text-xs">
+                <span className="font-normal text-muted-ink">{openCount} open</span>
                 {openCount > 0 && group.id !== ORPHANED_GROUP_ID && (
                   <button
                     type="button"

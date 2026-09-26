@@ -93,8 +93,8 @@ export function JudgePanel({
     if (afterId === null && defaultPair.after !== null) setAfterId(defaultPair.after);
   }, [defaultPair, beforeId, afterId]);
 
-  // The panel is always mounted below the Bands, so it re-renders as the Writer
-  // types and selects. Extracting passages diffs the whole Document against
+  // The panel stays mounted while Findings mode shows (ADR 0012), hidden but
+  // keeping its choices, so it re-renders as the Writer types and selects. Extracting passages diffs the whole Document against
   // both Revisions — seconds, once a Writer's Revisions differ widely — so it
   // waits for the selection to hold still, and runs once per settled selection
   // rather than on every render. A word selected and immediately retyped never
@@ -162,7 +162,7 @@ export function JudgePanel({
   return (
     <section className="border-b border-rule">
       <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
-        <h2 className="text-sm font-semibold">Judge</h2>
+        <h2 className="text-base font-semibold">Judge</h2>
         <span className="text-xs text-muted-ink">
           {running ? "judging…" : "two calls, labels swapped"}
         </span>

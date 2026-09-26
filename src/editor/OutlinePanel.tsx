@@ -24,7 +24,7 @@ export function OutlinePanel({
   return (
     <section className="border-b border-rule bg-sunk/60">
       <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
-        <h2 className="text-sm font-semibold">Outline</h2>
+        <h2 className="text-base font-semibold">Outline</h2>
         <span className="text-xs text-muted-ink">
           {sections.length} {sections.length === 1 ? "section" : "sections"}
         </span>

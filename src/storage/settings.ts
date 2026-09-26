@@ -10,8 +10,8 @@ import type { ObelusDatabase } from "./obelusDatabase";
 
 /**
  * Global settings that are not about one Document or one Connection: the
- * Screening frame, the chunking character limit, the Voice list, and the rail's
- * two view preferences. They share one key-value store and one shape — read the
+ * Screening frame, the chunking character limit, the Voice list, the rail's
+ * two view preferences, and the app's display preferences. They share one key-value store and one shape — read the
  * stored value, normalise it, write the normalised value back — so that shape
  * lives here once rather than being written out per setting.
  */
@@ -141,3 +141,21 @@ const colorSchemeSetting = setting<ColorSchemeSetting>(COLOR_SCHEME_SETTING_KEY,
 
 export const loadColorScheme = colorSchemeSetting.load;
 export const saveColorScheme = colorSchemeSetting.save;
+
+/**
+ * Stories 73 and 238: whether each Finding row in the Rail shows the raw
+ * provider response it came from, so the Writer can check the linter. A
+ * debugging aid, so it is set from AI Settings rather than above the queue, and
+ * remembered. Off by default; only an explicit `true` turns it on. It lives in
+ * the existing key-value store, so no Dexie migration is needed, and it travels
+ * in a Backup like every setting; an older build ignores it.
+ */
+export const SHOW_RAW_RESPONSE_SETTING_KEY = "showRawResponse";
+
+const showRawResponseSetting = setting<boolean>(
+  SHOW_RAW_RESPONSE_SETTING_KEY,
+  (stored) => stored === true,
+);
+
+export const loadShowRawResponse = showRawResponseSetting.load;
+export const saveShowRawResponse = showRawResponseSetting.save;

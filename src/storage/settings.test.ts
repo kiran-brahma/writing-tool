@@ -7,6 +7,7 @@ import {
   FIRST_RUN_NOTE_SETTING_KEY,
   RAIL_BAND_SETTING_KEY,
   RAIL_COLLAPSED_SETTING_KEY,
+  SHOW_RAW_RESPONSE_SETTING_KEY,
   VOICE_LIST_SETTING_KEY,
   loadCharacterLimit,
   loadColorScheme,
@@ -14,6 +15,7 @@ import {
   loadRailBand,
   loadRailCollapsed,
   loadScreeningFrame,
+  loadShowRawResponse,
   loadVoiceList,
   saveCharacterLimit,
   saveColorScheme,
@@ -21,6 +23,7 @@ import {
   saveRailBand,
   saveRailCollapsed,
   saveScreeningFrame,
+  saveShowRawResponse,
   saveVoiceList,
 } from "./settings";
 
@@ -207,5 +210,30 @@ describe("the colour scheme setting", () => {
     await database.settings.put({ key: COLOR_SCHEME_SETTING_KEY, value: "sepia" });
 
     await expect(loadColorScheme(database)).resolves.toBe("system");
+  });
+});
+
+describe("the raw-response setting", () => {
+  it("is off by default, so rows show no raw responses", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadShowRawResponse(database)).resolves.toBe(false);
+  });
+
+  it("persists the Writer's choice", async () => {
+    const database = await openTestDatabase();
+
+    await expect(saveShowRawResponse(database, true)).resolves.toBe(true);
+    await expect(loadShowRawResponse(database)).resolves.toBe(true);
+
+    await expect(saveShowRawResponse(database, false)).resolves.toBe(false);
+    await expect(loadShowRawResponse(database)).resolves.toBe(false);
+  });
+
+  it("treats a stored value that is not true as off", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: SHOW_RAW_RESPONSE_SETTING_KEY, value: "yes" });
+
+    await expect(loadShowRawResponse(database)).resolves.toBe(false);
   });
 });

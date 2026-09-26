@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextTabSelection } from "./railTabs";
+import { INITIAL_RAIL_MODE, RAIL_MODES, nextRailMode, nextTabSelection } from "./railTabs";
 
 describe("railTabs keyboard navigation", () => {
   it("advances with ArrowRight and wraps around", () => {
@@ -42,5 +42,31 @@ describe("railTabs keyboard navigation", () => {
     expect(nextTabSelection("structure", "Enter")).toBeNull();
     expect(nextTabSelection("structure", "Tab")).toBeNull();
     expect(nextTabSelection("structure", "j")).toBeNull();
+  });
+});
+
+/**
+ * ADR 0012, stories 228 and 231: the Rail's two Rail modes, switched at its
+ * top. It opens on Findings each session, where the work is.
+ */
+describe("Rail modes", () => {
+  it("are Findings and Judge, in that order", () => {
+    expect(RAIL_MODES.map((mode) => [mode.value, mode.label])).toEqual([
+      ["findings", "Findings"],
+      ["judge", "Judge"],
+    ]);
+  });
+
+  it("open on Findings", () => {
+    expect(INITIAL_RAIL_MODE).toBe("findings");
+  });
+
+  it("move with the tablist keys, wrapping at either end", () => {
+    expect(nextRailMode("findings", "ArrowRight")).toBe("judge");
+    expect(nextRailMode("judge", "ArrowRight")).toBe("findings");
+    expect(nextRailMode("findings", "ArrowLeft")).toBe("judge");
+    expect(nextRailMode("judge", "Home")).toBe("findings");
+    expect(nextRailMode("findings", "End")).toBe("judge");
+    expect(nextRailMode("findings", "j")).toBeNull();
   });
 });

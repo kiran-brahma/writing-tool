@@ -96,6 +96,8 @@ export default function App() {
     dismissFirstRunNote,
     colorScheme,
     setColorScheme,
+    showRawResponse,
+    setShowRawResponse,
   } = handle;
   useColorScheme(colorScheme);
   const [milestoneNote, setMilestoneNote] = useState("");
@@ -105,7 +107,6 @@ export default function App() {
   /** Story 178: the section How this works should open at, or null for the top. */
   const [helpSection, setHelpSection] = useState<HelpSectionId | null>(null);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
-  const [showRawResponse, setShowRawResponse] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   // The Editor is uncontrolled, so an import remounts it rather than trying to
   // push a new document into an editor that already has one.
@@ -545,6 +546,7 @@ export default function App() {
           voiceList={voiceList}
           priceTable={priceTable}
           colorScheme={colorScheme}
+          showRawResponse={showRawResponse}
           onSaveConnection={(connection) => void saveConnection(connection)}
           onAddCustom={() => void addCustomConnection()}
           onRemoveConnection={(connectionId) => void removeConnection(connectionId)}
@@ -554,6 +556,7 @@ export default function App() {
           onSaveVoiceList={(entries) => void setVoiceList(entries)}
           onSavePriceTable={(table) => void savePriceTable(table)}
           onSetColorScheme={(setting) => void setColorScheme(setting)}
+          onToggleRawResponse={(show) => void setShowRawResponse(show)}
           onOpenHelp={openHelpSection}
         />
       )}
@@ -639,7 +642,6 @@ export default function App() {
             currentFindingId={currentFindingId}
             onSelectFinding={selectFinding}
             showRawResponse={showRawResponse}
-            onToggleRawResponse={setShowRawResponse}
             selection={selection}
             section={section}
             milestoneNote={milestoneNote}

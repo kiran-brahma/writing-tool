@@ -1,5 +1,21 @@
 import type { WorkingOrderBand } from "../core/pass";
 
+/**
+ * ADR 0012: the Rail's two Rail modes, switched at its top. Findings holds the
+ * Band control, **All**, the run controls and the queue; Judge holds the Judge
+ * with milestones and Revisions. The mode is local to the Rail and never
+ * stored, so every session opens on Findings, where the work is.
+ */
+export type RailMode = "findings" | "judge";
+
+export const RAIL_MODES: readonly { value: RailMode; label: string }[] = [
+  { value: "findings", label: "Findings" },
+  { value: "judge", label: "Judge" },
+];
+
+/** Story 231: the Rail mode every session opens on. */
+export const INITIAL_RAIL_MODE: RailMode = "findings";
+
 /** The rail's top-level options: the three Bands, plus All. */
 export type RailSelection = WorkingOrderBand | "all";
 
@@ -11,26 +27,40 @@ export const RAIL_SELECTIONS: readonly { value: RailSelection; label: string }[]
 ];
 
 /**
- * Computes the next selected tab when navigating with arrow or home/end keys,
- * following the WAI-ARIA tablist keyboard specification. Returns null if the
- * key is not a tab-navigation key.
+ * The next option in a tablist when navigating with arrow or Home/End keys,
+ * following the WAI-ARIA tablist keyboard pattern, wrapping at either end.
+ * Returns null if the key is not a tab-navigation key.
  */
-export function nextTabSelection(current: RailSelection, key: string): RailSelection | null {
-  const index = RAIL_SELECTIONS.findIndex((item) => item.value === current);
+function nextInTablist<T>(
+  options: readonly { value: T }[],
+  current: T,
+  key: string,
+): T | null {
+  const index = options.findIndex((item) => item.value === current);
   if (index === -1) return null;
 
   if (key === "ArrowRight" || key === "ArrowDown") {
-    return RAIL_SELECTIONS[(index + 1) % RAIL_SELECTIONS.length].value;
+    return options[(index + 1) % options.length].value;
   }
   if (key === "ArrowLeft" || key === "ArrowUp") {
-    return RAIL_SELECTIONS[(index - 1 + RAIL_SELECTIONS.length) % RAIL_SELECTIONS.length].value;
+    return options[(index - 1 + options.length) % options.length].value;
   }
   if (key === "Home") {
-    return RAIL_SELECTIONS[0].value;
+    return options[0].value;
   }
   if (key === "End") {
-    return RAIL_SELECTIONS[RAIL_SELECTIONS.length - 1].value;
+    return options[options.length - 1].value;
   }
 
   return null;
+}
+
+/** The next Band or **All** from the Band control's keys, or null. */
+export function nextTabSelection(current: RailSelection, key: string): RailSelection | null {
+  return nextInTablist(RAIL_SELECTIONS, current, key);
+}
+
+/** The next Rail mode from the mode switch's keys, or null. */
+export function nextRailMode(current: RailMode, key: string): RailMode | null {
+  return nextInTablist(RAIL_MODES, current, key);
 }

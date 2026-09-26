@@ -11,6 +11,7 @@ import {
   loadRailBand,
   loadRailCollapsed,
   loadScreeningFrame,
+  loadShowRawResponse,
   loadVoiceList,
   saveCharacterLimit,
   saveColorScheme,
@@ -18,6 +19,7 @@ import {
   saveRailBand,
   saveRailCollapsed,
   saveScreeningFrame,
+  saveShowRawResponse,
   saveVoiceList,
 } from "../storage/settings";
 
@@ -25,7 +27,7 @@ import {
  * One global setting: the stored value in React state, the write path, and the
  * load path. Every setting in `src/storage/settings.ts` shares the same shape —
  * read the stored value, write the normalised value back, surface a write
- * failure — so that shape lives here once instead of seven times. The setters are
+ * failure — so that shape lives here once instead of eight times. The setters are
  * the only place `databaseRef` and `setSaveError` are touched.
  */
 interface SettingHandle<T> {
@@ -121,6 +123,9 @@ export interface GlobalSettingsHandle {
   /** Stories 201–204: Light, Dark or System, System by default. */
   colorScheme: ColorSchemeSetting;
   setColorScheme: (setting: ColorSchemeSetting) => Promise<void>;
+  /** Stories 73 and 238: whether Finding rows show their raw provider response. */
+  showRawResponse: boolean;
+  setShowRawResponse: (show: boolean) => Promise<void>;
   /** Reads every global setting, in the order the shell reads them. */
   load: (database: ObelusDatabase) => Promise<void>;
 }
@@ -128,7 +133,8 @@ export interface GlobalSettingsHandle {
 /**
  * The global settings that are not about one Document or one Connection: the
  * Screening frame, the chunking character limit, the Voice list, the rail's
- * two view preferences plus the first-run note, and the colour scheme. Each is the same `useSetting`
+ * two view preferences plus the first-run note, the colour scheme, and the
+ * raw-response toggle. Each is the same `useSetting`
  * over its bound storage functions; the Voice list additionally mirrors its
  * value into a ref and re-runs the rule Passes when it changes.
  */
@@ -196,6 +202,16 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     optimistic: true,
   });
 
+  // A debugging aid: the rows answer the toggle at once.
+  const showRawResponse = useSetting({
+    load: loadShowRawResponse,
+    save: saveShowRawResponse,
+    initial: false,
+    databaseRef,
+    onError,
+    optimistic: true,
+  });
+
   const dismissFirstRunNote = useCallback(async () => {
     await firstRunNote.set(true);
   }, [firstRunNote.set]);
@@ -211,6 +227,7 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
       await railCollapsed.load(database);
       await firstRunNote.load(database);
       await colorScheme.load(database);
+      await showRawResponse.load(database);
     },
     [
       screeningFrame.load,
@@ -221,6 +238,7 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
       railCollapsed.load,
       firstRunNote.load,
       colorScheme.load,
+      showRawResponse.load,
     ],
   );
 
@@ -239,6 +257,8 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     dismissFirstRunNote,
     colorScheme: colorScheme.value,
     setColorScheme: colorScheme.set,
+    showRawResponse: showRawResponse.value,
+    setShowRawResponse: showRawResponse.set,
     load,
   };
 }
