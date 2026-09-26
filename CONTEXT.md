@@ -32,11 +32,6 @@ One saved point in a Document's history. An *auto-revision* is taken on a deboun
 revision* is marked by the Writer as a milestone and carries a note.
 _Avoid_: snapshot, version, save, checkpoint
 
-**Status line**:
-The line beneath the prose, at every width, that carries the Document's word count. It is the tool's,
-not the Writer's, so it is set in the sans.
-_Avoid_: status bar, footer, word counter
-
 **Library**:
 Every Document held in this browser.
 _Avoid_: workspace, project, vault
@@ -100,17 +95,20 @@ every other, and no Band is gated on another.
 _Avoid_: stage, tier, phase, step, section
 
 **Rail**:
-The surface beside the prose, in two Rail modes. Findings mode holds the Band control, **All**, the
-selected Band's Passes with their Findings and accounts, and the run controls; Judge mode holds the
-Judge with milestones and Revisions (ADR 0012). It collapses so the prose has the width. Below 1024px
-it overlays the prose instead of sitting beside it, and starts closed on every load.
+The surface beside the prose where the Writer works: in one Rail mode the Band control and the
+selected Band's Passes with their Findings and accounts; in the other the Judge, with milestones and
+Revisions. It collapses so the prose has the width, and overlays the prose on a narrow screen.
 _Avoid_: sidebar, panel, drawer, nav
 
 **Rail mode**:
-One of the Rail's two views — Findings or Judge — switched at its top. The Rail opens on Findings
-each session, and the mode is never stored. The queue keys act only in Findings mode; the modifier
-step switches to it first.
-_Avoid_: tab, view, page, screen
+Which of the Rail's two jobs it is showing: Findings (the Working order) or Judge. A view choice, not
+a Band, and not remembered between sessions.
+_Avoid_: tab, view, page, section
+
+**Status line**:
+The line beneath the prose carrying the Document's word count and, on a narrow screen, the way to the
+Rail.
+_Avoid_: footer, status bar, toolbar
 
 **Target**:
 The text a Run is asked about.
@@ -142,17 +140,15 @@ The visual rendering of an Anchor. The Current Finding's Highlight is distinguis
 _Avoid_: underline, marker
 
 **Callout**:
-The popover a click on a Highlight or a Margin mark opens beside the prose: the open Findings on that
-text, with the queue's verdicts. It does not change the Current Finding, so the Rail stays where the
-Writer left it (ADR 0011).
+The popover a click on a Highlight or a Margin mark opens beside the prose: the open Findings on that text, with the
+queue's verdicts. It does not change the Current Finding, so the Rail stays where the Writer left it
+(ADR 0011).
 _Avoid_: tooltip, popup, card
 
 **Margin mark**:
-The obelus, with a count, in the right-hand margin beside a Paragraph where open Findings begin. A
-Finding is counted once, beside the Paragraph it begins in; an Orphaned Finding has none. A click
-opens the Callout with those Findings. Kept although the Anchor entry lists *mark* under _Avoid_: that
-avoid is about naming an Anchor, and a Margin mark is not one.
-_Avoid_: badge, pin, gutter icon, marker
+The obelus in the margin beside a Paragraph where open Findings begin, with their count. One Finding
+gives one Margin mark, beside the first Paragraph it concerns; an Orphaned Finding gives none.
+_Avoid_: obelus, gutter icon, badge, marker
 
 **Orphaned**:
 The condition of a Finding whose quoted text can no longer be found, so it points nowhere. A
