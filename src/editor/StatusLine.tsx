@@ -1,5 +1,5 @@
 import { RAIL_ELEMENT_ID } from "./railPresentation";
-import { railOfferLabel, wordCountLabel } from "./statusLine";
+import { railOfferLabel, wordCountLabel } from "./statusLineLabels";
 
 /** Story 253: the Rail as the Status line offers it below 1024px. */
 export interface StatusLineRailOffer {

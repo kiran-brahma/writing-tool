@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { railOfferLabel, wordCountLabel } from "./statusLine";
+import { railOfferLabel, wordCountLabel } from "./statusLineLabels";
 
 describe("wordCountLabel", () => {
   it("counts an empty Document as no words", () => {
