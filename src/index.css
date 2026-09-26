@@ -1,6 +1,35 @@
 @import "tailwindcss";
 
 /*
+ * Colours named by what they mean, not by palette step. Each light value is
+ * the colour the app uses today, noted beside it, so moving a class or a rule
+ * onto a name changes nothing on screen: the hex values are the Editor's own,
+ * and the oklch values are Tailwind's palette steps copied exactly. The palette
+ * classes still work until every component has moved; no dark values are
+ * defined yet.
+ *
+ * The names after the first nine exist so the Editor's stylesheet holds no
+ * literal colour: a Highlight's underline and hover, inline code, and links.
+ */
+@theme {
+  --color-paper: #ffffff; /* white: the page the Writer's prose sits on */
+  --color-ink: #1c1917; /* stone-900 */
+  --color-muted-ink: #57534e; /* stone-600 */
+  --color-rule: #d6d3d1; /* stone-300 */
+  --color-mark: #fde68a; /* amber-200: a Highlight */
+  --color-current-mark: #fbbf24; /* amber-400: the Current Finding's Highlight */
+  --color-warning: oklch(41.4% 0.112 45.904); /* amber-900: a notice's text */
+  --color-failure: oklch(50.5% 0.213 27.518); /* red-700 */
+  --color-milestone: oklch(92.4% 0.12 95.746); /* amber-200: a milestone badge */
+
+  --color-mark-line: #d97706; /* amber-600: a Highlight's underline */
+  --color-current-mark-line: #b45309; /* amber-700: its underline and ring */
+  --color-mark-hover: #fcd34d; /* amber-300: a Highlight under the pointer */
+  --color-inset: #f5f5f4; /* stone-100: inline code, and a code block's text */
+  --color-link: #1d4ed8; /* blue-700 */
+}
+
+/*
  * The rich text surface. Tailwind's preflight resets list and heading styling,
  * so the editor restates what a Writer expects from a document. These are the
  * rendered forms the Writer edits; the Markdown that Core derives is separate.
@@ -8,7 +37,7 @@
 .obelus-editor {
   font-size: 1rem;
   line-height: 1.75;
-  color: #1c1917;
+  color: var(--color-ink);
 }
 
 .obelus-editor > * + * {
@@ -52,14 +81,14 @@
 }
 
 .obelus-editor blockquote {
-  border-left: 3px solid #d6d3d1;
+  border-left: 3px solid var(--color-rule);
   padding-left: 1rem;
-  color: #57534e;
+  color: var(--color-muted-ink);
   font-style: italic;
 }
 
 .obelus-editor code {
-  background: #f5f5f4;
+  background: var(--color-inset);
   padding: 0.1rem 0.25rem;
   border-radius: 0.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -67,8 +96,8 @@
 }
 
 .obelus-editor pre {
-  background: #1c1917;
-  color: #f5f5f4;
+  background: var(--color-ink);
+  color: var(--color-inset);
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
@@ -84,7 +113,7 @@
 }
 
 .obelus-editor a {
-  color: #1d4ed8;
+  color: var(--color-link);
   text-decoration: underline;
 }
 
@@ -99,9 +128,9 @@
  * WebKit with ~490 Highlights, the shadow tripled the time a keystroke took.
  */
 .obelus-highlight {
-  background-color: #fde68a;
+  background-color: var(--color-mark);
   text-decoration-line: underline;
-  text-decoration-color: #d97706;
+  text-decoration-color: var(--color-mark-line);
   text-decoration-thickness: 0.15em;
   text-underline-offset: 0.15em;
 }
@@ -113,9 +142,9 @@
  * ever current, so it never costs what a ring on every Highlight would.
  */
 .obelus-highlight-current {
-  background-color: #fbbf24;
-  text-decoration-color: #b45309;
-  outline: 1px solid #b45309;
+  background-color: var(--color-current-mark);
+  text-decoration-color: var(--color-current-mark-line);
+  outline: 1px solid var(--color-current-mark-line);
 }
 
 /*
@@ -123,7 +152,7 @@
  * under the pointer says so without changing what a Highlight means.
  */
 .obelus-highlight:hover {
-  background-color: #fcd34d;
+  background-color: var(--color-mark-hover);
 }
 
 .obelus-editor:focus {
