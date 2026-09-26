@@ -72,7 +72,7 @@ export function FindingCallout({
       role="dialog"
       aria-label={findings.length === 1 ? "Finding" : `${findings.length} Findings`}
       style={{ left: position.left, top: position.top }}
-      className="fixed z-40 w-72 divide-y divide-stone-200 rounded-md border border-stone-300 bg-white text-sm shadow-md"
+      className="fixed z-40 w-72 divide-y divide-rule-soft rounded-md border border-rule bg-paper text-sm shadow-md"
     >
       {findings.map((finding) => (
         <CalloutEntry
@@ -99,14 +99,14 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
 
   return (
     <div className="px-3 py-2.5">
-      <p className="font-medium text-stone-900">
+      <p className="font-medium text-ink">
         <StruckText text={finding.issue} violations={violations} />
       </p>
-      <p className="mt-0.5 text-stone-600">
+      <p className="mt-0.5 text-muted-ink">
         <StruckText text={finding.diagnosis} violations={violations} />
       </p>
       {elsewhere.length > 0 && (
-        <p className="mt-1 text-xs text-stone-600">
+        <p className="mt-1 text-xs text-muted-ink">
           Praise from the model: <StruckViolations violations={elsewhere} />
         </p>
       )}
@@ -129,7 +129,7 @@ function CalloutAction({ onClick, children }: { onClick: () => void; children: s
     <button
       type="button"
       onClick={onClick}
-      className="rounded font-medium text-stone-600 underline-offset-2 hover:text-stone-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+      className="rounded font-medium text-muted-ink underline-offset-2 hover:text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
     >
       {children}
     </button>
