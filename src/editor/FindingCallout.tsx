@@ -111,11 +111,20 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
         </p>
       )}
       {rewrites.length > 0 && <QuarantinedRewrite violations={rewrites} />}
-      <p className="mt-2 flex gap-3 text-xs">
-        <CalloutAction onClick={() => onAddress(finding.id)}>Addressed</CalloutAction>
-        <CalloutAction onClick={() => onDecline(finding.id, "advice")}>Decline</CalloutAction>
+      {/*
+        Stories 248–250: the verdicts ranked by how often they are given, and no
+        key hints — the queue keys act on the Current Finding, not on this one
+        (ADR 0011).
+      */}
+      <p className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+        <CalloutAction rank="primary" onClick={() => onAddress(finding.id)}>
+          Addressed
+        </CalloutAction>
+        <CalloutAction rank="secondary" onClick={() => onDecline(finding.id, "advice")}>
+          Decline
+        </CalloutAction>
         {violations.length > 0 && (
-          <CalloutAction onClick={() => onDecline(finding.id, "violation")}>
+          <CalloutAction rank="quiet" onClick={() => onDecline(finding.id, "violation")}>
             Decline as violation
           </CalloutAction>
         )}
@@ -124,12 +133,28 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
   );
 }
 
-function CalloutAction({ onClick, children }: { onClick: () => void; children: string }) {
+/** Addressed is a filled button, Decline an outlined one, Decline as violation a text link. */
+const CALLOUT_ACTION_RANK = {
+  primary:
+    "border border-ink bg-ink px-2.5 py-1 font-semibold text-on-ink hover:bg-soft-ink focus-visible:ring-offset-2",
+  secondary: "border border-rule px-2.5 py-1 text-quiet-ink hover:bg-sunk hover:text-ink",
+  quiet: "px-1 py-1 text-muted-ink underline underline-offset-2 hover:text-ink",
+} as const;
+
+function CalloutAction({
+  rank,
+  onClick,
+  children,
+}: {
+  rank: keyof typeof CALLOUT_ACTION_RANK;
+  onClick: () => void;
+  children: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded font-medium text-muted-ink underline-offset-2 hover:text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      className={`rounded font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${CALLOUT_ACTION_RANK[rank]}`}
     >
       {children}
     </button>
