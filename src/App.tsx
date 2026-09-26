@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { blockIndexForInterval, type HighlightInterval } from "./core/anchor";
-import type { DeclineReason, Interval } from "./core/finding";
+import { isOpenFinding, type DeclineReason, type Interval } from "./core/finding";
 import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor, type HighlightHit } from "./editor/DocumentEditor";
 import { FindingCallout } from "./editor/FindingCallout";
 import { StatusLine } from "./editor/StatusLine";
 import { calloutFindings } from "./editor/callout";
+import { railPresentation } from "./editor/railPresentation";
 import { isTypingTarget } from "./editor/typingTarget";
+import { useWideLayout } from "./editor/useWideLayout";
 import { WorkingOrderRail } from "./editor/WorkingOrderRail";
 import { HowThisWorksView } from "./help/HowThisWorksView";
 import {
@@ -120,6 +122,32 @@ export default function App() {
     nonce: number;
     focus?: boolean;
   } | null>(null);
+
+  /**
+   * Stories 251–255: how the Rail is drawn. At 1024px and wider the stored
+   * collapsed preference decides; below that only this local flag does. It is
+   * false on every load, never stored, and cleared on crossing to wide, so a
+   * desktop preference never covers the prose.
+   */
+  const wide = useWideLayout();
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  useEffect(() => {
+    if (wide) setOverlayOpen(false);
+  }, [wide]);
+  const { railCollapsed, setRailCollapsed } = handle;
+  const presentation = railPresentation(wide, railCollapsed, overlayOpen);
+  const showRail = useCallback(() => {
+    if (wide) void setRailCollapsed(false);
+    else setOverlayOpen(true);
+  }, [wide, setRailCollapsed]);
+  const hideRail = useCallback(() => {
+    if (wide) void setRailCollapsed(true);
+    else setOverlayOpen(false);
+  }, [wide, setRailCollapsed]);
+  const openFindingCount = useMemo(
+    () => handle.findings.filter(isOpenFinding).length,
+    [handle.findings],
+  );
 
   /** Story 25: the outline, derived from the Document's headings. */
   const outlineSections = useMemo(
@@ -623,7 +651,18 @@ export default function App() {
                     />
                   }
                 />
-                <StatusLine wordCount={document.wordCount} />
+                <StatusLine
+                  wordCount={document.wordCount}
+                  rail={
+                    wide
+                      ? null
+                      : {
+                          openFindingCount,
+                          open: presentation === "overlay",
+                          onToggle: presentation === "overlay" ? hideRail : showRail,
+                        }
+                  }
+                />
                 {calloutOpen && calloutHit !== null && (
                   <FindingCallout
                     findings={calloutEntries}
@@ -639,6 +678,10 @@ export default function App() {
 
           <WorkingOrderRail
             handle={handle}
+            presentation={presentation}
+            wide={wide}
+            onShowRail={showRail}
+            onHideRail={hideRail}
             outlineSections={outlineSections}
             activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
             onJumpToSection={jumpToSection}
