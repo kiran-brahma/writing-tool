@@ -315,7 +315,7 @@ export function JudgePanel({
         </button>
 
         {error !== null && (
-          <p className="rounded border border-warning-rule bg-warning-surface px-2 py-1.5 text-xs text-warning">
+          <p className="rounded border border-failure-rule bg-failure-surface px-2 py-1.5 text-xs text-failure">
             {error}
           </p>
         )}

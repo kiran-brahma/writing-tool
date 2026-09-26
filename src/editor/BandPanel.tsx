@@ -541,7 +541,7 @@ function ReaderPassBlock({
         }
       />
       {error !== null && (
-        <p className="border-t border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
+        <p className="border-t border-failure-rule bg-failure-surface px-4 py-2 text-xs text-failure">
           {error}
         </p>
       )}
@@ -616,7 +616,7 @@ function AuditPassBlock({
         </p>
       )}
       {error !== null && (
-        <p className="border-t border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
+        <p className="border-t border-failure-rule bg-failure-surface px-4 py-2 text-xs text-failure">
           {error}
         </p>
       )}

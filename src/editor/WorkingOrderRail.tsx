@@ -356,7 +356,7 @@ export function WorkingOrderRail({
       {/* A model Run's failure is not about one Band, so it is not attributed to
           one; Cancel is reachable wherever the Run was started. */}
       {handle.runError !== null && (
-        <p className="border-b border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
+        <p className="border-b border-failure-rule bg-failure-surface px-4 py-2 text-xs text-failure">
           {handle.runError}
         </p>
       )}
