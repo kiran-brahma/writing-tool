@@ -73,6 +73,12 @@ export interface DocumentEditorProps {
    * the prose so it reads as the top of the Document (story 196).
    */
   pageHeading?: ReactNode;
+  /**
+   * Story 241: what sits in the left margin beside the column, at 1440px and
+   * wider only. It stays put while the prose scrolls, and it is hidden by the
+   * stylesheet below that width, never by a script.
+   */
+  leftMargin?: ReactNode;
 }
 
 /**
@@ -92,6 +98,7 @@ export function DocumentEditor({
   onHighlightClick,
   calloutOpen = false,
   pageHeading,
+  leftMargin,
 }: DocumentEditorProps) {
   const [, refresh] = useReducer((count: number) => count + 1, 0);
   const lastTargetRef = useRef(-1);
@@ -309,14 +316,21 @@ export function DocumentEditor({
        * The gutter is reserved on both edges, so a scrollbar never pulls the
        * centred column off the toolbar above it and the Status line below.
        */}
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto py-8 [scrollbar-gutter:stable_both-edges]"
-      >
-        <div className="obelus-column">
-          {pageHeading}
-          <EditorContent editor={editor} />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto py-8 [scrollbar-gutter:stable_both-edges]"
+        >
+          <div className="obelus-column">
+            {pageHeading}
+            <EditorContent editor={editor} />
+          </div>
         </div>
+        {leftMargin !== undefined && (
+          <div className="obelus-left-margin">
+            <div className="obelus-left-margin-body">{leftMargin}</div>
+          </div>
+        )}
       </div>
     </div>
   );
