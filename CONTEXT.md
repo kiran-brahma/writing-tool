@@ -142,10 +142,17 @@ The visual rendering of an Anchor. The Current Finding's Highlight is distinguis
 _Avoid_: underline, marker
 
 **Callout**:
-The popover a click on a Highlight opens beside the prose: the open Findings on that text, with the
-queue's verdicts. It does not change the Current Finding, so the Rail stays where the Writer left it
-(ADR 0011).
+The popover a click on a Highlight or a Margin mark opens beside the prose: the open Findings on that
+text, with the queue's verdicts. It does not change the Current Finding, so the Rail stays where the
+Writer left it (ADR 0011).
 _Avoid_: tooltip, popup, card
+
+**Margin mark**:
+The obelus, with a count, in the right-hand margin beside a Paragraph where open Findings begin. A
+Finding is counted once, beside the Paragraph it begins in; an Orphaned Finding has none. A click
+opens the Callout with those Findings. Kept although the Anchor entry lists *mark* under _Avoid_: that
+avoid is about naming an Anchor, and a Margin mark is not one.
+_Avoid_: badge, pin, gutter icon, marker
 
 **Orphaned**:
 The condition of a Finding whose quoted text can no longer be found, so it points nowhere. A
