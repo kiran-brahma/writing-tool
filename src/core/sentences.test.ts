@@ -52,6 +52,17 @@ describe("splitSentences", () => {
     ]);
   });
 
+  it("reads a Paragraph that opens with a number and a period as one sentence", () => {
+    // Issue #51: "1984. The year" escapes to the same shape as "1\\. not a
+    // list", so the rule cannot tell them apart. The Writer accepted this and
+    // the metrics panel says so; the segmentation stays as it is.
+    const sentences = splitSentences("1984\\. The year Orwell chose.\n");
+
+    expect(sentences.map((sentence) => sentence.text.trim())).toEqual([
+      "1984\\. The year Orwell chose.",
+    ]);
+  });
+
   it("splits after an escaped period that is not a list marker", () => {
     // The Writer typed a literal backslash, which the renderer escapes as \\.
     // The period after it is a real sentence end, unlike the escaped marker

@@ -277,6 +277,15 @@ describe("panel glosses", () => {
     }
   });
 
+  it("says in the metrics gloss that a number and a period opening a paragraph is one sentence", () => {
+    // Issue #51: the segmentation cannot tell "1984. The year" from an escaped
+    // list marker, and the Writer chose to state that where the metrics are.
+    const text = PANEL_GLOSSES.metrics.text;
+    expect(text).toMatch(/paragraph that opens with a number and a period/);
+    expect(text).toContain("1984.");
+    expect(text).toMatch(/counted as one sentence/);
+  });
+
   it("never praises the prose or characterises skill", () => {
     const praiseWords = ["great", "good", "well done", "excellent", "impressive", "better writer", "improve your skill"];
     for (const [panel, gloss] of Object.entries(PANEL_GLOSSES)) {

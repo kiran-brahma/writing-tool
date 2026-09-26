@@ -385,7 +385,7 @@ export const PANEL_GLOSSES = {
     sectionId: HELP_SECTION_IDS.glossary,
   },
   metrics: {
-    text: "Measurements of rhythm and sentence structure across your document. A metric is a diagnostic signal, never a score.",
+    text: "Measurements of rhythm and sentence structure across your document. A metric is a diagnostic signal, never a score. A paragraph that opens with a number and a period, such as \"1984. The year it began.\", is counted as one sentence, because that shape is also how a numbered list item starts.",
     sectionId: HELP_SECTION_IDS.glossary,
   },
   outline: {
