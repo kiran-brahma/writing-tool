@@ -2,27 +2,29 @@
 
 ## Why I built Obelus
 
-I hated writing. I learned to write at school and college, where the goal was to pass exams. At work, I wrote mostly emails and presentations. The one exception was a small notebook, where I wrote down what I learned or observed from the books I read over the years.
 
-My first real writing project was my company's blog. Everyone told me that to improve the company's SEO, I had to create content. Google expects content in a specific structure, so that its crawlers can scan a website quickly. I adopted that structure, because my goal was not to write great blog posts. It was to show up in Google search results.
+*The only way to write is to write. - Ralph Waldo Emerson*
 
-Along the way, I started writing mini-essays for myself in Obsidian. In them, I tried to combine ideas from different books and articles into something I could apply myself. I never planned to publish them. They were personal notes.
+I did most of my writing as a student. I never considered emails I sent or presentations I made as writing, but it was writing nonetheless. The only time I wrote without any agenda was when I jotted down my observations or ideas from the books I was reading. 
 
-During the COVID lockdown, I had too much free time, so I started writing short LinkedIn posts whenever I felt like it. People ignored 99% of them. But I noticed that I was critical of my own writing while I wrote a post. Every post went through several rewrites until I felt it was good. I started to apply the same rigor to my mini-essays.
+Around 5 years back, I started writing my notes in Obsidian, not in a physical notebook. Obsidian’s wiki-link and graph features encouraged me to try and connect ideas across my different notes. Slowly, I started writing mini essays for every book I read, connecting ideas across my notes. 
 
-When ChatGPT launched, I used it for feedback on my writing. Bit by bit, I let it decide what was good and what was bad. AI became my ghostwriter. I gave it raw thoughts and ideas, and it put them together in a neat package. I used AI to rewrite most of my older company blog posts. Slowly but steadily, Google improved my website's ranking for some keywords.
+I never had any plans to publish my mini essays but did post occasionally on LinkedIn. While none of my posts ever went viral, every post went through multiple iterations before I felt satisfied with it. 
 
-That result gave me the confidence to start my own blog. As the models improved, I felt my writing improved with them. I did not realise that I had never learned to write well. Then the internet filled up with AI content, and every other post sounded the same as mine. I hated it. At the end of 2024, I decided to learn to write better.
+After the launch of ChatGPT, it took on the role of an editor for my writings. I could never write prose as polished as an AI, so it became my ghostwriter. AI’s writing quality improved with every new model release but my own skills started deteriorating.
 
-I built stronger workflows and processes around my AI writing. Every other week, I updated my project rules and skills to improve the output. After a few months, the writing was much better, but it never lost the signs of AI writing. I had generated so much AI content that I could tell whether a person or an AI had written an article or a LinkedIn post.
+In early 2026, I decided to actually learn how to write better. I paused using AI to write my initial drafts and used it to review my writings. My writing slowly started improving but I knew in the back of my head that most of the improvements came from AI’s suggestions not due to my efforts. 
 
-During the same period, I grew confident in my own writing, so I started to write the first drafts myself. I asked AI to judge them. It suggested improvements and even rewrote the sections it judged to be poor. Again, I felt my writing had improved a lot. After a few weeks, I was confident enough to rewrite the AI's final essay completely in my own words.
+In September 2026, I finally read William Zinsser's *On Writing Well*. The book’s final section, "Attitude", made me question my workflow all over again. On 18th Sept, I came across a post by Thomas Ptacek on ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/) and the word *obelus* - an editor’s mark for this word or passage is suspect. 
 
-In September 2026, I finally read William Zinsser's *On Writing Well*. Most of the book described ideas, processes, and tips that I had already adopted. But its final section, "Attitude", made me question my process again. While I was thinking about how to fit AI into my writing, I came across two things. One was the word *obelus*, the editor's mark for *this passage is suspect*. The other was Thomas Ptacek's post [How To Write With An LLM](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/).
+Ptacek in his posts laid down two rules:
+- Avoid using words suggested by AI
+- Avoid encouragement by AI
+- 
+Ptacek’s argument was simple: AI is trained to be helpful even when you are wrong. His posts goes into further details on how to build a workflow that actually helps you write better. Luckily, I had done most of what he had recommended already as ‘Skills’ for my AI workflows. However, I never restricted AI from giving me suggestions.
 
-Ptacek's two rules for writing with AI matched the ideas already in my head. His post even included a prompt for building a tool for yourself. I set out to build on his idea and to add my own ideas and workflows, in a simple app.
+This app is my attempt on how to incorporate Ptacek’s rules along with numerous other rules and ideas that I accumulated. The app will always be a work in progress, but it will just inform me where my writing is poor.
 
-This app is a prototype. It helps me improve my writing on my own, with AI in a supporting role. I built it the way I wanted it, and I will keep changing it as I try new ideas. I don't know if anyone except me will use it. If you find it useful, give it a try.
 
 ## About the APP (AI generated text)
 
