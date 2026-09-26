@@ -16,10 +16,12 @@
  *    same-origin request are never intercepted, cached or replayed.
  */
 
-// Keyed to the release: bump this on every deploy. A new name is what lets
-// `activate` delete the previous release's cache wholesale, and changing the
-// worker's bytes is what makes the browser install the update. The navigation-
-// time prune below is the safety net for a release that forgets the bump.
+// A constant, not keyed to the release: every deploy shares this one cache.
+// What keeps it on the current deploy is the navigation-time prune below
+// (`syncShellAssets`), which runs in whichever worker is active on every
+// successful online navigation, so a deploy or a rollback needs no worker
+// update. `activate` deleting other names only clears a cache this worker no
+// longer uses.
 const CACHE_NAME = "obelus-shell-v1";
 const ASSET_PREFIX = "/assets/";
 const SHELL_STATIC_URLS = ["/manifest.webmanifest", "/icon.svg"];
