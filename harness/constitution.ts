@@ -73,7 +73,7 @@ export interface HarnessCaseResult {
   account: ReaderAccount | null;
   /** The Audit account an audit Pass returned, if any. */
   auditAccount: AuditAccount | null;
-  /** Story 131: how many chunks the Run was split into; 1 when it fit. */
+  /** Story 131: how many model calls the Run took; 1 when it fit. */
   chunks: number;
   rawResponse: string | null;
   error: string | null;

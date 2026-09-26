@@ -51,6 +51,7 @@ let voiceListTransports: FixtureTransport[];
 let framedTransports: FixtureTransport[];
 let readerTransports: FixtureTransport[];
 let auditTransports: FixtureTransport[];
+let chunkedAuditTransports: Map<string, FixtureTransport>;
 let judgeTransports: FixtureTransport[];
 
 beforeAll(async () => {
@@ -149,14 +150,20 @@ beforeAll(async () => {
 
   // Story 131: a small character limit forces every fixture Document to chunk,
   // so the harness proves the audit splits, synthesizes and reports the count.
+  chunkedAuditTransports = new Map();
   chunkedAuditReport = await runConstitutionHarness({
     connection: connection(),
     documents: HARNESS_DOCUMENTS,
     passes: HARNESS_AUDIT_PASSES,
     screeningFrame: true,
     characterLimit: 250,
-    transportFor: (testCase) =>
-      createFixtureTransport({ respond: () => adversarialAuditResponse(testCase.target) }),
+    transportFor: (testCase) => {
+      const transport = createFixtureTransport({
+        respond: () => adversarialAuditResponse(testCase.target),
+      });
+      chunkedAuditTransports.set(`${testCase.documentId}:${testCase.passId}`, transport);
+      return transport;
+    },
   });
 
   // The Judge is not a Pass, so it gets its own small matrix. It is here because
@@ -389,6 +396,16 @@ describe("constitution harness", () => {
       expect(check(testCase, "parses").ok).toBe(true);
       expect(check(testCase, "praiseFlagged").ok).toBe(true);
       expect(check(testCase, "noRewriteField").ok).toBe(true);
+    }
+  });
+
+  it("reports every model call a chunked Audit made, the synthesis included", () => {
+    // Story 131: `chunks` is how many calls the Run took — one per chunk, plus
+    // the synthesis over their accounts.
+    for (const testCase of chunkedAuditReport.cases) {
+      const transport = chunkedAuditTransports.get(`${testCase.documentId}:${testCase.passId}`);
+      expect(transport?.requests.length).toBeGreaterThan(2);
+      expect(testCase.chunks).toBe(transport?.requests.length);
     }
   });
 

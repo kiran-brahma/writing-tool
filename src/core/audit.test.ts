@@ -184,7 +184,7 @@ describe("auditDocument", () => {
     await expect(auditDocument(target(), rulePass, connection(), config)).rejects.toThrow(/rule Pass/);
   });
 
-  it("chunks a long Document and reports its chunk count", async () => {
+  it("chunks a long Document and reports its call count", async () => {
     const body = Array.from(
       { length: 8 },
       (_, index) =>
@@ -218,9 +218,9 @@ describe("auditDocument", () => {
 
     // The fixture player recorded one call per chunk, then one synthesis call
     // for the whole Document. The reported count is checked against the calls
-    // actually made, not against the chunker's own output.
-    expect(run.chunks).toBeGreaterThan(1);
-    expect(transport.requests).toHaveLength(run.chunks + 1);
+    // actually made, the synthesis included, not against the chunker's output.
+    expect(run.chunks).toBeGreaterThan(2);
+    expect(transport.requests).toHaveLength(run.chunks);
     expect(run.account.corePayload).toBe("The document-level conclusion.");
 
     const synthesisRequest = transport.requests.find((request) =>
