@@ -3,17 +3,20 @@ import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
   CHARACTER_LIMIT_SETTING_KEY,
+  COLOR_SCHEME_SETTING_KEY,
   FIRST_RUN_NOTE_SETTING_KEY,
   RAIL_BAND_SETTING_KEY,
   RAIL_COLLAPSED_SETTING_KEY,
   VOICE_LIST_SETTING_KEY,
   loadCharacterLimit,
+  loadColorScheme,
   loadFirstRunNoteDismissed,
   loadRailBand,
   loadRailCollapsed,
   loadScreeningFrame,
   loadVoiceList,
   saveCharacterLimit,
+  saveColorScheme,
   saveFirstRunNoteDismissed,
   saveRailBand,
   saveRailCollapsed,
@@ -176,5 +179,33 @@ describe("the first-run note setting", () => {
     await database.settings.put({ key: FIRST_RUN_NOTE_SETTING_KEY, value: "yes" });
 
     await expect(loadFirstRunNoteDismissed(database)).resolves.toBe(false);
+  });
+});
+
+describe("the colour scheme setting", () => {
+  it("follows the system by default", async () => {
+    const database = await openTestDatabase();
+
+    await expect(loadColorScheme(database)).resolves.toBe("system");
+  });
+
+  it("persists the Writer's choice", async () => {
+    const database = await openTestDatabase();
+
+    await expect(saveColorScheme(database, "dark")).resolves.toBe("dark");
+    await expect(loadColorScheme(database)).resolves.toBe("dark");
+
+    await expect(saveColorScheme(database, "light")).resolves.toBe("light");
+    await expect(loadColorScheme(database)).resolves.toBe("light");
+
+    await expect(saveColorScheme(database, "system")).resolves.toBe("system");
+    await expect(loadColorScheme(database)).resolves.toBe("system");
+  });
+
+  it("falls back to System for a stored value that is not a scheme", async () => {
+    const database = await openTestDatabase();
+    await database.settings.put({ key: COLOR_SCHEME_SETTING_KEY, value: "sepia" });
+
+    await expect(loadColorScheme(database)).resolves.toBe("system");
   });
 });

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { FindingInterval } from "./core/anchor";
+import type { ColorSchemeSetting } from "./core/colorScheme";
 import type { RunReport, RunResult } from "./core/critique";
 import type { DocTree } from "./core/docTree";
 import {
@@ -138,6 +139,9 @@ export interface DocumentHandle {
   firstRunNoteDismissed: boolean;
   /** Story 169: dismisses the first-run note, storing the choice. */
   dismissFirstRunNote: () => Promise<void>;
+  /** Stories 201–204: the Writer's colour scheme, Light, Dark or System. */
+  colorScheme: ColorSchemeSetting;
+  setColorScheme: (setting: ColorSchemeSetting) => Promise<void>;
   /**
    * Story 50: how many chunks a document-scope Run of the current Document
    * would make at the current limit. `1` when it fits in a single call, so the
@@ -337,9 +341,9 @@ export function useDocument(): DocumentHandle {
   } = connectionsHandle;
 
   /**
-   * The six global settings — the Screening frame, the chunk character limit,
-   * the Voice list, the rail's Band and collapsed state, and the first-run
-   * note. A Voice list change re-runs the rule Passes, so the hook is built
+   * The seven global settings — the Screening frame, the chunk character
+   * limit, the Voice list, the rail's Band and collapsed state, the first-run
+   * note, and the colour scheme. A Voice list change re-runs the rule Passes, so the hook is built
    * here, after `rerunRules`.
    */
   const globalSettings = useGlobalSettings({
@@ -361,6 +365,8 @@ export function useDocument(): DocumentHandle {
     setRailCollapsed,
     firstRunNoteDismissed,
     dismissFirstRunNote,
+    colorScheme,
+    setColorScheme,
   } = globalSettings;
 
   /**
@@ -540,6 +546,8 @@ export function useDocument(): DocumentHandle {
     setRailCollapsed,
     firstRunNoteDismissed,
     dismissFirstRunNote,
+    colorScheme,
+    setColorScheme,
     documentChunks,
     structuralEstimate,
     rawResponses,

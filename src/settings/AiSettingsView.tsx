@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MIN_CHARACTER_LIMIT } from "../core/chunking";
+import { COLOR_SCHEME_SETTINGS, type ColorSchemeSetting } from "../core/colorScheme";
 import { parsePriceTable, serializePriceTable, type PriceTable } from "../core/cost";
 import { describeError } from "../errors";
 import type { Slot, SlotAssignment, SlotBinding } from "../storage/connections";
@@ -14,7 +15,7 @@ import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
  * the Judge; the two may share one Connection while running different models,
  * so an independent Judge needs no second route to the Provider. Connections
  * hold the keys, base URLs and concurrency. The run settings shape what a model
- * Run sends.
+ * Run sends. The colour scheme sits last: it is about the app, not the model.
  */
 export interface AiSettingsViewProps {
   connections: Connection[];
@@ -28,6 +29,8 @@ export interface AiSettingsViewProps {
   /** Stories 149–152: the words and phrases the Writer has declared theirs. */
   voiceList: string[];
   priceTable: PriceTable;
+  /** Stories 201–202: Light, Dark or System. */
+  colorScheme: ColorSchemeSetting;
   onSaveConnection: (connection: Connection) => void;
   onAddCustom: () => void;
   onRemoveConnection: (connectionId: string) => void;
@@ -36,6 +39,7 @@ export interface AiSettingsViewProps {
   onSetCharacterLimit: (limit: number) => void;
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
+  onSetColorScheme: (setting: ColorSchemeSetting) => void;
   onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
@@ -48,6 +52,7 @@ export function AiSettingsView({
   characterLimit,
   voiceList,
   priceTable,
+  colorScheme,
   onSaveConnection,
   onAddCustom,
   onRemoveConnection,
@@ -56,6 +61,7 @@ export function AiSettingsView({
   onSetCharacterLimit,
   onSaveVoiceList,
   onSavePriceTable,
+  onSetColorScheme,
   onOpenHelp,
 }: AiSettingsViewProps) {
   return (
@@ -93,7 +99,53 @@ export function AiSettingsView({
         onSavePriceTable={onSavePriceTable}
         onOpenHelp={onOpenHelp}
       />
+
+      <ColorSchemePanel colorScheme={colorScheme} onSetColorScheme={onSetColorScheme} />
     </div>
+  );
+}
+
+/**
+ * Stories 201–202: the Writer's colour scheme. System is the default and
+ * follows the operating system as it changes; Light and Dark override it.
+ */
+function ColorSchemePanel({
+  colorScheme,
+  onSetColorScheme,
+}: {
+  colorScheme: ColorSchemeSetting;
+  onSetColorScheme: (setting: ColorSchemeSetting) => void;
+}) {
+  return (
+    <section className="overflow-hidden rounded border border-rule bg-paper">
+      <div className="border-b border-rule-soft px-4 py-2">
+        <h2 className="text-sm font-semibold">Colour scheme</h2>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <div role="group" aria-label="Colour scheme" className="flex gap-1.5">
+          {COLOR_SCHEME_SETTINGS.map(({ setting, label }) => {
+            const active = setting === colorScheme;
+            return (
+              <button
+                key={setting}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onSetColorScheme(setting)}
+                className={[
+                  "rounded border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                  active
+                    ? "border-ink bg-ink text-on-ink focus-visible:ring-offset-2"
+                    : "border-rule bg-paper text-quiet-ink hover:bg-sunk",
+                ].join(" ")}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-ink">System follows your computer’s setting as it changes.</p>
+      </div>
+    </section>
   );
 }
 

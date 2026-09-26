@@ -22,6 +22,7 @@ import { SCRATCHPAD_DOCUMENT_ID } from "./storage/documents";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
 import { AiSettingsView } from "./settings/AiSettingsView";
+import { useColorScheme } from "./settings/useColorScheme";
 import { WorkbenchView } from "./workbench/WorkbenchView";
 import { DocumentMenu } from "./DocumentMenu";
 import {
@@ -92,7 +93,10 @@ export default function App() {
     judgeIsDefault,
     firstRunNoteDismissed,
     dismissFirstRunNote,
+    colorScheme,
+    setColorScheme,
   } = handle;
+  useColorScheme(colorScheme);
   const [milestoneNote, setMilestoneNote] = useState("");
   const [milestonesOnly, setMilestonesOnly] = useState(false);
   /** Story 20 & 190: persistent destinations; the Editor is the default. */
@@ -510,6 +514,7 @@ export default function App() {
           characterLimit={characterLimit}
           voiceList={voiceList}
           priceTable={priceTable}
+          colorScheme={colorScheme}
           onSaveConnection={(connection) => void saveConnection(connection)}
           onAddCustom={() => void addCustomConnection()}
           onRemoveConnection={(connectionId) => void removeConnection(connectionId)}
@@ -518,6 +523,7 @@ export default function App() {
           onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
           onSaveVoiceList={(entries) => void setVoiceList(entries)}
           onSavePriceTable={(table) => void savePriceTable(table)}
+          onSetColorScheme={(setting) => void setColorScheme(setting)}
           onOpenHelp={openHelpSection}
         />
       )}

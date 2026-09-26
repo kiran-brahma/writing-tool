@@ -1,11 +1,31 @@
 @import "tailwindcss";
 
 /*
+ * Stories 201–203: the dark scheme. With System no attribute is set and the
+ * stylesheet follows `prefers-color-scheme` on its own, live and with no flash
+ * on load; a Light or Dark choice sets `data-theme` on the root element, which
+ * wins over the system. `dark:` means exactly that, so a rule written with it
+ * and the colour names below can never disagree about which scheme is drawn.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:not(:where([data-theme="light"], [data-theme="light"] *)) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/*
  * Colours named by what they mean, not by palette step. Each light value is
  * the colour the app uses today, so moving a class or a rule onto a name
  * changes nothing on screen: the hex values are the Editor's own, and the
- * oklch values are Tailwind's palette steps copied exactly. The palette classes
- * still work until every component has moved; no dark values are defined yet.
+ * oklch values are Tailwind's palette steps copied exactly. Every name has a
+ * dark value too, below the light ones. A palette class in UI source fails the
+ * build (`scripts/gates/palette.mjs`), so the table is how to read old code,
+ * not a choice still open.
  *
  * Moving a component is mechanical: replace each palette class with the name
  * in the table, keeping its variant (hover:, focus-visible:, disabled:) and
@@ -148,6 +168,113 @@
   --color-prose-link: #1d4ed8; /* a link in the Writer's prose */
   --color-link: oklch(48.8% 0.243 264.376); /* blue-700 */
   --color-link-hover: oklch(37.9% 0.146 265.522); /* blue-900 */
+}
+
+/*
+ * The same names in the dark scheme. The page is a dark paper, warm and not
+ * black (story 206), lifted a step above the ground behind it as the white page
+ * is in light. Ink runs the other way, light on dark, and never pure white, so
+ * a long session does not glare. An ink fill becomes a light fill with dark
+ * text on it; `on-ink` follows.
+ *
+ * Contrast is story 187's, kept in dark (story 210): `muted-ink`, the Rail's
+ * quiet text and a disabled Pass name, is at least 4.5:1 on paper, sunk and
+ * sunk-strong, and so is `faint-ink` on paper and ground. `ghost-ink` is for
+ * what is decorative, as in light.
+ *
+ * The mark is still amber here: a deep amber wash with a bright amber
+ * underline, so ink stays readable on it.
+ */
+@layer theme {
+  :root {
+    color-scheme: light;
+
+    @variant dark {
+      color-scheme: dark;
+
+      --color-paper: #1f1d1a;
+      --color-ground: #191816;
+      --color-sunk: #292724;
+      --color-sunk-strong: #34312d;
+
+      --color-ink: #ebe7e1;
+      --color-soft-ink: #ddd8d1;
+      --color-quiet-ink: #cbc5bd;
+      --color-muted-ink: #b3aca3;
+      --color-faint-ink: #a29b92;
+      --color-ghost-ink: #7a746c;
+      --color-on-ink: #1c1a18;
+
+      --color-rule-faint: #25231f;
+      --color-rule-soft: #322f2b;
+      --color-rule: #45413b;
+      --color-rule-strong: #5d5850;
+      --color-rule-focus: #8a837a;
+      --color-focus: #b3aca3;
+
+      --color-mark: #4e3a12;
+      --color-mark-line: #e0a53a;
+      --color-mark-hover: #614815;
+      --color-current-mark: #7a5a17;
+      --color-current-mark-line: #f5c461;
+      --color-mark-wash: #3a2e15;
+
+      --color-warning: #f2c872;
+      --color-warning-soft: #e9b75a;
+      --color-warning-muted: #dcaa52;
+      --color-warning-focus: #dcaa52;
+      --color-warning-surface: #2c2414;
+      --color-warning-rule: #5a4619;
+      --color-warning-rule-strong: #7a5f22;
+
+      --color-milestone: #3d3163;
+      --color-milestone-ink: #d9ccff;
+
+      --color-failure: #f5958c;
+      --color-failure-surface: #321c1a;
+      --color-failure-rule: #6e302b;
+      --color-failure-focus: #f5958c;
+      --color-success: #6fd6a6;
+
+      --color-agreement: #93dcaa;
+      --color-agreement-surface: #17281c;
+      --color-agreement-rule: #2e5539;
+      --color-added: #1e3a26;
+      --color-added-ink: #a8e4ba;
+      --color-removed: #401f1e;
+      --color-removed-ink: #f6aea7;
+
+      --color-violation: #f7768a;
+      --color-violation-ink: #fca5b3;
+      --color-violation-surface: #2f1a1e;
+      --color-violation-wash: #45222a;
+      --color-violation-rule: #7a2e3b;
+      --color-violation-focus: #f7768a;
+
+      --color-prose-link: #8fb4ff;
+      --color-link: #93b6ff;
+      --color-link-hover: #c4d6ff;
+    }
+  }
+}
+
+/*
+ * The root is the ground, so the loading screen, an overscroll and the moment
+ * before the app mounts are the scheme's colour, never the browser's own.
+ *
+ * A focus ring's offset is drawn in the page's colour rather than Tailwind's
+ * white, so an ink-filled control's ring in dark is not set off by a white band.
+ */
+@layer base {
+  html {
+    background-color: var(--color-ground);
+  }
+
+  *,
+  ::before,
+  ::after {
+    --tw-ring-offset-color: var(--color-paper);
+  }
 }
 
 /*
