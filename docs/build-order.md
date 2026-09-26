@@ -75,13 +75,13 @@ commit first, then the behaviour that uses the store.
 How this works and the first-run note exist, the Judge defaults to the last milestone against now,
 the Current Finding moves the prose, the queue is reachable from the prose, a Pass's rest can be
 declined and any Finding reopened, every panel glosses its nouns, the rail meets the accessibility
-bar, a Run's cost sits beside its control, and the header is persistent navigation. The follow-up
-bugs from the Thermos review are #45–#55; they are independent of v1.3 and can be taken any time.
+bar, a Run's cost sits beside its control, and the header is persistent navigation. The follow-ups
+from the Thermos review, #45–#55, are sequenced in the backlog table at the end of this file.
 
 **v1.3 is the open frontier.** The spec is #57 and the sequence is the v1.3 table below. Its subject
 is the page and the mark: an identity for the prose and its marks, a dark scheme, the Rail in two
-Rail modes, and a layout that works down to tablet width. **#58 is the only ticket that can start
-now.**
+Rail modes, and a layout that works down to tablet width. **#58 can start now, alongside the
+unblocked backlog tickets** (#45, #46, #47, #48, #51, #54, #55). The goal is every open issue closed.
 
 ## How to work a ticket
 
@@ -279,4 +279,36 @@ creates. #66 and #69 both touch the Rail and may conflict on merge, but neither 
 mode, Status line are new; the Rail is never a "drawer"); the WebKit Highlight budget — no shadow and
 no radius on a Highlight, and typing with ~490 Highlights no slower; every markup ticket is checked
 by eye in both schemes and at the widths its ticket names.
+
+## The order — backlog
+
+The Thermos review's follow-ups, #45–#55, and the stale-doc report #56. Every one is decided: where an
+issue offered options, the Writer's choice is a comment on the issue, and that comment is the
+requirement. #56 closes when the v1.3 docs branch merges.
+
+| Step | # | Ticket | Blocked by | Decision / what it makes work |
+|---|---|---|---|---|
+| 45 | **#45** | Run cache stale after a Connection is reconfigured | — | `maxOutputTokens`, `reasoningEffort` and `extraHeaders` (stably ordered) join the Run cache key |
+| 46 | **#46** | A stalled provider call holds the mutation lock | — | A request timeout in the transport; cancel threaded through Reader and Audit Runs; a timeout test through `send` |
+| 47 | **#47** | Unbalanced `)` in a link href breaks the round-trip | — | Escape `(` `)` in an emitted href; the fuzz test learns to emit links |
+| 48 | **#48** | The service-worker cache claim | — | **Correct the docs**: the navigation-time prune is the mechanism; `CACHE_NAME` stays constant |
+| 49 | **#51** | An opening ordinal counts as one sentence | — | **Accept and document** in the metrics panel's explanation; `sentences.ts` unchanged |
+| 50 | **#54** | A chunked Audit under-reports its call count | — | **True call count**: N chunks + 1 synthesis |
+| 51 | **#55** | A list-only Document has no paragraph-scope Target | — | Resolve the Target to a Paragraph inside a list item; Containment unaffected |
+| 52 | **#53** | The passive pass at note severity | #66 | An optional rule-pass-only `severity: "note"` and a distinct row treatment; the model schema unchanged |
+| 53 | **#52** | Decompose `useRuns` and `useDocumentLifecycle` | #65, #66, #67, #68, #69 | One run-state union replacing the five Run-kind triples; stop if it moves lines without deleting state |
+
+**How it fits v1.3.** Steps 45–51 touch Core, the wire, storage and docs, not the surfaces v1.3
+reshapes, so they run in parallel with v1.3's first waves. #53 waits for #66 because Rail modes
+rebuilds the Finding row it decorates. #52 goes last: it reshapes the hooks behind the handle that
+v1.3 extends with two settings, and landing it first would put every v1.3 ticket on a moving base.
+
+Combined waves for the whole run:
+
+- **Wave 1:** #58, #45, #46, #47, #48, #51, #54, #55
+- **Wave 2:** #59, #60, #61
+- **Wave 3:** #62
+- **Wave 4:** #63, #64, #66, #68
+- **Wave 5:** #65, #67, #69, #53
+- **Wave 6:** #52
 
