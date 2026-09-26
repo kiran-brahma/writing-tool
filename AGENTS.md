@@ -37,6 +37,8 @@ Reasoning for both: `DESIGN.md` §1–2.
 - **Process** — `docs/agents/`. When creating or reading tickets, specs or triage state.
 - **Build order** — `docs/build-order.md`. Before picking up a ticket: which one can start now, what it
 delivers, and what it is waiting on.
+- **Releases** — `docs/releasing.md`. Before bumping the version, tagging, pushing a release or
+  deploying.
 
 ## Build discipline
 
@@ -58,6 +60,7 @@ delivers, and what it is waiting on.
 - New behaviour has a test through the seam; a prompt change has a harness run.
 - No affordance was added that inserts model-derived text.
 - Names match `CONTEXT.md`, and a genuinely new term is flagged for `/domain-modeling`.
+- A change a Writer would notice has its line under `## [Unreleased]` in `CHANGELOG.md`.
 
 ## Agent skills
 
