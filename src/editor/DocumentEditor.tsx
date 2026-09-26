@@ -1,4 +1,5 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { Selection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useReducer, useRef, type ReactNode } from "react";
@@ -9,16 +10,20 @@ import {
 } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
 import type { Interval } from "../core/finding";
-import type { HighlightRect } from "./callout";
+import { marginMarks, type HighlightRect } from "./callout";
 import {
   HighlightExtension,
   highlightsAt,
   restyleHighlights,
   setHighlightRanges,
+  type MarginMarkClick,
 } from "./highlight";
 import { TYPING_PAUSE_MS } from "./persistence";
 
-/** A click on a Highlight: the Findings it draws, and where it sits on screen. */
+/**
+ * A click on a Highlight or a Margin mark: the Findings it names, and where the
+ * prose they concern sits on screen.
+ */
 export interface HighlightHit {
   findingIds: string[];
   rect: HighlightRect;
@@ -55,8 +60,8 @@ export interface DocumentEditorProps {
    */
   jumpRequest?: { blockIndex: number; nonce: number; focus?: boolean } | null;
   /**
-   * A click landed on a Highlight, or the callout it opened should close
-   * (`null`): the click was on plain prose, the Writer typed, or the Highlight
+   * A click landed on a Highlight or a Margin mark, or the callout it opened
+   * should close (`null`): the click was on plain prose, the Writer typed, or the Highlight
    * scrolled out of view. Reported again with a fresh `rect` as the prose
    * scrolls, so the callout stays beside its Highlight.
    */
@@ -110,6 +115,25 @@ export function DocumentEditor({
     }
     return { left: coords.left, top: coords.top, bottom: coords.bottom };
   };
+
+  /**
+   * A click on a Margin mark opens the Callout through the same report as a
+   * click on a Highlight, placed at the start of the prose the mark sits
+   * beside. Nothing else moves: not the caret, not the Current Finding.
+   */
+  const editorRef = useRef<Editor | null>(null);
+  const openMarginMark = ({ findingIds, blockStart }: MarginMarkClick) => {
+    const view = editorRef.current?.view;
+    if (view === undefined) return;
+    const from = Selection.findFrom(view.state.doc.resolve(blockStart), 1, true)?.from;
+    if (from === undefined) return;
+    const rect = openHitRect(view, from);
+    if (rect === null) return;
+    openHitRef.current = { findingIds, from };
+    onHighlightClickRef.current?.({ findingIds, rect });
+  };
+  const openMarginMarkRef = useRef(openMarginMark);
+  openMarginMarkRef.current = openMarginMark;
 
   const closeCallout = () => {
     if (openHitRef.current === null) return;
@@ -180,7 +204,9 @@ export function DocumentEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      HighlightExtension,
+      HighlightExtension.configure({
+        onMarginMarkClick: (click) => openMarginMarkRef.current(click),
+      }),
     ],
     content: initialContent,
     editorProps: {
@@ -219,20 +245,19 @@ export function DocumentEditor({
     },
   });
 
-  // Draw the Highlights afresh when they were resolved against the prose as it
-  // stands. Mid-pause they were resolved against older text: a change then —
+  editorRef.current = editor;
+
+  // Draw the Highlights and Margin marks afresh when they were resolved against
+  // the prose as it stands. Mid-pause they were resolved against older text: a change then —
   // the Current Finding moving, a Finding leaving the queue — restyles the
   // Highlights ProseMirror has kept mapped through the edits, and the next
   // resolution redraws them.
   useEffect(() => {
     if (editor === null) return;
-    const ranges = projectHighlightsOnto(
-      editor.getJSON() as unknown as DocTree,
-      highlightsResolvedAgainst,
-      highlights,
-    );
+    const tree = editor.getJSON() as unknown as DocTree;
+    const ranges = projectHighlightsOnto(tree, highlightsResolvedAgainst, highlights);
     if (ranges !== null) {
-      setHighlightRanges(editor, ranges);
+      setHighlightRanges(editor, ranges, marginMarks(tree, highlights));
       return;
     }
     restyleHighlights(

@@ -462,6 +462,84 @@
   outline: 1px solid var(--color-current-mark-line);
 }
 
+/*
+ * A Margin mark: the obelus and its count in the right-hand margin, between
+ * the prose and the Rail (stories 217–223). Its holder is a widget between two
+ * top-level blocks — never inside a textblock, where WebKit's caret suffers —
+ * with no height and no margin of its own, so the blocks' spacing collapses
+ * through it and the page lays out exactly as it would without it. The button
+ * hangs from the holder into the column's right padding, one line high, at the
+ * top of the block below: the spacing a block's top margin would put there,
+ * as a multiple of the prose's 1.125rem, since the button's own size is smaller.
+ *
+ * Both are contained, so a keystroke that reflows the prose does not lay out
+ * or repaint the marks: measured in Chromium at 4× CPU throttle with ~480
+ * Highlights and 29 marks, uncontained marks added about 7% to a keystroke's
+ * median, contained ones about 3%.
+ */
+.obelus-editor > .obelus-margin-mark {
+  position: relative;
+  height: 0;
+  margin: 0;
+  contain: layout style;
+  --obelus-margin-mark-top: 0.8;
+  --obelus-margin-mark-line: 1.6;
+}
+
+/*
+ * Beside a heading, the heading's own top margin and line, in its own size:
+ * 1.4em of a 1.6em h1 with a 1.25 line, and so on. The Highlight plugin sets
+ * the class from the block's kind, so no selector looks past the mark.
+ */
+.obelus-editor > .obelus-margin-mark-h1 {
+  --obelus-margin-mark-top: 2.24;
+  --obelus-margin-mark-line: 2;
+}
+
+.obelus-editor > .obelus-margin-mark-h2 {
+  --obelus-margin-mark-top: 1.69;
+  --obelus-margin-mark-line: 1.69;
+}
+
+.obelus-editor > .obelus-margin-mark-h3 {
+  --obelus-margin-mark-top: 1.32;
+  --obelus-margin-mark-line: 1.485;
+}
+
+.obelus-editor > .obelus-margin-mark:first-child {
+  --obelus-margin-mark-top: 0;
+}
+
+/* The mark before the first block leaves it at the top of the page. */
+.obelus-editor > .obelus-margin-mark:first-child + * {
+  margin-top: 0;
+}
+
+.obelus-margin-mark > button {
+  position: absolute;
+  top: calc(var(--obelus-margin-mark-top) * 1.125rem);
+  left: calc(100% + 0.375rem);
+  /* One line of the block beside it, so the count sits on its first line. */
+  height: calc(var(--obelus-margin-mark-line) * 1.125rem);
+  padding-inline: 0.125rem;
+  contain: layout paint style;
+  /* The tool's mark, not the Writer's words: the system sans, as the chrome. */
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-mark);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+.obelus-margin-mark > button:hover {
+  background-color: var(--color-mark-hover);
+}
+
 .obelus-editor:focus {
   outline: none;
 }
