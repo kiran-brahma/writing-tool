@@ -1,4 +1,4 @@
-# Obelus — agent notes
+# Obelus — Agent notes
 
 The app is **Obelus**; the repo is `writing-tool`. Obelus uses LLMs as a copyeditor and a judge,
 never as a ghostwriter. It marks; it never holds the pen. Everything runs in the browser — drafts,
