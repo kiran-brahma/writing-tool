@@ -25,8 +25,9 @@ import { AiSettingsView } from "./settings/AiSettingsView";
 import { useColorScheme } from "./settings/useColorScheme";
 import { WorkbenchView } from "./workbench/WorkbenchView";
 import { DocumentMenu } from "./DocumentMenu";
+import { HelpMenu } from "./HelpMenu";
 import {
-  DESTINATIONS,
+  destinationsAt,
   isCurrentDestination,
   type DestinationId,
 } from "./navigation";
@@ -418,21 +419,49 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-ground text-ink">
-      <header className="flex items-center justify-between gap-3 sm:gap-4 border-b border-rule-soft px-3 sm:px-6 py-2.5 whitespace-nowrap overflow-x-auto min-w-0 bg-ground text-ink">
+      {/*
+        The header's three zones: brand, document actions, navigation. It wraps
+        rather than scrolling sideways, so nothing clips the Document menu or
+        the help control's list when they open.
+      */}
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4 border-b border-rule-soft px-3 sm:px-6 py-2.5 whitespace-nowrap bg-ground text-ink">
         <div className="shrink-0">
           <h1 className="text-base font-semibold tracking-tight text-ink">Obelus</h1>
           <p className="hidden sm:block text-xs text-faint-ink">It marks; it never holds the pen.</p>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-4">
           <DocumentMenu
             wordCount={document?.wordCount ?? 0}
             onExport={onExport}
             onImport={onImport}
             canExport={document !== null}
           />
-          <div className="h-4 w-px bg-rule" aria-hidden="true" />
-          <nav aria-label="Main navigation" className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-            {DESTINATIONS.map(({ id, label }) => {
+          <div className="hidden sm:block h-4 w-px bg-rule" aria-hidden="true" />
+          <nav aria-label="Main navigation" className="flex items-center gap-1 sm:gap-2">
+            {/* Stories 244–245: Editor and Library are the tabs; the tools follow, quieter. */}
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              {destinationsAt("tab").map(({ id, label }) => {
+                const isCurrent = isCurrentDestination(id, view);
+                return (
+                  <button
+                    key={id}
+                    id={`nav-dest-${id}`}
+                    type="button"
+                    aria-current={isCurrent ? "page" : undefined}
+                    onClick={() => navigateTo(id)}
+                    className={[
+                      "rounded px-2.5 sm:px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                      isCurrent
+                        ? "bg-ink font-semibold text-on-ink focus-visible:ring-offset-2"
+                        : "font-medium text-quiet-ink hover:bg-sunk-strong hover:text-ink",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {destinationsAt("link").map(({ id, label }) => {
               const isCurrent = isCurrentDestination(id, view);
               return (
                 <button
@@ -442,16 +471,17 @@ export default function App() {
                   aria-current={isCurrent ? "page" : undefined}
                   onClick={() => navigateTo(id)}
                   className={[
-                    "rounded px-2 sm:px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                    "rounded px-1.5 sm:px-2 py-1 text-xs underline-offset-4 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
                     isCurrent
-                      ? "bg-ink font-semibold text-on-ink shadow-xs focus-visible:ring-offset-2"
-                      : "text-muted-ink hover:bg-sunk-strong/70 hover:text-ink",
+                      ? "font-semibold text-ink underline decoration-rule-strong"
+                      : "font-medium text-faint-ink",
                   ].join(" ")}
                 >
                   {label}
                 </button>
               );
             })}
+            <HelpMenu view={view} onNavigate={navigateTo} />
           </nav>
         </div>
       </header>
