@@ -422,7 +422,7 @@ function ToolbarButton({ label, active = false, onClick, children }: ToolbarButt
       onClick={onClick}
       className={[
         "rounded px-2 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-        active ? "bg-ink text-on-ink" : "text-quiet-ink hover:bg-sunk",
+        active ? "bg-ink text-on-ink focus-visible:ring-offset-2" : "text-quiet-ink hover:bg-sunk",
       ].join(" ")}
     >
       {children}

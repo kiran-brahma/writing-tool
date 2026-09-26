@@ -440,7 +440,7 @@ export default function App() {
                   className={[
                     "rounded px-2 sm:px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
                     isCurrent
-                      ? "bg-ink font-semibold text-on-ink shadow-xs"
+                      ? "bg-ink font-semibold text-on-ink shadow-xs focus-visible:ring-offset-2"
                       : "text-muted-ink hover:bg-sunk-strong/70 hover:text-ink",
                   ].join(" ")}
                 >
