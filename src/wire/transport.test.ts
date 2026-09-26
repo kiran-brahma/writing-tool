@@ -5,6 +5,7 @@ import {
   CancelledError,
   ConcurrencyGate,
   ProviderError,
+  TimedOutError,
   UnreachableError,
   assertWithinConnection,
   createFetchTransport,
@@ -225,6 +226,111 @@ describe("cancellation (story 54)", () => {
     expect(isCancelledError(new DOMException("aborted", "AbortError"))).toBe(true);
     expect(isCancelledError(new CancelledError())).toBe(true);
     expect(isCancelledError(new Error("nope"))).toBe(false);
+  });
+});
+
+/** A `fetch` that accepts the request and then never answers, as a stalled Provider does. */
+function stalledFetch(honourSignal: boolean) {
+  return vi.fn(
+    (_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        if (!honourSignal) return;
+        const signal = init?.signal;
+        if (signal?.aborted) {
+          reject(new DOMException("aborted", "AbortError"));
+          return;
+        }
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      }),
+  );
+}
+
+describe("request timeout (#46)", () => {
+  it("fails a Provider that never responds with a timeout rather than blocking", async () => {
+    vi.useFakeTimers();
+    const fetchMock = stalledFetch(true);
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createFetchTransport({ requestTimeoutMs: 60_000 });
+
+    const pending = transport.send(request(connection("openai")));
+    const settled = expect(pending).rejects.toBeInstanceOf(TimedOutError);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    await settled;
+    await expect(pending).rejects.toThrow(/did not respond within 1 minute/);
+    // A stall is not retried: each retry would hold the Library for another window.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("times out even when the request ignores its abort signal", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", stalledFetch(false));
+    const transport = createFetchTransport({ requestTimeoutMs: 1_000 });
+
+    const pending = transport.send(request(connection("openai")));
+    const settled = expect(pending).rejects.toBeInstanceOf(TimedOutError);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    await settled;
+  });
+
+  it("times out a response whose body never finishes arriving", async () => {
+    vi.useFakeTimers();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"choices":'));
+        // Never closed: the Provider sent headers and then stalled.
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    const transport = createFetchTransport({ requestTimeoutMs: 1_000 });
+
+    const pending = transport.send(request(connection("openai")));
+    const settled = expect(pending).rejects.toBeInstanceOf(TimedOutError);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    await settled;
+  });
+
+  it("reports the Writer's cancel as a cancel, not a timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", stalledFetch(true));
+    const transport = createFetchTransport({ requestTimeoutMs: 60_000 });
+    const controller = new AbortController();
+
+    const pending = transport.send({ ...request(connection("openai")), signal: controller.signal });
+    const settled = expect(pending).rejects.toBeInstanceOf(CancelledError);
+    await vi.advanceTimersByTimeAsync(1_000);
+    controller.abort();
+
+    await settled;
+  });
+
+  it("bounds a Connection test the same way", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", stalledFetch(true));
+    const transport = createFetchTransport({ requestTimeoutMs: 1_000 });
+
+    const pending = testConnection(transport, connection("openai"));
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    await expect(pending).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/did not respond/),
+    });
+  });
+
+  it("clears its timer once a request answers in time", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse("the text")));
+    const transport = createFetchTransport({ requestTimeoutMs: 1_000 });
+
+    await expect(transport.send(request(connection("openai")))).resolves.toBe("the text");
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

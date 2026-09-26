@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DocTree } from "../core/docTree";
 import { hashPass, type Pass } from "../core/pass";
 import { STARTER_PASSES } from "../core/starterPasses";
@@ -218,6 +218,34 @@ describe("runAuditPass", () => {
 
     await importDocument(database, document, "# Replacement\n\nDifferent prose.");
 
+    expect(await listAuditAccounts(database, document.id)).toEqual([]);
+  });
+});
+
+describe("cancellation (#46)", () => {
+  it("an aborted Audit Run stores nothing and frees the queue for later writes", async () => {
+    const database = await openTestDatabase();
+    const document = await savedDocument(database);
+    await runAuditPass(database, document, runOptions());
+    const controller = new AbortController();
+    const transport = createFixtureTransport({
+      respond: () => new Promise<string>(() => {
+        // Never resolves: a stalled Provider, which only the abort can end.
+      }),
+    });
+
+    const pending = runAuditPass(database, document, {
+      ...runOptions(),
+      transport,
+      signal: controller.signal,
+    });
+    // Queued behind the stalled Run; it can only land once the Run lets go.
+    const later = clearAuditAccounts(database, document.id);
+    await vi.waitFor(() => expect(transport.requests).toHaveLength(1));
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: "CancelledError" });
+    await later;
     expect(await listAuditAccounts(database, document.id)).toEqual([]);
   });
 });

@@ -19,11 +19,20 @@ export interface TransportOptions {
   gate?: ConcurrencyGate;
   maxAttempts?: number;
   baseDelayMs?: number;
+  /** How long one attempt may take, from sending to the last byte of the body. */
+  requestTimeoutMs?: number;
 }
 
 const DEFAULT_MAX_ATTEMPTS = 4;
 const DEFAULT_BASE_DELAY_MS = 500;
 const MAX_DELAY_MS = 30_000;
+/**
+ * #46: a Run holds the mutation lock while it waits on the Provider, so a
+ * Provider that accepts the connection and then stalls would stop the whole
+ * Library. The bound is generous, because a reasoning model on a long Document
+ * is legitimately slow; it exists so a stall ends, not to hurry a slow answer.
+ */
+const DEFAULT_REQUEST_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * A response Obelus could not use: a non-2xx the browser could read, or a 2xx
@@ -68,6 +77,30 @@ export class CancelledError extends Error {
   }
 }
 
+/**
+ * #46: a request the Provider accepted but never finished answering. Distinct
+ * from `CancelledError`, because the Writer did not stop it, and from
+ * `UnreachableError`, because the base URL did answer.
+ */
+export class TimedOutError extends Error {
+  constructor(connectionName: string, timeoutMs: number) {
+    super(
+      `The ${connectionName} Connection did not respond within ${describeDuration(timeoutMs)}. ` +
+        `Try again, or check that the Provider is up.`,
+    );
+    this.name = "TimedOutError";
+  }
+}
+
+function describeDuration(ms: number): string {
+  if (ms >= 60_000) {
+    const minutes = Math.round(ms / 60_000);
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  return `${seconds} second${seconds === 1 ? "" : "s"}`;
+}
+
 /** True for the abort our own Transport raises, or a browser AbortError. */
 export function isCancelledError(error: unknown): boolean {
   if (error instanceof CancelledError) return true;
@@ -82,14 +115,20 @@ export function createFetchTransport(options: TransportOptions = {}): Transport 
   const gate = options.gate ?? new ConcurrencyGate();
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const baseDelayMs = options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS;
+  const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
   async function requestJson(
     built: BuiltRequest,
     connection: Connection,
     signal: AbortSignal | undefined,
   ): Promise<unknown> {
-    const response = await fetchWithRetry(built, connection, gate, maxAttempts, baseDelayMs, signal);
-    const text = await response.text();
+    const { response, text } = await fetchWithRetry(
+      built,
+      connection,
+      gate,
+      { maxAttempts, baseDelayMs, requestTimeoutMs },
+      signal,
+    );
     try {
       return JSON.parse(text) as unknown;
     } catch {
@@ -144,44 +183,134 @@ export async function testConnection(
   }
 }
 
+interface RetryPolicy {
+  maxAttempts: number;
+  baseDelayMs: number;
+  requestTimeoutMs: number;
+}
+
+/** A response and its whole body, read inside the attempt's deadline. */
+interface Answer {
+  response: Response;
+  text: string;
+}
+
 async function fetchWithRetry(
   built: BuiltRequest,
   connection: Connection,
   gate: ConcurrencyGate,
-  maxAttempts: number,
-  baseDelayMs: number,
+  policy: RetryPolicy,
   signal: AbortSignal | undefined,
-): Promise<Response> {
+): Promise<Answer> {
   let attempt = 0;
   for (;;) {
     attempt += 1;
     if (signal?.aborted) throw new CancelledError();
 
-    let response: Response;
-    try {
-      response = await gate.run(connection, () =>
-        fetch(built.url, signal === undefined ? built.init : { ...built.init, signal }),
-      );
-    } catch (error) {
-      // An abort is a cancellation, not a Connection that could not be reached.
-      if (signal?.aborted || isCancelledError(error)) throw new CancelledError();
-      // `fetch` throwing means no readable response at all — the browser's
-      // opaque network failure. There is no status to retry on.
-      throw new UnreachableError(connection.name, describeError(error));
-    }
+    // The deadline starts inside the gate, so time spent queued behind other
+    // requests to the same Connection is not charged to this one.
+    const answer = await gate.run(connection, () =>
+      attemptOnce(built, connection, policy.requestTimeoutMs, signal),
+    );
+    const { response } = answer;
 
     if (signal?.aborted) throw new CancelledError();
-    if (response.ok) return response;
+    if (response.ok) return answer;
 
     const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
     const retryable = response.status === 429 || response.status >= 500;
-    if (retryable && attempt < maxAttempts) {
-      await sleepWithSignal(retryAfter ?? backoff(attempt, baseDelayMs), signal);
+    if (retryable && attempt < policy.maxAttempts) {
+      await sleepWithSignal(retryAfter ?? backoff(attempt, policy.baseDelayMs), signal);
       continue;
     }
 
-    throw new ProviderError(connection.name, response.status, await readErrorBody(response));
+    throw new ProviderError(connection.name, response.status, answer.text);
   }
+}
+
+/**
+ * One request, bounded: the fetch and the body read share one deadline, so a
+ * Provider that sends headers and then stalls mid-body is caught too. A timeout
+ * is not retried, because each retry would hold the Run for another window.
+ */
+async function attemptOnce(
+  built: BuiltRequest,
+  connection: Connection,
+  timeoutMs: number,
+  signal: AbortSignal | undefined,
+): Promise<Answer> {
+  const deadline = startDeadline(timeoutMs, signal);
+  try {
+    const response = await deadline.race(fetch(built.url, { ...built.init, signal: deadline.signal }));
+    const text = response.ok
+      ? await deadline.race(response.text())
+      : await readErrorBody(response, deadline);
+    return { response, text };
+  } catch (error) {
+    if (deadline.timedOut()) throw new TimedOutError(connection.name, timeoutMs);
+    // An abort is a cancellation, not a Connection that could not be reached.
+    if (signal?.aborted || isCancelledError(error)) throw new CancelledError();
+    // `fetch` throwing means no readable response at all — the browser's
+    // opaque network failure. There is no status to retry on.
+    throw new UnreachableError(connection.name, describeError(error));
+  } finally {
+    deadline.clear();
+  }
+}
+
+interface Deadline {
+  /** Aborts when the caller's signal aborts or the time runs out. */
+  signal: AbortSignal;
+  timedOut(): boolean;
+  /** Rejects as soon as `signal` aborts, even if `promise` ignores it. */
+  race<T>(promise: Promise<T>): Promise<T>;
+  clear(): void;
+}
+
+/**
+ * The caller's signal combined with a timer. Built by hand rather than with
+ * `AbortSignal.timeout`/`AbortSignal.any` so the timer is an ordinary
+ * `setTimeout` that can be cleared the moment the attempt settles.
+ */
+function startDeadline(timeoutMs: number, callerSignal: AbortSignal | undefined): Deadline {
+  const controller = new AbortController();
+  let expired = false;
+  const onCallerAbort = () => controller.abort();
+  const timer = globalThis.setTimeout(() => {
+    expired = true;
+    controller.abort();
+  }, timeoutMs);
+  if (callerSignal?.aborted) controller.abort();
+  else callerSignal?.addEventListener("abort", onCallerAbort, { once: true });
+
+  return {
+    signal: controller.signal,
+    timedOut: () => expired,
+    race<T>(promise: Promise<T>): Promise<T> {
+      return new Promise<T>((resolve, reject) => {
+        const onAbort = () => reject(new DOMException("The request was aborted.", "AbortError"));
+        if (controller.signal.aborted) {
+          onAbort();
+          return;
+        }
+        controller.signal.addEventListener("abort", onAbort, { once: true });
+        promise.then(
+          (value) => {
+            controller.signal.removeEventListener("abort", onAbort);
+            resolve(value);
+          },
+          (error: unknown) => {
+            controller.signal.removeEventListener("abort", onAbort);
+            reject(error);
+          },
+        );
+      });
+    },
+    clear() {
+      globalThis.clearTimeout(timer);
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+    },
+  };
 }
 
 /** Seconds or an HTTP date, in milliseconds, or null when absent/unparseable. */
@@ -221,10 +350,12 @@ function sleepWithSignal(ms: number, signal: AbortSignal | undefined): Promise<v
   });
 }
 
-async function readErrorBody(response: Response): Promise<string> {
+async function readErrorBody(response: Response, deadline: Deadline): Promise<string> {
   try {
-    return await response.text();
+    return await deadline.race(response.text());
   } catch (error) {
+    // A timeout or a cancel is not an unreadable body; let the attempt report it.
+    if (deadline.signal.aborted) throw error;
     // An unreadable error body is itself the fact to report.
     return `(the Provider's error could not be read: ${describeError(error)})`;
   }
