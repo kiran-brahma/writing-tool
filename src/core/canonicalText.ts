@@ -469,11 +469,24 @@ function escapePlainCharacter(char: string): string {
 }
 
 /**
- * Backslash-escapes the characters that could end a link destination early, so
- * an href with an unbalanced parenthesis reads back as the same href.
+ * Emits an href raw when the parser would read it back unchanged: its
+ * parentheses balance and it holds no backslash. Otherwise backslash-escapes
+ * `\`, `(` and `)`, so an unbalanced parenthesis reads back as the same href.
+ * Keeping balanced hrefs raw leaves existing canonical strings, and the Anchors
+ * over them, where they were.
  */
 function escapeHref(href: string): string {
-  return href.replace(/[\\()]/g, "\\$&");
+  return isRawHref(href) ? href : href.replace(/[\\()]/g, "\\$&");
+}
+
+function isRawHref(href: string): boolean {
+  if (href.includes("\\")) return false;
+  let depth = 0;
+  for (const char of href) {
+    if (char === "(") depth++;
+    else if (char === ")" && --depth < 0) return false;
+  }
+  return depth === 0;
 }
 
 /**

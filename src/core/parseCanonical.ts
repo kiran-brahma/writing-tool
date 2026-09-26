@@ -398,10 +398,11 @@ function stripCodePadding(raw: string): string {
  * The characters `canonicalText` escapes. A backslash before anything else is
  * literal, so an imported Markdown backslash is not silently dropped.
  */
-function isHrefEscapable(char: string | undefined): boolean {
-  return char === "\\" || char === "(" || char === ")";
-}
-
 function isEscapable(char: string): boolean {
   return "\\`*[]#>+-.)".includes(char);
+}
+
+/** The characters `canonicalText` escapes inside an href that needs escaping. */
+function isHrefEscapable(char: string | undefined): boolean {
+  return char === "\\" || char === "(" || char === ")";
 }

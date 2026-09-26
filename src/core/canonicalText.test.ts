@@ -258,7 +258,7 @@ describe("canonicalText", () => {
     }
   });
 
-  it("escapes parentheses and backslashes in a link href so it round-trips", () => {
+  it("escapes an href with unbalanced parentheses or a backslash so it round-trips", () => {
     const hrefs = [
       "https://e.com/a)",
       "https://e.com/(a",
@@ -289,6 +289,23 @@ describe("canonicalText", () => {
         }),
       ),
     ).toBe("[x](https://e.com/a\\))\n");
+  });
+
+  it("emits an href with balanced parentheses raw, as before", () => {
+    const tree = doc({
+      type: "paragraph",
+      content: [
+        {
+          type: "text",
+          text: "x",
+          marks: [{ type: "link", attrs: { href: "https://en.wikipedia.org/wiki/Obelus_(sign)" } }],
+        },
+      ],
+    });
+    const once = canonicalText(tree);
+
+    expect(once).toBe("[x](https://en.wikipedia.org/wiki/Obelus_(sign))\n");
+    expect(parseCanonical(once)).toEqual(tree);
   });
 
   it("round-trips a fuzz of links with adversarial hrefs", () => {
