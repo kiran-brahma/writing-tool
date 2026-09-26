@@ -326,6 +326,41 @@
 }
 
 /*
+ * The Outline's placement (stories 241 and 242). Both the margin Outline and
+ * the Rail's Outline render; this breakpoint alone shows one, so resizing
+ * across it swaps them without a reload and no script decides. At 1440px and
+ * wider the Outline sits in the left margin the capped column leaves empty,
+ * held in view while the prose scrolls; below it, it stays in the Rail. The
+ * margin clips rather than scrolls, so the sticky list inside it follows
+ * whichever element scrolls the prose, and a long Outline scrolls on its own.
+ */
+.obelus-left-margin {
+  display: none;
+}
+
+@media (min-width: 1440px) {
+  .obelus-left-margin {
+    display: block;
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: calc((100% - 37rem - 4rem) / 2);
+    overflow: clip;
+  }
+
+  .obelus-left-margin-body {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .obelus-rail-outline {
+    display: none;
+  }
+}
+
+/*
  * The rich text surface. Tailwind's preflight resets list and heading styling,
  * so the editor restates what a Writer expects from a document. These are the
  * rendered forms the Writer edits; the Markdown that Core derives is separate.

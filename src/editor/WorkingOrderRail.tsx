@@ -668,17 +668,22 @@ export function WorkingOrderRail({
               >
                 <span className="text-base font-semibold">Reference</span>
                 <span className="text-xs text-muted-ink">
-                  {referenceOpen ? "Hide outline and metrics" : "Show outline and metrics"}
+                  {referenceOpen ? "Hide " : "Show "}
+                  <span className="obelus-rail-outline">outline and </span>metrics
                 </span>
               </button>
               {referenceOpen && (
                 <>
-                  <OutlinePanel
-                    sections={outlineSections}
-                    activeHeadingBlockIndex={activeHeadingBlockIndex}
-                    onJump={onJumpToSection}
-                    onOpenHelp={onOpenHelp}
-                  />
+                  {/* Story 242: below 1440px the Outline is here; at 1440px and
+                      wider the stylesheet hides it, as the margin Outline shows. */}
+                  <div className="obelus-rail-outline">
+                    <OutlinePanel
+                      sections={outlineSections}
+                      activeHeadingBlockIndex={activeHeadingBlockIndex}
+                      onJump={onJumpToSection}
+                      onOpenHelp={onOpenHelp}
+                    />
+                  </div>
                   <MetricsPanel
                     canonical={handle.document?.canonical ?? ""}
                     tree={handle.document?.tree ?? emptyDocTree()}

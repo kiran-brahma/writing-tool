@@ -5,6 +5,7 @@ import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor, type HighlightHit } from "./editor/DocumentEditor";
 import { FindingCallout } from "./editor/FindingCallout";
+import { MarginOutline } from "./editor/OutlinePanel";
 import { StatusLine } from "./editor/StatusLine";
 import { calloutFindings } from "./editor/callout";
 import { railPresentation } from "./editor/railPresentation";
@@ -643,6 +644,13 @@ export default function App() {
                   jumpRequest={jumpRequest}
                   onHighlightClick={openCallout}
                   calloutOpen={calloutOpen}
+                  leftMargin={
+                    <MarginOutline
+                      sections={outlineSections}
+                      activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
+                      onJump={jumpToSection}
+                    />
+                  }
                   pageHeading={
                     <DocumentTitleField
                       key={document.id}
