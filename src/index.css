@@ -68,6 +68,8 @@
  *
  *   bg-amber-100                      mark-wash    the Current Finding's row
  *                                     (blue pencil now, as the mark: story 214)
+ *   (new in v1.3)                     mark         the blue pencil itself: text
+ *                                                  or a glyph drawn in it
  *   bg-amber-50                       warning-surface
  *   text-amber-50                     warning-surface  text on a warning fill
  *   border-amber-200                  warning-rule
@@ -131,6 +133,7 @@
    * blue text, a mark is a blue line and a blue fill under ink-coloured text.
    * A Highlight at rest has no fill, only the line (story 211).
    */
+  --color-mark: #0369a1; /* sky-700: the blue pencil, 5.9:1 as text on paper */
   --color-mark-line: #0284c7; /* sky-600: a Highlight's underline */
   --color-mark-hover: #bae6fd; /* sky-200: a Highlight under the pointer */
   --color-current-mark: #7dd3fc; /* sky-300: the Current Finding's Highlight */
@@ -202,6 +205,7 @@
  * The mark is the same blue pencil: a bright sky underline on the dark paper,
  * and deep blue fills, so the light ink stays at least 4.5:1 on a filled
  * Highlight (story 215).
+ * `mark` itself, the pencil as text, is 7.9:1 on paper and 8.3:1 on ground.
  */
 @layer theme {
   :root {
@@ -230,6 +234,7 @@
       --color-rule-focus: #8a837a;
       --color-focus: #b3aca3;
 
+      --color-mark: #38bdf8;
       --color-mark-line: #38bdf8;
       --color-mark-hover: #173a52;
       --color-current-mark: #1e4f6e;
