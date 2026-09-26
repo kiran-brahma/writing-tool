@@ -101,13 +101,13 @@ export function WorkbenchView({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Pass workbench</h1>
-          <p className="mt-1 max-w-xl text-sm text-stone-600">
+          <p className="mt-1 max-w-xl text-sm text-muted-ink">
             {PANEL_GLOSSES.workbench.text}{" "}
             {onOpenHelp !== undefined && (
               <button
                 type="button"
                 onClick={() => onOpenHelp(PANEL_GLOSSES.workbench.sectionId)}
-                className="text-stone-500 underline hover:text-stone-800"
+                className="text-faint-ink underline hover:text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 How this works
               </button>
@@ -118,18 +118,18 @@ export function WorkbenchView({
           <button
             type="button"
             onClick={startNewPass}
-            className="rounded bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-50 hover:bg-stone-700"
+            className="rounded bg-ink px-3 py-1.5 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             New pass
           </button>
           <button
             type="button"
             onClick={onExport}
-            className="rounded border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="rounded border border-rule bg-paper px-3 py-1.5 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Export pass set
           </button>
-          <label className="cursor-pointer rounded border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100">
+          <label className="cursor-pointer rounded border border-rule bg-paper px-3 py-1.5 text-xs font-medium text-quiet-ink hover:bg-sunk has-focus-visible:ring-2 has-focus-visible:ring-focus">
             Import pass set
             <input
               type="file"
@@ -145,7 +145,7 @@ export function WorkbenchView({
           <button
             type="button"
             onClick={() => void onRestore()}
-            className="rounded border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="rounded border border-rule bg-paper px-3 py-1.5 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Restore starter pack
           </button>
@@ -153,11 +153,11 @@ export function WorkbenchView({
       </div>
 
       {(readError !== null || passSetError !== null) && (
-        <div className="mt-4 flex items-start justify-between gap-4 rounded border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <div className="mt-4 flex items-start justify-between gap-4 rounded border border-warning-rule bg-warning-surface px-4 py-2 text-sm text-warning">
           <span>{readError ?? passSetError}</span>
           <button
             type="button"
-            className="shrink-0 text-xs font-medium underline"
+            className="shrink-0 text-xs font-medium underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus"
             onClick={() => {
               setReadError(null);
               onClearPassSetError();
@@ -169,15 +169,15 @@ export function WorkbenchView({
       )}
 
       <section className="mt-6">
-        <h2 className="text-sm font-semibold text-stone-800">Model passes</h2>
-        <p className="mt-1 text-xs text-stone-500">
+        <h2 className="text-sm font-semibold text-soft-ink">Model passes</h2>
+        <p className="mt-1 text-xs text-faint-ink">
           {criticName === null
             ? "Assign a connection to the critic slot before asking the assistant for a draft."
             : `The assistant drafts prompts through the critic connection: ${criticName}.`}
         </p>
         {newDraft !== null && (
-          <div className="mt-3 rounded border border-stone-300 bg-white">
-            <div className="border-b border-stone-200 px-4 py-2 text-xs font-medium text-stone-700">
+          <div className="mt-3 rounded border border-rule bg-paper">
+            <div className="border-b border-rule-soft px-4 py-2 text-xs font-medium text-quiet-ink">
               New pass — not saved yet
             </div>
             <ModelPassEditor
@@ -199,26 +199,26 @@ export function WorkbenchView({
           {modelPasses.map((pass) => {
             const editing = editingId === pass.id;
             return (
-              <li key={pass.id} className="rounded border border-stone-200 bg-white">
+              <li key={pass.id} className="rounded border border-rule-soft bg-paper">
                 <div className="flex items-start gap-3 px-4 py-3">
                   <input
                     type="checkbox"
-                    className="mt-0.5"
+                    className="mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     checked={pass.enabled}
                     aria-label={`Enable ${pass.name}`}
                     onChange={(event) => onToggle(pass.id, event.target.checked)}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-stone-800">{pass.name}</p>
-                    <p className="mt-0.5 text-xs text-stone-500">{pass.description}</p>
-                    <p className="mt-1 text-xs text-stone-400">
+                    <p className="text-sm font-medium text-soft-ink">{pass.name}</p>
+                    <p className="mt-0.5 text-xs text-faint-ink">{pass.description}</p>
+                    <p className="mt-1 text-xs text-ghost-ink">
                       {scopeLabel(pass.scope)} · {outputLabel(pass.output)}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setEditingId((current) => (current === pass.id ? null : pass.id))}
-                    className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                    className="shrink-0 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     {editing ? "Close" : "Edit"}
                   </button>
@@ -242,14 +242,14 @@ export function WorkbenchView({
             );
           })}
           {modelPasses.length === 0 && (
-            <li className="rounded border border-stone-200 bg-white px-4 py-4 text-sm text-stone-500">
+            <li className="rounded border border-rule-soft bg-paper px-4 py-4 text-sm text-faint-ink">
               No model passes yet. Add one, or restore the starter pack.
             </li>
           )}
         </ul>
       </section>
 
-      <div className="mt-6 rounded border border-stone-200 bg-white">
+      <div className="mt-6 rounded border border-rule-soft bg-paper">
         <RulePassesPanel
           passes={passes}
           onToggle={onToggle}
@@ -300,34 +300,34 @@ function ModelPassEditor({
   };
 
   return (
-    <div className="space-y-3 border-t border-stone-200 bg-stone-100/70 px-4 py-3">
+    <div className="space-y-3 border-t border-rule-soft bg-sunk/70 px-4 py-3">
       <label className="block">
-        <span className="text-xs font-medium text-stone-700">Name</span>
+        <span className="text-xs font-medium text-quiet-ink">Name</span>
         <input
           value={draft.name}
           onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-          className="mt-1 w-full rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+          className="mt-1 w-full rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-stone-700">Description</span>
+        <span className="text-xs font-medium text-quiet-ink">Description</span>
         <input
           value={draft.description}
           onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-          className="mt-1 w-full rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+          className="mt-1 w-full rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
       </label>
 
       <div className="flex flex-wrap gap-4">
         <label className="block">
-          <span className="text-xs font-medium text-stone-700">Pass scope</span>
+          <span className="text-xs font-medium text-quiet-ink">Pass scope</span>
           <select
             value={draft.scope}
             onChange={(event) =>
               setDraft({ ...draft, scope: event.target.value as PassScope })
             }
-            className="mt-1 block rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+            className="mt-1 block rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {PASS_SCOPES.map((scope) => (
               <option key={scope} value={scope}>
@@ -338,7 +338,7 @@ function ModelPassEditor({
         </label>
 
         <label className="block">
-          <span className="text-xs font-medium text-stone-700">Output shape</span>
+          <span className="text-xs font-medium text-quiet-ink">Output shape</span>
           <select
             value={draft.output}
             onChange={(event) => {
@@ -353,7 +353,7 @@ function ModelPassEditor({
                 return next;
               });
             }}
-            className="mt-1 block rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+            className="mt-1 block rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {OUTPUT_SHAPES.map((output) => (
               <option key={output} value={output}>
@@ -366,13 +366,13 @@ function ModelPassEditor({
 
       {passAcceptsFrame(draft) && (
         <label className="block">
-          <span className="text-xs font-medium text-stone-700">Screening frame</span>
+          <span className="text-xs font-medium text-quiet-ink">Screening frame</span>
           <select
             value={draft.frame ?? "default"}
             onChange={(event) =>
               setDraft({ ...draft, frame: event.target.value as ScreeningFrame })
             }
-            className="mt-1 block rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+            className="mt-1 block rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {SCREENING_FRAMES.map((frame) => (
               <option key={frame} value={frame}>
@@ -380,22 +380,22 @@ function ModelPassEditor({
               </option>
             ))}
           </select>
-          <span className="mt-1 block text-xs text-stone-500">
+          <span className="mt-1 block text-xs text-faint-ink">
             Who this pass is written for. The reader and the audit keep their own stance.
           </span>
         </label>
       )}
 
       <label className="block">
-        <span className="text-xs font-medium text-stone-700">Prompt</span>
+        <span className="text-xs font-medium text-quiet-ink">Prompt</span>
         <textarea
           rows={12}
           value={draft.prompt ?? ""}
           spellCheck={false}
           onChange={(event) => setDraft({ ...draft, prompt: event.target.value })}
-          className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1.5 font-mono text-xs focus:border-stone-500 focus:outline-none"
+          className="mt-1 w-full resize-y rounded border border-rule bg-paper px-2 py-1.5 font-mono text-xs focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
-        <span className="mt-1 block text-xs text-stone-500">
+        <span className="mt-1 block text-xs text-faint-ink">
           Placeholders: {placeholderTokens().join(", ")}. Any other placeholder is refused on save.
         </span>
       </label>
@@ -414,7 +414,7 @@ function ModelPassEditor({
       />
 
       {error !== null && (
-        <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded border border-warning-rule bg-warning-surface px-3 py-2 text-xs text-warning">
           {error}
         </p>
       )}
@@ -423,14 +423,14 @@ function ModelPassEditor({
         <button
           type="button"
           onClick={() => void save()}
-          className="rounded bg-stone-900 px-3 py-1 text-xs font-medium text-stone-50 hover:bg-stone-700"
+          className="rounded bg-ink px-3 py-1 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
         >
           Save
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+          className="rounded border border-rule bg-paper px-3 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           Cancel
         </button>
@@ -465,9 +465,9 @@ function PromptAssistant({
   onUse,
 }: PromptAssistantProps) {
   return (
-    <div className="rounded border border-stone-300 bg-white p-3">
-      <p className="text-xs font-medium text-stone-700">Prompt assistant</p>
-      <p className="mt-0.5 text-xs text-stone-500">
+    <div className="rounded border border-rule bg-paper p-3">
+      <p className="text-xs font-medium text-quiet-ink">Prompt assistant</p>
+      <p className="mt-0.5 text-xs text-faint-ink">
         Ask for help writing this pass prompt. The assistant sees only your request and the prompt
         above, never your document.
       </p>
@@ -476,33 +476,33 @@ function PromptAssistant({
         value={request}
         onChange={(event) => onRequest(event.target.value)}
         placeholder="What should this pass look for?"
-        className="mt-2 w-full resize-none rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+        className="mt-2 w-full resize-none rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       />
       <button
         type="button"
         disabled={running}
         onClick={onAsk}
-        className="mt-2 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-2 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         {running ? "Drafting…" : "Draft a prompt"}
       </button>
 
       {error !== null && (
-        <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="mt-2 rounded border border-warning-rule bg-warning-surface px-3 py-2 text-xs text-warning">
           {error}
         </p>
       )}
 
       {suggestion !== null && (
         <div className="mt-2">
-          <p className="text-xs font-medium text-stone-700">Suggested prompt</p>
-          <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded border border-stone-200 bg-stone-50 px-3 py-2 font-mono text-xs text-stone-800">
+          <p className="text-xs font-medium text-quiet-ink">Suggested prompt</p>
+          <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded border border-rule-soft bg-ground px-3 py-2 font-mono text-xs text-soft-ink">
             {suggestion}
           </pre>
           <button
             type="button"
             onClick={() => onUse(suggestion)}
-            className="mt-2 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="mt-2 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Use this prompt
           </button>

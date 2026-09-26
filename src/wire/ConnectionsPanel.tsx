@@ -45,28 +45,28 @@ export function ConnectionsPanel({
   }, []);
 
   return (
-    <section className="border-b border-stone-300">
-      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
+    <section className="border-b border-rule">
+      <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
         <h2 className="text-sm font-semibold">Connections</h2>
-        <span className="text-xs text-stone-500">
+        <span className="text-xs text-faint-ink">
           {queue.active > 0 || queue.queued > 0
             ? `${queue.active} in flight · ${queue.queued} queued`
             : "idle"}
         </span>
       </div>
 
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-500">
+      <p className="border-b border-rule-soft px-4 py-2 text-xs text-faint-ink">
         {PANEL_GLOSSES.connections.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.connections.sectionId)}
-          className="underline hover:text-stone-700"
+          className="underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           How this works
         </button>
       </p>
 
-      <p className="px-4 py-2 text-xs text-stone-500">
+      <p className="px-4 py-2 text-xs text-faint-ink">
         A key is stored in this browser only, and sent only to the base URL of the connection you
         configured. In session mode it stays in memory and is gone after a reload. The model is
         chosen per slot above.
@@ -87,7 +87,7 @@ export function ConnectionsPanel({
         <button
           type="button"
           onClick={onAddCustom}
-          className="w-full rounded border border-dashed border-stone-400 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-200/60"
+          className="w-full rounded border border-dashed border-rule-strong px-3 py-1.5 text-xs font-medium text-muted-ink hover:bg-sunk-strong/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           Add custom connection
         </button>
@@ -151,15 +151,15 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
   };
 
   return (
-    <li className="rounded border border-stone-300 bg-white p-3">
+    <li className="rounded border border-rule bg-paper p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-stone-800">{connection.name}</span>
-        <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-500">
+        <span className="text-sm font-medium text-soft-ink">{connection.name}</span>
+        <span className="rounded bg-sunk px-1.5 py-0.5 text-xs text-faint-ink">
           {connection.protocol}
         </span>
       </div>
 
-      <label className="mt-2 block text-xs text-stone-500">
+      <label className="mt-2 block text-xs text-faint-ink">
         Base URL
         <input
           type="text"
@@ -169,14 +169,14 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
           onBlur={() => commit({ baseUrl })}
           className={`mt-0.5 w-full rounded border px-2 py-1 text-xs ${
             connection.builtIn
-              ? "border-stone-200 bg-stone-100 text-stone-500"
-              : "border-stone-300 bg-white text-stone-800"
-          }`}
+              ? "border-rule-soft bg-sunk text-faint-ink"
+              : "border-rule bg-paper text-soft-ink"
+          } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus`}
         />
       </label>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <label className="block text-xs text-stone-500">
+        <label className="block text-xs text-faint-ink">
           API key
           <input
             type="password"
@@ -185,15 +185,15 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
             autoComplete="off"
             onChange={(event) => setApiKey(event.target.value)}
             onBlur={() => commit({ apiKey })}
-            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+            className="mt-0.5 w-full rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
         </label>
-        <label className="block text-xs text-stone-500">
+        <label className="block text-xs text-faint-ink">
           Key storage
           <select
             value={connection.keyMode}
             onChange={(event) => commit({ keyMode: event.target.value as KeyMode })}
-            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+            className="mt-0.5 w-full rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <option value="persisted">This browser</option>
             <option value="session">This session only</option>
@@ -202,13 +202,13 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
       </div>
 
       {connection.keyMode === "session" && apiKey === "" && (
-        <p className="mt-1 text-[11px] text-amber-700">
+        <p className="mt-1 text-xs text-warning-muted">
           Session key not set — re-enter it to run model passes this session.
         </p>
       )}
 
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <label className="block text-xs text-stone-500">
+        <label className="block text-xs text-faint-ink">
           Max output tokens
           <input
             type="number"
@@ -221,17 +221,17 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
                   Number.parseInt(event.target.value, 10) || DEFAULT_MAX_OUTPUT_TOKENS,
               })
             }
-            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+            className="mt-0.5 w-full rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
         </label>
-        <label className="block text-xs text-stone-500">
+        <label className="block text-xs text-faint-ink">
           Reasoning effort
           <select
             value={connection.reasoningEffort}
             onChange={(event) =>
               commit({ reasoningEffort: event.target.value as ReasoningEffort })
             }
-            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+            className="mt-0.5 w-full rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {REASONING_EFFORTS.map((effort) => (
               <option key={effort} value={effort}>
@@ -242,7 +242,7 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
         </label>
       </div>
 
-      <p className="mt-1 text-[11px] text-stone-500">
+      <p className="mt-1 text-xs text-faint-ink">
         A thinking model spends the output budget on its reasoning before it answers. If a Run
         stops at the ceiling, raise the tokens or lower the effort. Ollama caps a response at
         16384 whatever the model's context window. Leave the effort unsent on Providers whose
@@ -250,7 +250,7 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
       </p>
 
       <div className="mt-2 flex items-end gap-2">
-        <label className="w-24 block text-xs text-stone-500">
+        <label className="w-24 block text-xs text-faint-ink">
           In flight
           <input
             type="number"
@@ -260,14 +260,14 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
             onChange={(event) =>
               commit({ concurrency: Number.parseInt(event.target.value, 10) || 1 })
             }
-            className="mt-0.5 w-full rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800"
+            className="mt-0.5 w-full rounded border border-rule bg-paper px-2 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
         </label>
         <button
           type="button"
           disabled={busy}
           onClick={() => void onTest()}
-          className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+          className="rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           Test connection
         </button>
@@ -275,7 +275,7 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
           <button
             type="button"
             onClick={() => onRemove(connection.id)}
-            className="ml-auto rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-500 hover:bg-stone-100"
+            className="ml-auto rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-faint-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Remove
           </button>
@@ -284,8 +284,8 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
 
       {feedback !== null && (
         <p
-          className={`mt-2 break-words text-[11px] ${
-            feedback.kind === "ok" ? "text-emerald-700" : "text-red-700"
+          className={`mt-2 break-words text-xs ${
+            feedback.kind === "ok" ? "text-success" : "text-failure"
           }`}
         >
           {feedback.message}

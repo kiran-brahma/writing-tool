@@ -82,14 +82,14 @@ export function LibraryView({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Library</h2>
-            <p className="text-sm text-stone-500">
+            <p className="text-sm text-faint-ink">
               {entries.length} {entries.length === 1 ? "document" : "documents"} in this browser.{" "}
               {PANEL_GLOSSES.library.text}{" "}
               {onOpenHelp !== undefined && (
                 <button
                   type="button"
                   onClick={() => onOpenHelp(PANEL_GLOSSES.library.sectionId)}
-                  className="text-stone-500 underline hover:text-stone-800"
+                  className="text-faint-ink underline hover:text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   How this works
                 </button>
@@ -99,7 +99,7 @@ export function LibraryView({
           <button
             type="button"
             onClick={onCreate}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700"
+            className="rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             New document
           </button>
@@ -122,12 +122,12 @@ export function LibraryView({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search titles and body text"
             aria-label="Search documents"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm focus:border-stone-500 focus:outline-none"
+            className="w-full rounded border border-rule bg-paper px-3 py-2 text-sm focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
 
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-stone-500">Filter</span>
+              <span className="text-xs uppercase tracking-wide text-faint-ink">Filter</span>
               <TagFilterChip label="All" active={activeTag === null} onClick={() => setTag(null)} />
               {tags.map((tagName) => (
                 <TagFilterChip
@@ -143,7 +143,7 @@ export function LibraryView({
 
         <ol className="mt-6 space-y-3">
           {visible.length === 0 && (
-            <li className="rounded border border-dashed border-stone-300 px-4 py-8 text-center text-sm text-stone-500">
+            <li className="rounded border border-dashed border-rule px-4 py-8 text-center text-sm text-faint-ink">
               {entries.length === 0
                 ? "No documents yet. Create one, or start typing in the scratchpad."
                 : "No documents match this search."}
@@ -185,21 +185,21 @@ function LibraryRow({
     <li
       className={
         active
-          ? "rounded border border-stone-400 bg-white p-4 shadow-sm"
-          : "rounded border border-stone-200 bg-white p-4"
+          ? "rounded border border-rule-strong bg-paper p-4 shadow-sm"
+          : "rounded border border-rule-soft bg-paper p-4"
       }
     >
       <div className="flex items-start justify-between gap-3">
         <button
           type="button"
           onClick={() => onOpen(entry.id)}
-          className="text-left text-base font-semibold text-stone-900 hover:underline"
+          className="text-left text-lg font-semibold text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           {entry.title}
         </button>
         <div className="flex shrink-0 items-center gap-2">
           {entry.scratchpad && (
-            <span className="rounded bg-stone-200 px-1.5 py-0.5 text-xs font-medium text-stone-700">
+            <span className="rounded bg-sunk-strong px-1.5 py-0.5 text-xs font-medium text-quiet-ink">
               Scratchpad
             </span>
           )}
@@ -212,7 +212,7 @@ function LibraryRow({
             onChange={(event) => {
               if (isDocumentStatus(event.target.value)) onStatus(entry.id, event.target.value);
             }}
-            className="rounded border border-stone-300 bg-white px-1.5 py-1 text-xs text-stone-700 focus:border-stone-500 focus:outline-none"
+            className="rounded border border-rule bg-paper px-1.5 py-1 text-xs text-quiet-ink focus:border-rule-focus focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {DOCUMENT_STATUSES.map((status) => (
               <option key={status} value={status}>
@@ -223,14 +223,14 @@ function LibraryRow({
           <button
             type="button"
             onClick={() => onExportBundle(entry.id)}
-            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Export bundle
           </button>
         </div>
       </div>
 
-      <p className="mt-1 text-xs text-stone-500">
+      <p className="mt-1 text-xs text-faint-ink">
         {entry.wordCount} word{entry.wordCount === 1 ? "" : "s"} · edited{" "}
         {new Date(entry.updatedAt).toLocaleString()} ·{" "}
         {entry.openFindings === 0
@@ -259,14 +259,14 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-700"
+          className="inline-flex items-center gap-1 rounded bg-sunk px-2 py-0.5 text-xs text-quiet-ink"
         >
           {tag}
           <button
             type="button"
             aria-label={`Remove tag ${tag}`}
             onClick={() => onChange(tags.filter((existing) => existing !== tag))}
-            className="text-stone-400 hover:text-stone-700"
+            className="text-ghost-ink hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             ×
           </button>
@@ -278,11 +278,11 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Add tag"
           aria-label="Add a tag"
-          className="w-24 rounded border border-stone-200 px-1.5 py-0.5 text-xs focus:border-stone-400 focus:outline-none"
+          className="w-24 rounded border border-rule-soft px-1.5 py-0.5 text-xs focus:border-rule-strong focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
         <button
           type="submit"
-          className="rounded border border-stone-200 px-1.5 py-0.5 text-xs text-stone-600 hover:bg-stone-100"
+          className="rounded border border-rule-soft px-1.5 py-0.5 text-xs text-muted-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           Tag
         </button>
@@ -307,8 +307,8 @@ function TagFilterChip({
       aria-pressed={active}
       className={
         active
-          ? "rounded-full bg-stone-900 px-2.5 py-1 text-xs font-medium text-stone-50"
-          : "rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-600 hover:bg-stone-100"
+          ? "rounded-full bg-ink px-2.5 py-1 text-xs font-medium text-on-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+          : "rounded-full border border-rule bg-paper px-2.5 py-1 text-xs text-muted-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       }
     >
       {label}
