@@ -102,7 +102,8 @@ _Avoid_: stage, tier, phase, step, section
 **Rail**:
 The surface beside the prose, in two Rail modes. Findings mode holds the Band control, **All**, the
 selected Band's Passes with their Findings and accounts, and the run controls; Judge mode holds the
-Judge with milestones and Revisions (ADR 0012). It collapses so the prose has the width.
+Judge with milestones and Revisions (ADR 0012). It collapses so the prose has the width. Below 1024px
+it overlays the prose instead of sitting beside it, and starts closed on every load.
 _Avoid_: sidebar, panel, drawer, nav
 
 **Rail mode**:

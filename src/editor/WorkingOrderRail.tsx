@@ -25,6 +25,7 @@ import { JudgePanel } from "./JudgePanel";
 import { MetricsPanel } from "./MetricsPanel";
 import { OutlinePanel } from "./OutlinePanel";
 import { queueActionFor } from "./queueKeys";
+import { RAIL_ELEMENT_ID, type RailPresentation } from "./railPresentation";
 import {
   INITIAL_RAIL_MODE,
   nextRailMode,
@@ -38,6 +39,16 @@ import { isTypingTarget } from "./typingTarget";
 
 export interface WorkingOrderRailProps {
   handle: DocumentHandle;
+  /**
+   * Stories 251 and 252: docked beside the prose, overlaying it, or hidden,
+   * from `railPresentation`. The shell owns it, because the Status line offers
+   * the Rail too.
+   */
+  presentation: RailPresentation;
+  /** Whether the window is 1024px or wider, so a hidden Rail leaves its strip. */
+  wide: boolean;
+  onShowRail: () => void;
+  onHideRail: () => void;
   /** Story 25: the Outline's Sections, derived from the Document's headings. */
   outlineSections: Section[];
   activeHeadingBlockIndex: number | null;
@@ -60,6 +71,10 @@ export interface WorkingOrderRailProps {
 
 export function WorkingOrderRail({
   handle,
+  presentation,
+  wide,
+  onShowRail,
+  onHideRail,
   outlineSections,
   activeHeadingBlockIndex,
   onJumpToSection,
@@ -75,7 +90,7 @@ export function WorkingOrderRail({
   onMilestonesOnlyChange,
   onOpenHelp,
 }: WorkingOrderRailProps) {
-  const { passes, findings, railBand, railCollapsed, setRailBand, setRailCollapsed } = handle;
+  const { passes, findings, railBand, setRailBand } = handle;
   /** **All** is not a Band, so it is a local override rather than stored state. */
   const [allSelected, setAllSelected] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
@@ -150,8 +165,9 @@ export function WorkingOrderRail({
   // `queueActionFor` stands them down inside the Editor and any field so they
   // reach the prose, and in Judge mode, where the queue is not on screen. The
   // Alt-arrow step keeps working from anywhere: arriving in Judge mode it
-  // switches the Rail to Findings, and arriving with the Rail collapsed it opens
-  // it first, so the selection it makes is visible.
+  // switches the Rail to Findings, and arriving with the Rail hidden it opens
+  // it first — docked when wide, overlaying the prose when narrow (story 254) —
+  // so the selection it makes is visible.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
@@ -168,9 +184,9 @@ export function WorkingOrderRail({
       if (decision === null) return;
       const { action } = decision;
 
-      if (railCollapsed) {
+      if (presentation === "hidden") {
         if (!event.altKey) return;
-        void setRailCollapsed(false);
+        onShowRail();
       }
       if (decision.switchToFindings) setRailMode("findings");
 
@@ -209,11 +225,39 @@ export function WorkingOrderRail({
     leaveQueue,
     markAddressed,
     decline,
-    railCollapsed,
-    setRailCollapsed,
+    presentation,
+    onShowRail,
     railMode,
     onSelectFinding,
   ]);
+
+  // Story 255: while the Rail overlays the prose, Escape or a press outside it
+  // closes it, so returning to the prose is one move. The Status line's offer
+  // is not outside: it toggles the Rail itself.
+  const railRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (presentation !== "overlay") return;
+    const offer = () =>
+      document.querySelector<HTMLElement>(`[aria-controls="${RAIL_ELEMENT_ID}"]`);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const focusWasInRail = railRef.current?.contains(document.activeElement) ?? false;
+      onHideRail();
+      if (focusWasInRail) offer()?.focus();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (railRef.current?.contains(event.target)) return;
+      if (offer()?.contains(event.target)) return;
+      onHideRail();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [presentation, onHideRail]);
 
   // Story 186: Live region announcements for Run finished, Run failed, and Verdict arrived.
   const [announcement, setAnnouncement] = useState("");
@@ -279,7 +323,7 @@ export function WorkingOrderRail({
     <>
       {/* Story 186 and 234: the polite live region announcing a Run finished or
           failed and a Verdict. It sits outside both Rail modes, and outside the
-          collapsed Rail, so switching modes never costs the Writer a result. */}
+          hidden Rail, so switching modes never costs the Writer a result. */}
       <div
         role="status"
         aria-live="polite"
@@ -289,17 +333,30 @@ export function WorkingOrderRail({
         {announcement}
       </div>
 
-      {railCollapsed ? (
-        <button
-          type="button"
-          onClick={() => void setRailCollapsed(false)}
-          title="Show the rail"
-          className="flex w-8 shrink-0 items-center justify-center border-l border-rule-soft bg-sunk/60 text-xs font-medium text-muted-ink hover:bg-sunk-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
-        >
-          <span className="[writing-mode:vertical-rl]">Show rail</span>
-        </button>
+      {/* Below 1024px a hidden Rail leaves no strip: the page keeps its full
+          width and the Status line offers the Rail (stories 251 and 253). */}
+      {presentation === "hidden" ? (
+        wide && (
+          <button
+            type="button"
+            onClick={onShowRail}
+            title="Show the rail"
+            className="flex w-8 shrink-0 items-center justify-center border-l border-rule-soft bg-sunk/60 text-xs font-medium text-muted-ink hover:bg-sunk-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+          >
+            <span className="[writing-mode:vertical-rl]">Show rail</span>
+          </button>
+        )
       ) : (
-        <aside className="flex w-96 flex-col border-l border-rule-soft bg-sunk/60">
+        <aside
+          ref={railRef}
+          id={RAIL_ELEMENT_ID}
+          aria-label="Rail"
+          className={
+            presentation === "overlay"
+              ? "fixed inset-y-0 right-0 z-30 flex w-96 max-w-[calc(100vw-2rem)] flex-col border-l border-rule-soft bg-sunk shadow-md"
+              : "flex w-96 flex-col border-l border-rule-soft bg-sunk/60"
+          }
+        >
           {/* ADR 0012, story 228: the two Rail modes, switched at the Rail's top. */}
           <div className="sticky top-0 z-10 flex shrink-0 items-stretch border-b border-rule bg-sunk">
             <div role="tablist" aria-label="Rail modes" className="flex flex-1">
@@ -332,7 +389,7 @@ export function WorkingOrderRail({
             </div>
             <button
               type="button"
-              onClick={() => void setRailCollapsed(true)}
+              onClick={onHideRail}
               className="shrink-0 px-3 text-xs text-muted-ink hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
             >
               Hide rail
