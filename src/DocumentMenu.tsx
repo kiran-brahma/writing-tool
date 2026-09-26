@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 export interface DocumentMenuProps {
-  wordCount: number;
   onExport: () => void;
   onImport: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   canExport?: boolean;
 }
 
 /**
- * Story 191: Document actions (Import Markdown, Export Markdown, word count)
- * behind one control, separated from navigation.
+ * Story 191: Document actions (Import Markdown, Export Markdown) behind one
+ * control, separated from navigation. The word count is not here: the Status
+ * line carries it, at a glance rather than behind a menu (story 200).
  */
 export function DocumentMenu({
-  wordCount,
   onExport,
   onImport,
   canExport = true,
@@ -86,12 +85,6 @@ export function DocumentMenu({
           aria-label="Document actions"
           className="absolute left-0 top-full mt-1.5 w-44 rounded border border-rule-soft bg-paper py-1 shadow-md z-30"
         >
-          <div className="border-b border-rule-faint px-3 py-1.5 text-xs text-faint-ink">
-            <span className="font-semibold text-quiet-ink">
-              {wordCount.toLocaleString()}
-            </span>{" "}
-            {wordCount === 1 ? "word" : "words"}
-          </div>
           <label className="flex w-full cursor-pointer items-center px-3 py-1.5 text-xs text-quiet-ink hover:bg-ground has-focus-visible:outline-none has-focus-visible:ring-2 has-focus-visible:ring-focus transition-colors">
             Import Markdown
             <input

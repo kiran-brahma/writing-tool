@@ -32,6 +32,11 @@ One saved point in a Document's history. An *auto-revision* is taken on a deboun
 revision* is marked by the Writer as a milestone and carries a note.
 _Avoid_: snapshot, version, save, checkpoint
 
+**Status line**:
+The line beneath the prose, at every width, that carries the Document's word count. It is the tool's,
+not the Writer's, so it is set in the sans.
+_Avoid_: status bar, footer, word counter
+
 **Library**:
 Every Document held in this browser.
 _Avoid_: workspace, project, vault
