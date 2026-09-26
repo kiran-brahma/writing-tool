@@ -1,4 +1,4 @@
-import { canonicalBlocks, canonicalText } from "./canonicalText";
+import { canonicalBlocks, canonicalParagraphs, canonicalText } from "./canonicalText";
 import type { DocTree } from "./docTree";
 import type { Pass } from "./pass";
 import { outline, sectionAt, sections, type Section } from "./sections";
@@ -13,14 +13,16 @@ import type { Target } from "./target";
  *
  * The Target is named as a half-open interval into the one canonical string, so
  * Containment can drop any Finding that anchors outside it.
+ *
+ * A Paragraph inside a list item counts, at any depth, so a Document drafted as
+ * a list still has a Target. Its interval covers the prose, not the marker.
  */
 export function passContext(
   tree: DocTree,
   blockIndex: number,
   title: string,
 ): Target | null {
-  const blocks = canonicalBlocks(tree);
-  const paragraphs = blocks.filter((entry) => entry.block.type === "paragraph");
+  const paragraphs = canonicalParagraphs(tree);
   if (paragraphs.length === 0) return null;
 
   const targetIndex = nearestParagraphIndex(paragraphs, blockIndex);
@@ -31,7 +33,7 @@ export function passContext(
   return {
     // The whole Document's canonical string, the one coordinate system.
     canonical: canonicalText(tree),
-    interval: { start: target.start, end: target.start + target.text.length },
+    interval: { start: target.start, end: target.end },
     text: target.text,
     title,
     outline: outline(tree),
@@ -138,7 +140,11 @@ export function targetForPass(
   }
 }
 
-/** The Paragraph nearest the cursor's block, preferring the earlier on a tie. */
+/**
+ * The Paragraph nearest the cursor's block, preferring the earlier on a tie. The
+ * cursor names a top-level block, so every Paragraph in a list shares the list's
+ * index, and a cursor anywhere in the list resolves to its first Paragraph.
+ */
 function nearestParagraphIndex(
   paragraphs: { index: number }[],
   blockIndex: number,
