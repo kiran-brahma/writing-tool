@@ -365,15 +365,35 @@ async function readErrorBody(response: Response, deadline: Deadline): Promise<st
  * The privacy property, enforced structurally: a request URL must sit inside
  * the configured Connection's base URL. A Protocol adapter that tried to build
  * a URL against a different origin would fail here rather than send.
+ *
+ * Both URLs are parsed rather than compared as strings, so the check sees what
+ * `fetch` will request: a dot segment that climbs above the base path, or
+ * userinfo that changes the host, is resolved first and then refused.
  */
 export function assertWithinConnection(connection: Connection, url: string): void {
-  const base = connection.baseUrl.replace(/\/+$/, "");
-  if (url !== base && !url.startsWith(`${base}/`)) {
+  if (!isWithinBase(connection.baseUrl, url)) {
     throw new Error(
       `Refusing to send to a URL outside the configured Connection "${connection.name}" ` +
         `(${connection.baseUrl}).`,
     );
   }
+}
+
+/** Same scheme, host and port as the base, and a path at or under its path. */
+function isWithinBase(baseUrl: string, url: string): boolean {
+  let base: URL;
+  let target: URL;
+  try {
+    base = new URL(baseUrl);
+    target = new URL(url);
+  } catch {
+    // An unparseable URL is not provably inside the base, so it is refused.
+    return false;
+  }
+  if (base.protocol !== "https:" && base.protocol !== "http:") return false;
+  if (target.origin !== base.origin) return false;
+  const basePath = base.pathname.replace(/\/+$/, "");
+  return target.pathname === basePath || target.pathname.startsWith(`${basePath}/`);
 }
 
 export interface QueueView {

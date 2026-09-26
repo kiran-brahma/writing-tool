@@ -1,27 +1,28 @@
 # Obelus
 
-## Why
+## Why I built Obelus
 
-I hated writing. My writing style was developed during my school and college days, where the goal was to pass my exams. When I started working, most of what I wrote were either emails or presentations. However, I did keep a small notebook where I wrote down my learnings or observations from books I kept reading over the years. 
+I hated writing. I learned to write at school and college, where the goal was to pass exams. At work, I wrote mostly emails and presentations. The one exception was a small notebook, where I wrote down what I learned or observed from the books I read over the years.
 
-My first real writing project was my company's blog. Everyone kept repeating that if I had to improve my company's SEO peformance, I will need to create content. Now Google expects the content to be structured in a specific manner, aiding their crawlers to scan your website quickly. I adopted the structure as my goal was not write great blog posts but to gain visibility in google search results. 
+My first real writing project was my company's blog. Everyone told me that to improve the company's SEO, I had to create content. Google expects content in a specific structure, so that its crawlers can scan a website quickly. I adopted that structure, because my goal was not to write great blog posts. It was to show up in Google search results.
 
-Somewhere along the line, I started writing mini-essays for myself in obsidian. I was trying to combine ideas across different books or articles into something I can apply for myself. I never thought on publishing them anywhere. They were just personal notes for myself. 
-During the covid lockdown, I had too much free time on my hand. So, I started making small LinkedIn posts whenever I felt like it. 99% of what I posted were ignored but I observed that when I was making a post, I was being critical of what I was writing. Every post I made went through multiple rewrites, till I felt it was good. I started applying the same rigor to my mini-essays I was writing for myself. 
+Along the way, I started writing mini-essays for myself in Obsidian. In them, I tried to combine ideas from different books and articles into something I could apply myself. I never planned to publish them. They were personal notes.
 
-When ChatGPT was launched, I started using it for feedback on what I was writing. Slowly, I let the AI decide what was good or bad. AI became my ghostwriter. I was just sharing some raw thoughts and ideas and AI put them together in a neat package. I rewrote most of my older company blog posts using AI. Slowly but steadily, google improved my website ranking for certain keywords.
+During the COVID lockdown, I had too much free time, so I started writing short LinkedIn posts whenever I felt like it. People ignored 99% of them. But I noticed that I was critical of my own writing while I wrote a post. Every post went through several rewrites until I felt it was good. I started to apply the same rigor to my mini-essays.
 
-The same confidence encouraged me to even start my own blog. As AI models kept improving, I felt the writing was also improving. I never realised that I actually never learnt how to write well. As internet was getting flooded with AI content, I could see every other post sounded the same as mine. I hated it, so finally at end of 2024, I decided to actually learn how to write better. 
+When ChatGPT launched, I used it for feedback on my writing. Bit by bit, I let it decide what was good and what was bad. AI became my ghostwriter. I gave it raw thoughts and ideas, and it put them together in a neat package. I used AI to rewrite most of my older company blog posts. Slowly but steadily, Google improved my website's ranking for some keywords.
 
-Slowly, I started building more robust workflows and process around my AI writing. Every other week, I updated my project rules or skills on how to improve the outputs. After a few months, the writing quality did improve substantially but it never lost the signs of AI-writing. I was generating so much AI generated content that I could understand if a person or an AI wrote an article or a linkedin post. 
+That result gave me the confidence to start my own blog. As the models improved, I felt my writing improved with them. I did not realise that I had never learned to write well. Then the internet filled up with AI content, and every other post sounded the same as mine. I hated it. At the end of 2024, I decided to learn to write better.
 
-In the same time, I was feeling confident on my own writing abilities, so I actually started writing the first drafts on my own. I asked AI to judge me and it suggested improvements and even re-wrote certain sections which it judged to be poor. Once again, I felt that the quality of my writing has improved a lot. After a few weeks, I felt confident enough to completely rewrite the final essay that AI generated in my own words. 
+I built stronger workflows and processes around my AI writing. Every other week, I updated my project rules and skills to improve the output. After a few months, the writing was much better, but it never lost the signs of AI writing. I had generated so much AI content that I could tell whether a person or an AI had written an article or a LinkedIn post.
 
-Last week, I finally ended up reading William Zinsser's book 'On Writing Well'. While most of the book presented the same ideas, process and tips I had adopted, the final section (Atttitude) of the book made me question my process once again. As I was thinking how can I actually adopt AI into my writing workflow, I came across the word Obelus (the editor's mark for *this passage is suspect*) and a post by Thomas Ptacek on '[How To Write With An LLM](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/)'.
+During the same period, I grew confident in my own writing, so I started to write the first drafts myself. I asked AI to judge them. It suggested improvements and even rewrote the sections it judged to be poor. Again, I felt my writing had improved a lot. After a few weeks, I was confident enough to rewrite the AI's final essay completely in my own words.
 
-Thomas Ptacek's two rules on how to use AI for writing resonated with the ideas twirling in my head. He even included a prompt on how to build a tool for yourself in the post. I took it upon myself to see if I can build something on his idea while incorporating many of my ideas and workflows into a simple app. 
+In September 2026, I finally read William Zinsser's *On Writing Well*. Most of the book described ideas, processes, and tips that I had already adopted. But its final section, "Attitude", made me question my process again. While I was thinking about how to fit AI into my writing, I came across two things. One was the word *obelus*, the editor's mark for *this passage is suspect*. The other was Thomas Ptacek's post [How To Write With An LLM](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/).
 
-The current APP is a prototype to help me improve my writing on my own, with AI relegated to a supporting role. I built this app the way I wanted it to be. I will be making changes by iterating on new ideas on a regular basis. I don't know if anyone will use it apart from me, but then if you find it useful, feel free to give it a try
+Ptacek's two rules for writing with AI matched the ideas already in my head. His post even included a prompt for building a tool for yourself. I set out to build on his idea and to add my own ideas and workflows, in a simple app.
+
+This app is a prototype. It helps me improve my writing on my own, with AI in a supporting role. I built it the way I wanted it, and I will keep changing it as I try new ideas. I don't know if anyone except me will use it. If you find it useful, give it a try.
 
 ## About the APP (AI generated text)
 
@@ -36,7 +37,7 @@ Two constraints shape the product:
 - No model output can enter your document. The findings schema has no field for a rewritten sentence, and the app has no apply, accept, or insert control for model text. Your keyboard is the only path by which words enter a document.
 - No praise. The prompts forbid it, a client-side linter catches it anyway, and the app shows it struck through rather than hiding it, so you can see when a prompt has drifted.
 
-Everything runs in the browser. Documents, revisions, findings, passes, connections, and API keys live in IndexedDB. The only outbound requests go to the model provider you configure. There is no account, no sync, and no telemetry.
+Everything runs in the browser. Documents, revisions, findings, passes, connections, and persisted API keys live in IndexedDB; a session-only key is held in memory and gone on reload. The only outbound requests go to the model provider you configure. There is no account, no sync, and no telemetry.
 
 ### What it does
 
