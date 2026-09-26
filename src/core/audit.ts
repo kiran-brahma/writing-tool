@@ -182,8 +182,8 @@ export interface AuditRunResult {
   violations: Violation[];
   rawResponse: string;
   /**
-   * Story 131: how many Section chunks the Run was split into. `1` for a
-   * Document that fit one call; more when it was chunked and synthesized.
+   * Story 131: how many model calls the Run took. `1` for a Document that fit
+   * one call; one per Section chunk plus the synthesis when it was chunked.
    */
   chunks: number;
 }
@@ -379,7 +379,8 @@ function stringArray(value: unknown): string[] | null {
  *
  * Story 131: a Document longer than the character limit is split Section by
  * Section with overlap, each chunk is audited, and a second synthesis call
- * produces the document-level account. The Run reports its chunk count.
+ * produces the document-level account. The Run reports its call count: one
+ * per chunk, plus one for the synthesis.
  */
 export async function auditDocument(
   target: Target,
@@ -420,7 +421,8 @@ export async function auditDocument(
     rawResponse: [...chunks.map((chunk) => chunk.rawResponse), synthesis.rawResponse].join(
       "\n\n--- chunk ---\n\n",
     ),
-    chunks: chunks.length,
+    // Story 131: the synthesis is a model call too, so it counts.
+    chunks: chunks.length + 1,
   };
 }
 

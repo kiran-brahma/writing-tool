@@ -607,7 +607,7 @@ function AuditPassBlock({
         <p className="px-4 pb-2 text-xs text-stone-600">
           {report.chunks <= 1
             ? "Read in a single call."
-            : `Read in ${report.chunks} overlapping chunks, then synthesized.`}
+            : `Read in ${report.chunks - 1} overlapping chunks, then synthesized: ${report.chunks} calls.`}
         </p>
       )}
       {report !== null && strikes.length > 0 && (
