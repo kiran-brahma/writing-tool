@@ -263,6 +263,85 @@ describe("canonicalText", () => {
     }
   });
 
+  it("escapes an href with unbalanced parentheses or a backslash so it round-trips", () => {
+    const hrefs = [
+      "https://e.com/a)",
+      "https://e.com/(a",
+      "https://en.wikipedia.org/wiki/Obelus_(sign)",
+      "C:\\path\\to",
+      "https://e.com/a\\",
+      "https://e.com/a\\)",
+    ];
+
+    for (const href of hrefs) {
+      const tree = doc({
+        type: "paragraph",
+        content: [{ type: "text", text: "x", marks: [{ type: "link", attrs: { href } }] }],
+      });
+      const once = canonicalText(tree);
+
+      expect(parseCanonical(once), href).toEqual(tree);
+      expect(canonicalText(parseCanonical(once)), href).toBe(once);
+    }
+
+    expect(
+      canonicalText(
+        doc({
+          type: "paragraph",
+          content: [
+            { type: "text", text: "x", marks: [{ type: "link", attrs: { href: "https://e.com/a)" } }] },
+          ],
+        }),
+      ),
+    ).toBe("[x](https://e.com/a\\))\n");
+  });
+
+  it("emits an href with balanced parentheses raw, as before", () => {
+    const tree = doc({
+      type: "paragraph",
+      content: [
+        {
+          type: "text",
+          text: "x",
+          marks: [{ type: "link", attrs: { href: "https://en.wikipedia.org/wiki/Obelus_(sign)" } }],
+        },
+      ],
+    });
+    const once = canonicalText(tree);
+
+    expect(once).toBe("[x](https://en.wikipedia.org/wiki/Obelus_(sign))\n");
+    expect(parseCanonical(once)).toEqual(tree);
+  });
+
+  it("round-trips a fuzz of links with adversarial hrefs", () => {
+    const alphabet = ["\\", "(", ")", "[", "]", "*", "`", "a", "/", "."];
+    let seed = 123_456_789;
+    const next = (): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed;
+    };
+
+    for (let iteration = 0; iteration < 5_000; iteration++) {
+      const length = 1 + (next() % 12);
+      let href = "";
+      for (let position = 0; position < length; position++) {
+        href += alphabet[next() % alphabet.length];
+      }
+
+      const tree = doc({
+        type: "paragraph",
+        content: [
+          { type: "text", text: "see " },
+          { type: "text", text: "label", marks: [{ type: "link", attrs: { href } }] },
+          { type: "text", text: " after" },
+        ],
+      });
+      const once = canonicalText(tree);
+      expect(parseCanonical(once), `href ${JSON.stringify(href)}`).toEqual(tree);
+      expect(canonicalText(parseCanonical(once))).toBe(once);
+    }
+  });
+
   it("renders and round-trips every block kind nested in a list item", () => {
     const tree = doc({
       type: "bulletList",

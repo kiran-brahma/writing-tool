@@ -517,7 +517,7 @@ function renderText(node: TextNode, position: number): CanonicalMap {
   let suffix = "";
   if (link !== undefined) {
     prefix = "[";
-    suffix = `](${link.attrs?.href ?? ""})`;
+    suffix = `](${escapeHref(link.attrs?.href ?? "")})`;
   }
   if (marks.some((mark) => mark.type === "bold")) {
     prefix = `**${prefix}`;
@@ -555,6 +555,27 @@ function collapseWhitespace(text: string): SourceChar[] {
 
 function escapePlainCharacter(char: string): string {
   return /[\\`*[\]]/.test(char) ? `\\${char}` : char;
+}
+
+/**
+ * Emits an href raw when the parser would read it back unchanged: its
+ * parentheses balance and it holds no backslash. Otherwise backslash-escapes
+ * `\`, `(` and `)`, so an unbalanced parenthesis reads back as the same href.
+ * Keeping balanced hrefs raw leaves existing canonical strings, and the Anchors
+ * over them, where they were.
+ */
+function escapeHref(href: string): string {
+  return isRawHref(href) ? href : href.replace(/[\\()]/g, "\\$&");
+}
+
+function isRawHref(href: string): boolean {
+  if (href.includes("\\")) return false;
+  let depth = 0;
+  for (const char of href) {
+    if (char === "(") depth++;
+    else if (char === ")" && --depth < 0) return false;
+  }
+  return depth === 0;
 }
 
 /**
