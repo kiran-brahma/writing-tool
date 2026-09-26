@@ -79,6 +79,30 @@ For local Ollama, choose the Ollama prefill (base URL `http://localhost:11434/v1
 OLLAMA_ORIGINS=http://localhost:5173 ollama serve
 ```
 
+Ollama refuses any origin it has not been told to allow, and answers the browser's preflight with `403 Forbidden`. The app reports this as "Failed to fetch". To use local Ollama from a deployed copy, add the deployed origins to the list, separated by commas:
+
+```sh
+OLLAMA_ORIGINS=https://obelus.kiranbrahma.com,https://writing-tool.kiranbrahma.workers.dev,http://localhost:5173 ollama serve
+```
+
+On macOS with the Ollama app, set the variable for GUI apps, then quit Ollama from the menu bar and open it again:
+
+```sh
+launchctl setenv OLLAMA_ORIGINS "https://obelus.kiranbrahma.com,https://writing-tool.kiranbrahma.workers.dev,http://localhost:5173"
+```
+
+`launchctl setenv` lasts until the next restart. Add the line to `~/.zshrc` to keep it. To check it took effect, send the preflight yourself and look for `204` and an `Access-Control-Allow-Origin` header naming your origin:
+
+```sh
+curl -i -X OPTIONS http://localhost:11434/v1/chat/completions \
+  -H "Origin: https://obelus.kiranbrahma.com" \
+  -H "Access-Control-Request-Method: POST"
+```
+
+Chrome may ask for permission to reach devices on your local network the first time. Allow it.
+
+Ollama Cloud models work through the local daemon. Run `ollama signin` once, then enter a cloud model id such as `glm-5.3:cloud` in the Ollama Connection; `ollama list` shows the ones you have. The daemon forwards the request with your account, so no key enters the browser. Calling `https://ollama.com` directly from the browser does not work: it does not answer CORS preflight, and a proxy would break the privacy claim (`docs/adr/0002-browser-only-provider-access.md`).
+
 Keys are stored in IndexedDB by default. Set a Connection to session-only to keep its key in memory, in which case you re-enter it after a reload.
 
 ### Using it
@@ -90,6 +114,17 @@ Keys are stored in IndexedDB by default. Set a Connection to session-only to kee
 5. Select a span or a section, pick two revisions, and ask the judge whether the rewrite is clearer.
 
 The Privacy page in the app lists where your data lives and gives the steps to verify it in DevTools.
+
+### Install it as an app
+
+Obelus is a Progressive Web App. Installed, it opens in its own window, and it opens offline with your existing documents after the first online visit.
+
+- **Chrome or Edge (desktop):** click the install icon at the right of the address bar, or open the menu and choose Cast, save, and share → Install page as app.
+- **Safari (macOS Sonoma or newer):** File → Add to Dock.
+- **iPhone or iPad (Safari):** Share → Add to Home Screen.
+- **Android (Chrome):** menu → Add to home screen, then Install.
+
+Your documents stay in the browser profile's IndexedDB for that site. On iOS and in Safari, the installed app has its own storage, separate from the browser tab, so export a backup from the tab and restore it in the app to carry work across. Each origin also has its own storage, so `obelus.kiranbrahma.com` and `writing-tool.kiranbrahma.workers.dev` hold separate libraries. Pick one and install from it.
 
 ### Checks
 
@@ -140,6 +175,7 @@ drifts from `worker/securityHeaders.ts`.
 - `CONTEXT.md` is the glossary. Code, tests, and commits use its terms.
 - `docs/adr/` records the load-bearing decisions.
 - `docs/migrations.md` states the database migration policy.
+- `CHANGELOG.md` lists what changed in each release, and `docs/releasing.md` describes how to cut one.
 - `notes/provider-api-facts.md` records the provider wire facts, with the date they were checked.
 - `docs/reference/` holds optional material, such as the Vercel deploy config.
 - `AGENTS.md` describes the build discipline for agents working in the repository.
