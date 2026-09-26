@@ -453,7 +453,7 @@ export default function App() {
       </header>
 
       {saveError !== null && (
-        <div className="border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
+        <div className="border-b border-failure-rule bg-failure-surface px-6 py-2 text-sm text-failure">
           Could not save your document: {saveError}
         </div>
       )}
@@ -472,7 +472,7 @@ export default function App() {
       )}
 
       {importError !== null && (
-        <div className="border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
+        <div className="border-b border-failure-rule bg-failure-surface px-6 py-2 text-sm text-failure">
           Could not import that markdown: {importError}
         </div>
       )}
