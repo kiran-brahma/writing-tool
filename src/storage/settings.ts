@@ -1,4 +1,9 @@
 import { DEFAULT_CHARACTER_LIMIT, MIN_CHARACTER_LIMIT } from "../core/chunking";
+import {
+  DEFAULT_COLOR_SCHEME_SETTING,
+  isColorSchemeSetting,
+  type ColorSchemeSetting,
+} from "../core/colorScheme";
 import { isWorkingOrderBand, type WorkingOrderBand } from "../core/pass";
 import { normalizeVoiceList } from "../core/voiceList";
 import type { ObelusDatabase } from "./obelusDatabase";
@@ -118,3 +123,21 @@ const firstRunNoteSetting = setting<boolean>(FIRST_RUN_NOTE_SETTING_KEY, (stored
 
 export const loadFirstRunNoteDismissed = firstRunNoteSetting.load;
 export const saveFirstRunNoteDismissed = firstRunNoteSetting.save;
+
+/**
+ * Stories 201–204: the Writer's colour scheme — Light, Dark or System. System
+ * by default, and a stored value that is not one of the three falls back to
+ * System rather than forcing a scheme. It lives in the existing key-value store,
+ * so no Dexie migration is needed, and it travels in a Backup like every
+ * setting; an older build ignores it.
+ */
+export const COLOR_SCHEME_SETTING_KEY = "colorScheme";
+
+function normalizeColorScheme(value: unknown): ColorSchemeSetting {
+  return isColorSchemeSetting(value) ? value : DEFAULT_COLOR_SCHEME_SETTING;
+}
+
+const colorSchemeSetting = setting<ColorSchemeSetting>(COLOR_SCHEME_SETTING_KEY, normalizeColorScheme);
+
+export const loadColorScheme = colorSchemeSetting.load;
+export const saveColorScheme = colorSchemeSetting.save;

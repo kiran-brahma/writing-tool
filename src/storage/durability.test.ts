@@ -25,6 +25,7 @@ import {
 } from "./durability";
 import type { Connection } from "../wire/connection";
 import type { Pass } from "../core/pass";
+import { loadColorScheme, saveColorScheme } from "./settings";
 
 const openedDatabases: ObelusDatabase[] = [];
 
@@ -274,6 +275,18 @@ describe("library backup round trip", () => {
     expect(await target.readerAccounts.count()).toBe(1);
     expect(await target.auditAccounts.count()).toBe(1);
     await expect(loadLastBackedUp(target)).resolves.toBe(5_000);
+  });
+
+  it("story 204: carries the Writer's colour scheme through a Backup and Restore", async () => {
+    const source = await openTestDatabase();
+    await seed(source);
+    await saveColorScheme(source, "dark");
+    const text = serializeLibraryBackup(await exportLibraryBackup(source, { now: 5_000 }));
+
+    const target = await openTestDatabase();
+    await importLibraryBackup(target, parseLibraryBackup(text));
+
+    await expect(loadColorScheme(target)).resolves.toBe("dark");
   });
 
   it("replaces the Library rather than merging it", async () => {
