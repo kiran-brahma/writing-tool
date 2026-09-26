@@ -12,6 +12,22 @@ import { splitViolations, violationsOutsideText } from "./violationMarks";
  * model-derived text, and a rewrite the linter caught is quarantined behind
  * `QuarantinedRewrite` rather than shown as prose to accept.
  */
+/**
+ * Story 138: the quiet label a note-severity Finding carries, in the Rail's
+ * row and in the Callout alike — outlined rather than filled, so it reads
+ * lighter than the row's other chips.
+ */
+export function NoteLabel() {
+  return (
+    <span
+      title="Reported at note severity: judge it, it is not an error"
+      className="shrink-0 rounded border border-rule px-1 text-xs leading-5 text-muted-ink"
+    >
+      Note
+    </span>
+  );
+}
+
 export interface FindingRowProps {
   finding: Finding;
   current: boolean;
@@ -41,6 +57,9 @@ export function FindingRow({
 
   const attached = finding.anchor.state === "attached";
   const leftQueue = !isOpenFinding(finding);
+  // Story 138: a note-severity Finding reads at a lighter weight than an error.
+  // Only the row's weight changes; its place in the queue does not.
+  const note = finding.severity === "note";
   const violations = finding.violations ?? [];
   const { rewrites } = splitViolations(violations);
   const elsewhere = violationsOutsideText(
@@ -60,11 +79,12 @@ export function FindingRow({
           leftQueue ? "opacity-60" : "",
         ].join(" ")}
       >
-        <p className="flex items-start gap-2 text-soft-ink">
+        <p className={["flex items-start gap-2", note ? "text-quiet-ink" : "text-soft-ink"].join(" ")}>
           <span className="font-mono text-xs text-muted-ink">
             “<StruckText text={finding.anchor.quote} violations={violations} />”
           </span>
-          <span className="font-medium">
+          {note && <NoteLabel />}
+          <span className={note ? "font-normal" : "font-medium"}>
             <StruckText text={finding.issue} violations={violations} />
           </span>
         </p>

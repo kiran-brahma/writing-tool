@@ -62,7 +62,18 @@ export interface Finding {
    * absent from the findings schema.
    */
   inVoiceList?: true;
+  /**
+   * Story 138: how heavily a rule pass reports this Finding. Only `note` exists
+   * — a problem the Writer judges rather than an error, such as a passive the
+   * sentence's topic may need — and absence is the ordinary weight. A rule-pass
+   * concept only: the findings schema has no severity field and the parser
+   * reads only the schema's fields, so a model Finding never carries one.
+   */
+  severity?: FindingSeverity;
 }
+
+/** Story 138: the one severity a rule pass may report below the ordinary. */
+export type FindingSeverity = "note";
 
 /** A half-open interval `[start, end)` over the canonical string. */
 export interface Interval {

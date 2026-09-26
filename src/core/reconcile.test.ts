@@ -137,4 +137,21 @@ describe("reconcileFindings", () => {
 
     expect(merged.map((entry) => entry.id)).toEqual(["earlier", "later", "gone"]);
   });
+
+  it("takes the severity from the Run, so a stored Finding gains or loses it with its Pass", () => {
+    const canonical = "The report was completed.\n";
+    const storedBefore = finding({ quote: "was completed", offset: 11 }, { id: "stored", passId: "passive" });
+    const noted = finding({ quote: "was completed", offset: 11 }, { passId: "passive", severity: "note" });
+
+    const gained = reconcileFindings([noted], [storedBefore], canonical);
+
+    expect(gained[0].id).toBe("stored");
+    expect(gained[0].severity).toBe("note");
+
+    const plain = finding({ quote: "was completed", offset: 11 }, { passId: "passive" });
+    const lost = reconcileFindings([plain], [gained[0]], canonical);
+
+    expect(lost[0].id).toBe("stored");
+    expect("severity" in lost[0]).toBe(false);
+  });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DeclineReason, Finding } from "../core/finding";
 import { calloutPosition, type CalloutPosition, type HighlightRect } from "./callout";
+import { NoteLabel } from "./FindingRow";
 import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
 import { splitViolations, violationsOutsideText } from "./violationMarks";
 
@@ -99,9 +100,19 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
 
   return (
     <div className="px-3 py-2.5">
-      <p className="font-medium text-ink">
-        <StruckText text={finding.issue} violations={violations} />
-      </p>
+      {finding.severity === "note" ? (
+        // Story 138: a note reads lighter than an error, here as in the Rail.
+        <p className="flex items-start gap-2 text-quiet-ink">
+          <NoteLabel />
+          <span>
+            <StruckText text={finding.issue} violations={violations} />
+          </span>
+        </p>
+      ) : (
+        <p className="font-medium text-ink">
+          <StruckText text={finding.issue} violations={violations} />
+        </p>
+      )}
       <p className="mt-0.5 text-muted-ink">
         <StruckText text={finding.diagnosis} violations={violations} />
       </p>

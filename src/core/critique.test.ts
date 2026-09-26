@@ -142,6 +142,27 @@ describe("critique", () => {
     expect(serialized).not.toContain("rewrite");
   });
 
+  it("never gives a model Finding a severity, even when the model returns one", async () => {
+    // Severity is a rule-pass concept (story 138). The findings schema is closed
+    // and carries no severity field, and a model that adds one anyway cannot
+    // smuggle it onto a Finding: the parser reads only the schema's fields.
+    const { transport, config } = fixture(
+      JSON.stringify({
+        findings: [
+          { issue: "Found in target", diagnosis: "D", quote: "Bravo", offset: 0, severity: "note" },
+        ],
+      }),
+    );
+
+    const run = await critique(target(), CLICHE_PASS, connection(), config);
+
+    const schema = (transport.requests[0].body as { response_format?: unknown }).response_format;
+    expect(JSON.stringify(schema).toLowerCase()).not.toContain("severity");
+    expect(JSON.stringify(FINDINGS_SCHEMA).toLowerCase()).not.toContain("severity");
+    expect(run.findings).toHaveLength(1);
+    expect("severity" in run.findings[0]).toBe(false);
+  });
+
   it("sends a reasoning effort only when the Connection sets one", async () => {
     // A thinking model otherwise spends the whole output budget on its trace,
     // but OpenAI answers 400 to the field on a model that does not reason, so
