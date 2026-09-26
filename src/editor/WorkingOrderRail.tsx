@@ -258,33 +258,33 @@ export function WorkingOrderRail({
           type="button"
           onClick={() => void setRailCollapsed(false)}
           title="Show the rail"
-          className="flex w-8 shrink-0 items-center justify-center border-l border-stone-200 bg-stone-100/60 text-xs font-medium text-stone-600 hover:bg-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 focus-visible:ring-inset"
+          className="flex w-8 shrink-0 items-center justify-center border-l border-rule-soft bg-sunk/60 text-xs font-medium text-muted-ink hover:bg-sunk-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
         >
           <span className="[writing-mode:vertical-rl]">Show rail</span>
         </button>
       ) : (
-        <aside className="flex w-96 flex-col overflow-y-auto border-l border-stone-200 bg-stone-100/60">
-          <div className="flex items-center justify-between border-b border-stone-200 px-4 py-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-stone-600">Rail</span>
+        <aside className="flex w-96 flex-col overflow-y-auto border-l border-rule-soft bg-sunk/60">
+          <div className="flex items-center justify-between border-b border-rule-soft px-4 py-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-ink">Rail</span>
             <button
               type="button"
               onClick={() => void setRailCollapsed(true)}
-              className="rounded px-1 py-0.5 text-xs text-stone-600 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+              className="rounded px-1 py-0.5 text-xs text-muted-ink hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               Hide rail
             </button>
           </div>
 
           {/* Story 165: Outline and metrics, collapsible, above the Band control. */}
-          <section className="border-b border-stone-300">
+          <section className="border-b border-rule">
             <button
               type="button"
               onClick={() => setReferenceOpen((open) => !open)}
               aria-expanded={referenceOpen}
-              className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-stone-200/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 focus-visible:ring-inset"
+              className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-sunk-strong/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
             >
               <span className="text-sm font-semibold">Reference</span>
-              <span className="text-xs text-stone-600">
+              <span className="text-xs text-muted-ink">
                 {referenceOpen ? "Hide outline and metrics" : "Show outline and metrics"}
               </span>
             </button>
@@ -309,7 +309,7 @@ export function WorkingOrderRail({
           <div
             role="tablist"
             aria-label="Bands of the Working order"
-            className="flex border-b border-stone-300 bg-stone-100/60"
+            className="flex border-b border-rule bg-sunk/60"
           >
             {RAIL_SELECTIONS.map(({ value, label }) => (
               <button
@@ -323,10 +323,10 @@ export function WorkingOrderRail({
                 onClick={() => selectRail(value)}
                 onKeyDown={onTabKeyDown}
                 className={[
-                  "flex-1 border-b-2 px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 focus-visible:ring-inset",
+                  "flex-1 border-b-2 px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset",
                   railSelection === value
-                    ? "border-stone-900 font-semibold text-stone-900"
-                    : "border-transparent text-stone-600 hover:text-stone-800",
+                    ? "border-ink font-semibold text-ink"
+                    : "border-transparent text-muted-ink hover:text-soft-ink",
                 ].join(" ")}
               >
                 {label}
@@ -334,37 +334,38 @@ export function WorkingOrderRail({
             ))}
           </div>
 
-      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-1.5">
-        <label className="flex items-center gap-1.5 text-xs text-stone-600">
+      <div className="flex items-center justify-between border-b border-rule-soft px-4 py-1.5">
+        <label className="flex items-center gap-1.5 text-xs text-muted-ink">
           <input
             type="checkbox"
             checked={showRawResponse}
             onChange={(event) => onToggleRawResponse(event.target.checked)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
           Raw response
         </label>
-        <span className="text-xs text-stone-600">{openQueue.length} open</span>
+        <span className="text-xs text-muted-ink">{openQueue.length} open</span>
       </div>
 
       {/* Story 177: the truth about when the plain keys are live, and the
           modifier shortcut that works from inside the prose. */}
-      <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs leading-relaxed text-stone-600">
+      <p className="border-b border-rule-soft bg-sunk px-4 py-2 text-xs leading-relaxed text-muted-ink">
         {QUEUE_HINT}
       </p>
 
       {/* A model Run's failure is not about one Band, so it is not attributed to
           one; Cancel is reachable wherever the Run was started. */}
       {handle.runError !== null && (
-        <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <p className="border-b border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
           {handle.runError}
         </p>
       )}
       {runBusy && (
-        <div className="border-b border-stone-200 px-4 py-2">
+        <div className="border-b border-rule-soft px-4 py-2">
           <button
             type="button"
             onClick={handle.cancelRun}
-            className="w-full rounded border border-red-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+            className="w-full rounded border border-failure-rule bg-paper px-2.5 py-1.5 text-xs font-medium text-failure hover:bg-failure-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-failure-focus"
           >
             Cancel run
           </button>
@@ -376,7 +377,7 @@ export function WorkingOrderRail({
         role="tabpanel"
         tabIndex={0}
         aria-labelledby={`rail-tab-${railSelection}`}
-        className="border-b border-stone-300 focus-visible:outline-none"
+        className="border-b border-rule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
       >
         {railSelection === "all" ? (
           <FindingsSidebar
@@ -396,8 +397,8 @@ export function WorkingOrderRail({
         ) : (
           <>
             {railSelection === "structure" && (
-              <div className="border-b border-stone-200">
-                <div className="flex items-center justify-between px-4 py-1.5 text-xs text-stone-600">
+              <div className="border-b border-rule-soft">
+                <div className="flex items-center justify-between px-4 py-1.5 text-xs text-muted-ink">
                   <span>This session</span>
                   <span className="tabular-nums">{formatUsd(handle.sessionCost)}</span>
                 </div>
@@ -413,7 +414,7 @@ export function WorkingOrderRail({
                             : "Run every enabled document-scope Pass (cost is unknown)")
                         : "Enable a structural Pass first"
                     }
-                    className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+                    className="w-full rounded border border-rule bg-paper px-2.5 py-1.5 text-xs font-medium text-quiet-ink hover:bg-sunk disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     {handle.structuralRunning
                       ? "Running structural set…"
@@ -423,7 +424,7 @@ export function WorkingOrderRail({
                   </button>
                 </div>
                 {pastLimit && (
-                  <p className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+                  <p className="border-t border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
                     This document is {documentLength.toLocaleString()} characters, past the{" "}
                     {handle.characterLimit.toLocaleString()} character limit for a single call.{" "}
                     {handle.documentChunks > 1
@@ -489,43 +490,44 @@ export function WorkingOrderRail({
       />
 
       {/* Story 165: milestones and Revisions under the Judge, its raw material. */}
-      <section className="border-t border-stone-300">
-        <div className="space-y-3 border-b border-stone-200 p-4">
+      <section className="border-t border-rule">
+        <div className="space-y-3 border-b border-rule-soft p-4">
           <h2 className="text-sm font-semibold">Milestones</h2>
           <textarea
             value={milestoneNote}
             onChange={(event) => onMilestoneNoteChange(event.target.value)}
             placeholder="Note for this milestone (optional)"
             rows={2}
-            className="w-full resize-none rounded border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+            className="w-full resize-none rounded border border-rule bg-paper px-2 py-1.5 text-sm focus:border-rule-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
           <button
             type="button"
             onClick={onFlagMilestone}
-            className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+            className="w-full rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Flag this revision
           </button>
         </div>
 
-        <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
+        <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
           <h2 className="text-sm font-semibold">Revisions</h2>
-          <label className="flex items-center gap-1.5 text-xs text-stone-600">
+          <label className="flex items-center gap-1.5 text-xs text-muted-ink">
             <input
               type="checkbox"
               checked={milestonesOnly}
               onChange={(event) => onMilestonesOnlyChange(event.target.checked)}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             />
             Milestones only
           </label>
         </div>
 
-        <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
+        <p className="border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
           {PANEL_GLOSSES.revisions.text}{" "}
           <button
             type="button"
             onClick={() => onOpenHelp?.(PANEL_GLOSSES.revisions.sectionId)}
-            className="rounded px-0.5 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+            className="rounded px-0.5 underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             How this works
           </button>
@@ -533,27 +535,27 @@ export function WorkingOrderRail({
 
         <ol className="overflow-y-auto">
           {visibleRevisions.length === 0 && (
-            <li className="px-4 py-4 text-sm text-stone-600">
+            <li className="px-4 py-4 text-sm text-muted-ink">
               {milestonesOnly
                 ? "No milestones yet. Flag one to make it findable later."
                 : "Revisions appear as you write."}
             </li>
           )}
           {visibleRevisions.map((revision) => (
-            <li key={revision.id} className="border-b border-stone-200/70 px-4 py-3 text-sm">
+            <li key={revision.id} className="border-b border-rule-soft/70 px-4 py-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-stone-700">
+                <span className="text-quiet-ink">
                   {new Date(revision.createdAt).toLocaleString()}
                 </span>
                 {revision.flagged && (
-                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                  <span className="rounded bg-milestone px-1.5 py-0.5 text-xs font-medium text-milestone-ink">
                     Milestone
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 text-xs text-stone-600">{revision.wordCount} words</p>
+              <p className="mt-0.5 text-xs text-muted-ink">{revision.wordCount} words</p>
               {revision.note !== null && revision.note !== "" && (
-                <p className="mt-1 text-stone-700">{revision.note}</p>
+                <p className="mt-1 text-quiet-ink">{revision.note}</p>
               )}
             </li>
           ))}

@@ -160,47 +160,47 @@ export function JudgePanel({
   const hasTwoRevisions = revisions.length >= 2;
 
   return (
-    <section className="border-b border-stone-300">
-      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
+    <section className="border-b border-rule">
+      <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
         <h2 className="text-sm font-semibold">Judge</h2>
-        <span className="text-xs text-stone-600">
+        <span className="text-xs text-muted-ink">
           {running ? "judging…" : "two calls, labels swapped"}
         </span>
       </div>
 
       <div className="space-y-3 p-4">
-        <p className="text-xs text-stone-600">
+        <p className="text-xs text-muted-ink">
           {PANEL_GLOSSES.judge.text}{" "}
           <button
             type="button"
             onClick={() => onOpenHelp?.(PANEL_GLOSSES.judge.sectionId)}
-            className="rounded px-0.5 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+            className="rounded px-0.5 underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             How this works
           </button>
         </p>
 
         {!hasTwoRevisions && (
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-muted-ink">
             Take at least two revisions to compare: keep writing, or flag a milestone.
           </p>
         )}
 
         {judge === null ? (
-          <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+          <p className="rounded border border-warning-rule bg-warning-surface px-2 py-1.5 text-xs text-warning">
             Assign a connection to the critic and another to the judge slot. The judge defaults
             to a different model from the critic.
           </p>
         ) : (
-          <p className="text-xs text-stone-600">
-            Judge: <span className="font-medium text-stone-700">{judge.name}</span>
+          <p className="text-xs text-muted-ink">
+            Judge: <span className="font-medium text-quiet-ink">{judge.name}</span>
             {judge.model.trim() === "" ? " (no model set)" : ` (${judge.model})`}
             {judgeIsDefault ? ", a different connection from the critic, by default" : ""}
           </p>
         )}
 
         {sameModelWarning !== null && (
-          <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+          <p className="rounded border border-warning-rule bg-warning-surface px-2 py-1.5 text-xs text-warning">
             {sameModelWarning}
           </p>
         )}
@@ -221,19 +221,19 @@ export function JudgePanel({
         </div>
 
         <div>
-          <h3 className="mb-1 text-xs font-semibold text-stone-600">Word-level diff</h3>
-          <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-stone-200 bg-white p-2 text-xs leading-relaxed">
+          <h3 className="mb-1 text-xs font-semibold text-muted-ink">Word-level diff</h3>
+          <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-rule-soft bg-paper p-2 text-xs leading-relaxed">
             {diff.length === 0 ? (
-              <span className="text-stone-600">Pick two revisions to see what changed.</span>
+              <span className="text-muted-ink">Pick two revisions to see what changed.</span>
             ) : (
               diff.map((segment, index) => <DiffSegmentView key={index} segment={segment} />)
             )}
           </pre>
           {lard !== null && (
-            <p className="mt-1 text-xs text-stone-600">
+            <p className="mt-1 text-xs text-muted-ink">
               Lard Factor:{" "}
-              <span className="font-medium text-stone-800">{formatLardFactor(lard)}</span>{" "}
-              <span className="text-stone-600">
+              <span className="font-medium text-soft-ink">{formatLardFactor(lard)}</span>{" "}
+              <span className="text-muted-ink">
                 — the share of the earlier revision's words cut in the later one. A signal, not a
                 verdict.
               </span>
@@ -251,7 +251,7 @@ export function JudgePanel({
         </div>
 
         {anchor === null && (
-          <p className="text-xs text-stone-600">
+          <p className="text-xs text-muted-ink">
             {mode === "span"
               ? "Select a span of text in the document to judge."
               : "Place the cursor inside a section (a heading and its body) to judge it."}
@@ -266,11 +266,11 @@ export function JudgePanel({
         )}
 
         {beforeText !== null && afterText !== null && (
-          <div className="rounded border border-stone-200 bg-stone-50 p-2">
-            <h3 className="mb-1 text-xs font-semibold text-stone-600">
+          <div className="rounded border border-rule-soft bg-ground p-2">
+            <h3 className="mb-1 text-xs font-semibold text-muted-ink">
               Your prediction (optional)
             </h3>
-            <p className="mb-2 text-xs text-stone-600">
+            <p className="mb-2 text-xs text-muted-ink">
               Which version do you think is clearer? Kept in this session only, never sent to
               the judge, and never required to run it.
             </p>
@@ -291,7 +291,7 @@ export function JudgePanel({
                 <button
                   type="button"
                   onClick={clearPrediction}
-                  className="rounded px-0.5 text-xs text-stone-600 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+                  className="rounded px-0.5 text-xs text-muted-ink underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   Clear
                 </button>
@@ -309,13 +309,13 @@ export function JudgePanel({
             }
           }}
           disabled={!canJudge}
-          className="w-full rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="w-full rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink disabled:cursor-not-allowed disabled:bg-rule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           {running ? "Judging…" : "Judge"}
         </button>
 
         {error !== null && (
-          <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+          <p className="rounded border border-warning-rule bg-warning-surface px-2 py-1.5 text-xs text-warning">
             {error}
           </p>
         )}
@@ -345,12 +345,12 @@ function RevisionSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block text-xs text-stone-600">
+    <label className="block text-xs text-muted-ink">
       {label}
       <select
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded border border-stone-300 bg-white px-1.5 py-1 text-xs text-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+        className="mt-1 w-full rounded border border-rule bg-paper px-1.5 py-1 text-xs text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         <option value="" disabled>
           Pick a revision
@@ -381,10 +381,10 @@ function PredictionButton({
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "rounded border px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600",
+        "rounded border px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
         active
-          ? "border-stone-900 bg-stone-900 text-stone-50"
-          : "border-stone-300 bg-white text-stone-700 hover:bg-stone-100",
+          ? "border-ink bg-ink text-on-ink"
+          : "border-rule bg-paper text-quiet-ink hover:bg-sunk",
       ].join(" ")}
     >
       {children}
@@ -407,8 +407,8 @@ function ModeButton({
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "rounded px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600",
-        active ? "bg-stone-900 text-stone-50" : "border border-stone-300 bg-white text-stone-700",
+        "rounded px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+        active ? "bg-ink text-on-ink" : "border border-rule bg-paper text-quiet-ink",
       ].join(" ")}
     >
       {children}
@@ -419,10 +419,10 @@ function ModeButton({
 function Passage({ label, text }: { label: string; text: string | null }) {
   return (
     <div>
-      <h3 className="mb-1 text-xs font-semibold text-stone-600">{label}</h3>
-      <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-stone-200 bg-white p-2 text-xs leading-relaxed">
+      <h3 className="mb-1 text-xs font-semibold text-muted-ink">{label}</h3>
+      <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-rule-soft bg-paper p-2 text-xs leading-relaxed">
         {text === null ? (
-          <span className="text-stone-600">Not found in this revision.</span>
+          <span className="text-muted-ink">Not found in this revision.</span>
         ) : (
           text
         )}
@@ -437,8 +437,8 @@ function DiffSegmentView({ segment }: { segment: WordDiffSegment }) {
     <span
       className={
         segment.kind === "added"
-          ? "bg-green-100 text-green-900"
-          : "bg-red-100 text-red-900 line-through"
+          ? "bg-added text-added-ink"
+          : "bg-removed text-removed-ink line-through"
       }
     >
       {segment.value}
@@ -464,10 +464,10 @@ function PredictionNote({
 }
 
 const AGREEMENT_CLASS: Record<PredictionAgreement, string> = {
-  agrees: "border-green-200 bg-green-50 text-green-900",
-  disagrees: "border-amber-200 bg-amber-50 text-amber-900",
-  tie: "border-stone-300 bg-stone-50 text-stone-700",
-  unstable: "border-stone-300 bg-stone-50 text-stone-700",
+  agrees: "border-agreement-rule bg-agreement-surface text-agreement",
+  disagrees: "border-warning-rule bg-warning-surface text-warning",
+  tie: "border-rule bg-ground text-quiet-ink",
+  unstable: "border-rule bg-ground text-quiet-ink",
 };
 
 function agreementText(agreement: PredictionAgreement, verdict: JudgeVerdict | null): string {
@@ -493,7 +493,7 @@ function Verdict({ result }: { result: JudgeResult }) {
 
   if (!result.stable || result.verdict === null) {
     return (
-      <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <div className="rounded border border-warning-rule-strong bg-warning-surface p-3 text-sm text-warning">
         <p className="font-semibold">Unstable</p>
         <p className="mt-1 text-xs">
           The judge changed its answer when the labels were swapped, so there is no
@@ -512,28 +512,28 @@ function Verdict({ result }: { result: JudgeResult }) {
 
   const verdict = result.verdict;
   return (
-    <div className="space-y-2 rounded border border-stone-300 bg-white p-3 text-sm">
+    <div className="space-y-2 rounded border border-rule bg-paper p-3 text-sm">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="font-semibold text-stone-900">{preferenceLabel(verdict.preference)}</p>
-        <span className="text-xs text-stone-600">
+        <p className="font-semibold text-ink">{preferenceLabel(verdict.preference)}</p>
+        <span className="text-xs text-muted-ink">
           confidence {Math.round(verdict.confidence * 100)}%
         </span>
       </div>
 
       <div>
-        <h3 className="mb-1 text-xs font-semibold text-stone-600">Reasons</h3>
+        <h3 className="mb-1 text-xs font-semibold text-muted-ink">Reasons</h3>
         {verdict.reasons.length === 0 ? (
-          <p className="text-xs text-stone-600">The judge gave no reasons.</p>
+          <p className="text-xs text-muted-ink">The judge gave no reasons.</p>
         ) : (
           <ul className="space-y-2">
             {verdict.reasons.map((reason, index) => (
               <li key={index} className="text-xs">
                 {reason.evidence_quote !== "" && (
-                  <blockquote className="border-l-2 border-stone-300 pl-2 italic text-stone-600">
+                  <blockquote className="border-l-2 border-rule pl-2 italic text-muted-ink">
                     “{reason.evidence_quote}”
                   </blockquote>
                 )}
-                <p className="mt-0.5 text-stone-800">
+                <p className="mt-0.5 text-soft-ink">
                   <StruckText text={reason.explanation} violations={strikes} />
                 </p>
               </li>
@@ -568,11 +568,11 @@ function ProblemList({
 }) {
   return (
     <div>
-      <h3 className="mb-1 text-xs font-semibold text-stone-600">{label}</h3>
+      <h3 className="mb-1 text-xs font-semibold text-muted-ink">{label}</h3>
       {problems.length === 0 ? (
-        <p className="text-xs text-stone-600">None reported.</p>
+        <p className="text-xs text-muted-ink">None reported.</p>
       ) : (
-        <ul className="list-disc space-y-0.5 pl-4 text-xs text-stone-800">
+        <ul className="list-disc space-y-0.5 pl-4 text-xs text-soft-ink">
           {problems.map((problem, index) => (
             <li key={index}>
               <StruckText text={problem} violations={strikes} />

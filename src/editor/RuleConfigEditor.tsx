@@ -30,7 +30,7 @@ export function RuleConfigEditor({ pass, onSave, onCancel }: RuleConfigEditorPro
   };
 
   return (
-    <div className="space-y-3 bg-stone-100/70 px-4 py-3">
+    <div className="space-y-3 bg-sunk/70 px-4 py-3">
       {fields.map((field) => (
         <FieldEditor
           key={field.key}
@@ -42,14 +42,14 @@ export function RuleConfigEditor({ pass, onSave, onCancel }: RuleConfigEditorPro
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded bg-stone-900 px-3 py-1 text-xs font-medium text-stone-50 hover:bg-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="rounded bg-ink px-3 py-1 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           onClick={save}
         >
           Save
         </button>
         <button
           type="button"
-          className="rounded border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="rounded border border-rule bg-paper px-3 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           onClick={onCancel}
         >
           Cancel
@@ -68,14 +68,14 @@ interface FieldEditorProps {
 function FieldEditor({ field, value, onChange }: FieldEditorProps) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-stone-700">{field.label}</span>
+      <span className="text-xs font-medium text-quiet-ink">{field.label}</span>
       {field.kind === "number" ? (
         <input
           type="number"
           min={1}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="mt-1 w-24 rounded border border-stone-300 bg-white px-2 py-1 text-sm focus:border-stone-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="mt-1 w-24 rounded border border-rule bg-paper px-2 py-1 text-sm focus:border-rule-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
       ) : (
         <textarea
@@ -83,10 +83,10 @@ function FieldEditor({ field, value, onChange }: FieldEditorProps) {
           value={value}
           onChange={(event) => onChange(event.target.value)}
           spellCheck={false}
-          className="mt-1 w-full resize-y rounded border border-stone-300 bg-white px-2 py-1.5 font-mono text-xs focus:border-stone-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="mt-1 w-full resize-y rounded border border-rule bg-paper px-2 py-1.5 font-mono text-xs focus:border-rule-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
       )}
-      <span className="mt-0.5 block text-xs text-stone-600">{field.help}</span>
+      <span className="mt-0.5 block text-xs text-muted-ink">{field.help}</span>
     </label>
   );
 }
