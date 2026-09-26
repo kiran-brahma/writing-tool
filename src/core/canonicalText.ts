@@ -205,7 +205,7 @@ export function canonicalParagraphs(tree: DocTree): CanonicalParagraph[] {
 /**
  * Word count over a canonical string. A line's leading block marker (`#`, `>`,
  * `-`, `N.`) is syntax, not prose, so it is skipped, and the words are then
- * counted by the one token definition in `tokens.ts`. The header word count and
+ * counted by the one token definition in `tokens.ts`. The Status line's word count and
  * the metrics panel's sentence lengths therefore agree on what a word is.
  */
 export function wordCount(canonical: string): number {

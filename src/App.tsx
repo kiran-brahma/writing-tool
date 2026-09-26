@@ -432,7 +432,6 @@ export default function App() {
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-4">
           <DocumentMenu
-            wordCount={document?.wordCount ?? 0}
             onExport={onExport}
             onImport={onImport}
             canExport={document !== null}
