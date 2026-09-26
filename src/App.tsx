@@ -366,7 +366,7 @@ export default function App() {
   if (status === "loading") {
     return (
       <CenteredMessage>
-        <p className="text-stone-500">Opening your Library…</p>
+        <p className="text-faint-ink">Opening your Library…</p>
       </CenteredMessage>
     );
   }
@@ -374,8 +374,8 @@ export default function App() {
   if (status === "error") {
     return (
       <CenteredMessage>
-        <h1 className="text-lg font-semibold text-stone-900">Obelus could not open your Library</h1>
-        <p className="mt-2 max-w-md text-sm text-stone-600">{openError}</p>
+        <h1 className="text-lg font-semibold text-ink">Obelus could not open your Library</h1>
+        <p className="mt-2 max-w-md text-sm text-muted-ink">{openError}</p>
       </CenteredMessage>
     );
   }
@@ -413,11 +413,11 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
-      <header className="flex items-center justify-between gap-3 sm:gap-4 border-b border-stone-200 px-3 sm:px-6 py-2.5 whitespace-nowrap overflow-x-auto min-w-0 bg-stone-50 text-stone-900">
+    <div className="flex min-h-screen flex-col bg-ground text-ink">
+      <header className="flex items-center justify-between gap-3 sm:gap-4 border-b border-rule-soft px-3 sm:px-6 py-2.5 whitespace-nowrap overflow-x-auto min-w-0 bg-ground text-ink">
         <div className="shrink-0">
-          <h1 className="text-base font-semibold tracking-tight text-stone-900">Obelus</h1>
-          <p className="hidden sm:block text-xs text-stone-500">It marks; it never holds the pen.</p>
+          <h1 className="text-base font-semibold tracking-tight text-ink">Obelus</h1>
+          <p className="hidden sm:block text-xs text-faint-ink">It marks; it never holds the pen.</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <DocumentMenu
@@ -426,7 +426,7 @@ export default function App() {
             onImport={onImport}
             canExport={document !== null}
           />
-          <div className="h-4 w-px bg-stone-300" aria-hidden="true" />
+          <div className="h-4 w-px bg-rule" aria-hidden="true" />
           <nav aria-label="Main navigation" className="flex items-center gap-0.5 sm:gap-1 shrink-0">
             {DESTINATIONS.map(({ id, label }) => {
               const isCurrent = isCurrentDestination(id, view);
@@ -438,10 +438,10 @@ export default function App() {
                   aria-current={isCurrent ? "page" : undefined}
                   onClick={() => navigateTo(id)}
                   className={[
-                    "rounded px-2 sm:px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600",
+                    "rounded px-2 sm:px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
                     isCurrent
-                      ? "bg-stone-900 font-semibold text-stone-50 shadow-xs"
-                      : "text-stone-600 hover:bg-stone-200/70 hover:text-stone-900",
+                      ? "bg-ink font-semibold text-on-ink shadow-xs"
+                      : "text-muted-ink hover:bg-sunk-strong/70 hover:text-ink",
                   ].join(" ")}
                 >
                   {label}
@@ -453,18 +453,18 @@ export default function App() {
       </header>
 
       {saveError !== null && (
-        <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
           Could not save your document: {saveError}
         </div>
       )}
 
       {storageNotice !== null && (
-        <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="flex items-center justify-between gap-4 border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
           <span>{storageNotice}</span>
           <button
             type="button"
             onClick={dismissStorageNotice}
-            className="shrink-0 rounded border border-amber-300 px-2 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700"
+            className="shrink-0 rounded border border-warning-rule-strong px-2 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus"
           >
             Dismiss
           </button>
@@ -472,7 +472,7 @@ export default function App() {
       )}
 
       {importError !== null && (
-        <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
           Could not import that markdown: {importError}
         </div>
       )}
@@ -544,7 +544,7 @@ export default function App() {
 
       {view === "editor" && (
         <div className="flex min-h-0 flex-1">
-          <main className="flex min-h-0 flex-1 flex-col bg-white">
+          <main className="flex min-h-0 flex-1 flex-col bg-paper">
             {document !== null && (
               <>
                 <DocumentTitleField
@@ -649,7 +649,7 @@ function DocumentTitleField({
       }}
       aria-label="Document title"
       placeholder="Untitled"
-      className="border-b border-stone-200 bg-white px-8 py-3 text-xl font-semibold tracking-tight text-stone-900 focus:outline-none"
+      className="border-b border-rule-soft bg-paper px-8 py-3 text-xl font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
     />
   );
 }
@@ -676,19 +676,19 @@ function EditorNote({
   onDismiss?: () => void;
 }) {
   return (
-    <aside className="border-b border-stone-200 bg-stone-50 px-8 py-3">
+    <aside className="border-b border-rule-soft bg-ground px-8 py-3">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-stone-900">{heading}</h2>
+          <h2 className="text-sm font-semibold text-ink">{heading}</h2>
           {body.map((paragraph) => (
-            <p key={paragraph} className="mt-1 text-sm leading-relaxed text-stone-600">
+            <p key={paragraph} className="mt-1 text-sm leading-relaxed text-muted-ink">
               {paragraph}
             </p>
           ))}
           <button
             type="button"
             onClick={onAction}
-            className="mt-2 text-sm font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+            className="mt-2 rounded text-sm font-medium text-link underline underline-offset-2 hover:text-link-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {actionLabel}
           </button>
@@ -697,7 +697,7 @@ function EditorNote({
           <button
             type="button"
             onClick={onDismiss}
-            className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="shrink-0 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {dismissLabel}
           </button>
@@ -730,7 +730,7 @@ function slug(title: string): string {
 
 function CenteredMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-stone-50 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-ground text-center">
       {children}
     </div>
   );

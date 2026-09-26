@@ -308,11 +308,11 @@ export function DocumentEditor({
 
 function Toolbar({ editor }: { editor: Editor | null }) {
   if (editor === null) {
-    return <div className="h-11 border-b border-stone-200" />;
+    return <div className="h-11 border-b border-rule-soft" />;
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-stone-200 px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-1 border-b border-rule-soft px-3 py-1.5">
       <ToolbarButton
         label="Heading 1"
         active={editor.isActive("heading", { level: 1 })}
@@ -402,7 +402,7 @@ function Toolbar({ editor }: { editor: Editor | null }) {
 }
 
 function Separator() {
-  return <span className="mx-1 h-5 w-px bg-stone-200" aria-hidden="true" />;
+  return <span className="mx-1 h-5 w-px bg-sunk-strong" aria-hidden="true" />;
 }
 
 interface ToolbarButtonProps {
@@ -421,8 +421,8 @@ function ToolbarButton({ label, active = false, onClick, children }: ToolbarButt
       aria-pressed={active}
       onClick={onClick}
       className={[
-        "rounded px-2 py-1 text-sm transition-colors",
-        active ? "bg-stone-900 text-stone-50" : "text-stone-700 hover:bg-stone-100",
+        "rounded px-2 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+        active ? "bg-ink text-on-ink" : "text-quiet-ink hover:bg-sunk",
       ].join(" ")}
     >
       {children}

@@ -71,10 +71,10 @@ export function DocumentMenu({
         aria-controls={open ? "document-actions-menu" : undefined}
         aria-label="Document actions"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 transition-colors"
+        className="flex items-center gap-1.5 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors"
       >
         <span>Document</span>
-        <span aria-hidden="true" className="text-stone-400">
+        <span aria-hidden="true" className="text-ghost-ink">
           ▾
         </span>
       </button>
@@ -84,15 +84,15 @@ export function DocumentMenu({
           id="document-actions-menu"
           role="menu"
           aria-label="Document actions"
-          className="absolute left-0 top-full mt-1.5 w-44 rounded border border-stone-200 bg-white py-1 shadow-md z-30"
+          className="absolute left-0 top-full mt-1.5 w-44 rounded border border-rule-soft bg-paper py-1 shadow-md z-30"
         >
-          <div className="border-b border-stone-100 px-3 py-1.5 text-xs text-stone-500">
-            <span className="font-semibold text-stone-700">
+          <div className="border-b border-rule-faint px-3 py-1.5 text-xs text-faint-ink">
+            <span className="font-semibold text-quiet-ink">
               {wordCount.toLocaleString()}
             </span>{" "}
             {wordCount === 1 ? "word" : "words"}
           </div>
-          <label className="flex w-full cursor-pointer items-center px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50 transition-colors">
+          <label className="flex w-full cursor-pointer items-center px-3 py-1.5 text-xs text-quiet-ink hover:bg-ground has-focus-visible:outline-none has-focus-visible:ring-2 has-focus-visible:ring-focus transition-colors">
             Import Markdown
             <input
               type="file"
@@ -106,7 +106,7 @@ export function DocumentMenu({
             role="menuitem"
             onClick={handleExport}
             disabled={!canExport}
-            className="flex w-full items-center px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
+            className="flex w-full items-center px-3 py-1.5 text-xs text-quiet-ink hover:bg-ground disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors text-left"
           >
             Export Markdown
           </button>
