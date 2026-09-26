@@ -49,43 +49,43 @@ export function FindingRow({
   );
 
   return (
-    <li ref={rowRef} className="border-b border-stone-200/70 last:border-b-0">
+    <li ref={rowRef} className="border-b border-rule-soft/70 last:border-b-0">
       <button
         type="button"
         onClick={() => onSelect(finding.id)}
         aria-current={current ? "true" : undefined}
         className={[
-          "w-full px-4 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 focus-visible:ring-inset",
-          current ? "bg-amber-100/70" : "hover:bg-stone-200/50",
+          "w-full px-4 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset",
+          current ? "bg-mark-wash/70" : "hover:bg-sunk-strong/50",
           leftQueue ? "opacity-60" : "",
         ].join(" ")}
       >
-        <p className="flex items-start gap-2 text-stone-800">
-          <span className="font-mono text-xs text-stone-600">
+        <p className="flex items-start gap-2 text-soft-ink">
+          <span className="font-mono text-xs text-muted-ink">
             “<StruckText text={finding.anchor.quote} violations={violations} />”
           </span>
           <span className="font-medium">
             <StruckText text={finding.issue} violations={violations} />
           </span>
         </p>
-        <p className="mt-1 text-stone-600">
+        <p className="mt-1 text-muted-ink">
           <StruckText text={finding.diagnosis} violations={violations} />
         </p>
         {finding.inVoiceList === true && (
-          <p className="mt-1 text-xs text-stone-600">
-            <span className="rounded bg-stone-200 px-1.5 py-0.5 font-medium text-stone-700">
+          <p className="mt-1 text-xs text-muted-ink">
+            <span className="rounded bg-sunk-strong px-1.5 py-0.5 font-medium text-quiet-ink">
               In your Voice list
             </span>{" "}
             The model flagged it anyway.
           </p>
         )}
         {!attached && (
-          <p className="mt-1 text-xs italic text-stone-600">No longer found in the text.</p>
+          <p className="mt-1 text-xs italic text-muted-ink">No longer found in the text.</p>
         )}
-        <p className="mt-1 text-xs text-stone-600">
+        <p className="mt-1 text-xs text-muted-ink">
           {finding.provenance.model} · {new Date(finding.provenance.at).toLocaleString()}
           {leftQueue && (
-            <span className="ml-2 rounded bg-stone-300/70 px-1.5 py-0.5 font-medium text-stone-700">
+            <span className="ml-2 rounded bg-rule/70 px-1.5 py-0.5 font-medium text-quiet-ink">
               {finding.status}
               {finding.declineReason === undefined ? "" : ` · ${finding.declineReason}`}
             </span>
@@ -93,20 +93,20 @@ export function FindingRow({
         </p>
       </button>
       {leftQueue && onReopen !== undefined && (
-        <div className="border-t border-stone-200/70 px-4 py-2">
+        <div className="border-t border-rule-soft/70 px-4 py-2">
           <button
             type="button"
             onClick={() => onReopen(finding.id)}
-            className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+            className="rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             Reopen
           </button>
         </div>
       )}
       {violations.length > 0 && (
-        <div className="border-t border-stone-200/70 px-4 py-2">
+        <div className="border-t border-rule-soft/70 px-4 py-2">
           {elsewhere.length > 0 && (
-            <p className="text-xs text-stone-600">
+            <p className="text-xs text-muted-ink">
               Praise from the model: <StruckViolations violations={elsewhere} />
             </p>
           )}
@@ -115,7 +115,7 @@ export function FindingRow({
             <button
               type="button"
               onClick={() => onDecline(finding.id, "violation")}
-              className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600"
+              className="mt-2 rounded border border-violation-rule bg-violation-surface px-2 py-1 text-xs font-medium text-violation-ink hover:bg-violation-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violation-focus"
             >
               Decline as violation
             </button>
@@ -123,7 +123,7 @@ export function FindingRow({
         </div>
       )}
       {rawResponse !== undefined && rawResponse !== "" && (
-        <pre className="mx-4 mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-stone-900/90 p-2 font-mono text-xs text-stone-100">
+        <pre className="mx-4 mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-ink/90 p-2 font-mono text-xs text-sunk">
           {rawResponse}
         </pre>
       )}

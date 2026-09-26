@@ -113,32 +113,32 @@ export function BandPanel({
 
   return (
     <div>
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
+      <p className="border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
         {PANEL_GLOSSES.band.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.band.sectionId)}
-          className="rounded px-0.5 underline hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="rounded px-0.5 underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           How this works
         </button>
       </p>
 
-      <p className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-xs text-stone-600">
+      <p className="border-b border-rule-soft bg-sunk px-4 py-2 text-xs text-muted-ink">
         {criticName === null
           ? "No critic assigned."
           : `Bands that call a model use the critic connection: ${criticName}`}
       </p>
 
       {solo !== null && (
-        <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <p className="border-b border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
           {solo.name} runs on its own. The other rule passes are held while it is on; turn it off
           to run them again.
         </p>
       )}
 
       {passes.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-stone-600">
+        <p className="px-4 py-4 text-sm text-muted-ink">
           No pass sits in this band yet. The starter pack adds them as tickets land.
         </p>
       ) : (
@@ -235,7 +235,7 @@ function PassHeading({
     <div className="flex items-start gap-2 px-4 py-3">
       <input
         type="checkbox"
-        className="mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600 rounded-xs"
+        className="mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-xs"
         checked={pass.enabled}
         aria-label={`Enable ${pass.name}`}
         onChange={(event) => onToggle(pass.id, event.target.checked)}
@@ -244,16 +244,16 @@ function PassHeading({
         <p
           className={
             pass.enabled
-              ? "text-sm font-semibold text-stone-900"
-              : "text-sm font-medium text-stone-600"
+              ? "text-sm font-semibold text-ink"
+              : "text-sm font-medium text-muted-ink"
           }
         >
           {pass.name}
           {badge}
         </p>
-        <p className="mt-0.5 text-xs text-stone-600">{pass.description}</p>
+        <p className="mt-0.5 text-xs text-muted-ink">{pass.description}</p>
         {detail}
-        {!pass.enabled && <p className="mt-1 text-xs italic text-stone-600">Disabled.</p>}
+        {!pass.enabled && <p className="mt-1 text-xs italic text-muted-ink">Disabled.</p>}
       </div>
       {action}
     </div>
@@ -263,9 +263,9 @@ function PassHeading({
 /** A spinner and elapsed timer while a Run is in flight. */
 function RunningBadge({ since }: { since: number | null }) {
   return (
-    <span className="flex shrink-0 items-center gap-1.5 text-xs text-stone-600">
+    <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-ink">
       <span
-        className="h-3 w-3 animate-spin rounded-full border-2 border-stone-300 border-t-stone-700"
+        className="h-3 w-3 animate-spin rounded-full border-2 border-rule border-t-quiet-ink"
         aria-hidden="true"
       />
       {since === null ? null : <ElapsedTimer since={since} />}
@@ -290,7 +290,7 @@ function RunButton({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className="shrink-0 rounded border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+      className="shrink-0 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
     >
       {children}
     </button>
@@ -335,7 +335,7 @@ function FindingsPassBlock({
   const openCount = findings.filter(isOpenFinding).length;
   const target = targetLabel(pass.scope);
   return (
-    <section className="border-b border-stone-200">
+    <section className="border-b border-rule-soft">
       <PassHeading
         pass={pass}
         onToggle={onToggle}
@@ -346,7 +346,7 @@ function FindingsPassBlock({
             <div className="flex shrink-0 items-center gap-2">
               {estimate !== undefined && (
                 <span
-                  className="text-xs text-stone-600 tabular-nums"
+                  className="text-xs text-muted-ink tabular-nums"
                   title={`${estimate.tokens.toLocaleString()} tokens estimated${estimate.costKnown ? "" : " · cost is unknown"}`}
                 >
                   {formatCostEstimate(estimate)}
@@ -368,7 +368,7 @@ function FindingsPassBlock({
         }
       />
       {report !== null && (
-        <p className="px-4 pb-2 text-xs text-stone-600">
+        <p className="px-4 pb-2 text-xs text-muted-ink">
           {report.fromCache && "Served from the cache; no provider call. "}
           {report.droppedAnchors === 0
             ? "All findings stayed inside the text examined."
@@ -377,7 +377,7 @@ function FindingsPassBlock({
         </p>
       )}
       {strikes.length > 0 && (
-        <p className="px-4 pb-2 text-xs text-stone-600">
+        <p className="px-4 pb-2 text-xs text-muted-ink">
           Praise from the model, struck through rather than hidden: <StruckViolations violations={strikes} />
         </p>
       )}
@@ -387,12 +387,12 @@ function FindingsPassBlock({
         </div>
       )}
       {findings.length === 0 ? (
-        <p className="border-t border-stone-200/70 px-4 py-2 text-xs text-stone-600">
+        <p className="border-t border-rule-soft/70 px-4 py-2 text-xs text-muted-ink">
           No findings yet. Run it against {target}.
         </p>
       ) : (
         <>
-          <p className="border-t border-stone-200/70 bg-stone-100/70 px-4 py-1.5 text-xs text-stone-600">
+          <p className="border-t border-rule-soft/70 bg-sunk/70 px-4 py-1.5 text-xs text-muted-ink">
             {openCount} open
           </p>
           <ol>
@@ -445,13 +445,13 @@ function RulePassBlock({
   const [editing, setEditing] = useState(false);
   const openCount = findings.filter(isOpenFinding).length;
   return (
-    <section className="border-b border-stone-200">
+    <section className="border-b border-rule-soft">
       <PassHeading
         pass={pass}
         onToggle={onToggle}
         badge={
           held ? (
-            <span className="ml-1.5 rounded bg-stone-200 px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-700">
+            <span className="ml-1.5 rounded bg-sunk-strong px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-quiet-ink">
               held
             </span>
           ) : null
@@ -459,7 +459,7 @@ function RulePassBlock({
         action={
           <button
             type="button"
-            className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+            className="shrink-0 rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             onClick={() => setEditing((current) => !current)}
           >
             {editing ? "Close" : "Edit"}
@@ -478,12 +478,12 @@ function RulePassBlock({
         />
       )}
       {findings.length === 0 ? (
-        <p className="border-t border-stone-200/70 px-4 py-2 text-xs text-stone-600">
+        <p className="border-t border-rule-soft/70 px-4 py-2 text-xs text-muted-ink">
           Nothing marked. Rule passes run free, on every save.
         </p>
       ) : (
         <>
-          <p className="border-t border-stone-200/70 bg-stone-100/70 px-4 py-1.5 text-xs text-stone-600">
+          <p className="border-t border-rule-soft/70 bg-sunk/70 px-4 py-1.5 text-xs text-muted-ink">
             {openCount} open · free, offline
           </p>
           <ol>
@@ -526,7 +526,7 @@ function ReaderPassBlock({
   onToggle: (passId: string, enabled: boolean) => void;
 }) {
   return (
-    <section className="border-b border-stone-200">
+    <section className="border-b border-rule-soft">
       <PassHeading
         pass={pass}
         onToggle={onToggle}
@@ -541,12 +541,12 @@ function ReaderPassBlock({
         }
       />
       {error !== null && (
-        <p className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <p className="border-t border-failure-rule bg-failure-surface px-4 py-2 text-xs text-failure">
           {error}
         </p>
       )}
       {accounts.length === 0 ? (
-        <p className="border-t border-stone-200/70 px-4 py-2 text-xs text-stone-600">
+        <p className="border-t border-rule-soft/70 px-4 py-2 text-xs text-muted-ink">
           No Reader accounts yet. Run the pass to see what each Section communicates.
         </p>
       ) : (
@@ -589,7 +589,7 @@ function AuditPassBlock({
 }) {
   const { strikes } = splitViolations(report?.violations ?? []);
   return (
-    <section className="border-b border-stone-200">
+    <section className="border-b border-rule-soft">
       <PassHeading
         pass={pass}
         onToggle={onToggle}
@@ -604,24 +604,24 @@ function AuditPassBlock({
         }
       />
       {report !== null && (
-        <p className="px-4 pb-2 text-xs text-stone-600">
+        <p className="px-4 pb-2 text-xs text-muted-ink">
           {report.chunks <= 1
             ? "Read in a single call."
             : `Read in ${report.chunks - 1} overlapping chunks, then synthesized: ${report.chunks} calls.`}
         </p>
       )}
       {report !== null && strikes.length > 0 && (
-        <p className="px-4 pb-2 text-xs text-stone-600">
+        <p className="px-4 pb-2 text-xs text-muted-ink">
           Praise from the model, struck through rather than hidden: <StruckViolations violations={strikes} />
         </p>
       )}
       {error !== null && (
-        <p className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <p className="border-t border-failure-rule bg-failure-surface px-4 py-2 text-xs text-failure">
           {error}
         </p>
       )}
       {accounts.length === 0 ? (
-        <p className="border-t border-stone-200/70 px-4 py-2 text-xs text-stone-600">
+        <p className="border-t border-rule-soft/70 px-4 py-2 text-xs text-muted-ink">
           No audit account yet. Run the pass to see whether the document's reasoning holds up.
         </p>
       ) : (

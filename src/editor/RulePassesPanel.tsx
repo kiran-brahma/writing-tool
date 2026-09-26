@@ -32,24 +32,24 @@ export function RulePassesPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <section className="border-b border-stone-200">
-      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2">
+    <section className="border-b border-rule-soft">
+      <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
         <h2 className="text-sm font-semibold">Word — rule passes</h2>
-        <span className="text-xs text-stone-600">free, offline</span>
+        <span className="text-xs text-muted-ink">free, offline</span>
       </div>
 
-      <p className="border-b border-stone-200 px-4 py-2 text-xs text-stone-600">
+      <p className="border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
         {PANEL_GLOSSES.rulePasses.text}{" "}
         <button
           type="button"
           onClick={() => onOpenHelp?.(PANEL_GLOSSES.rulePasses.sectionId)}
-          className="underline hover:text-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+          className="underline hover:text-soft-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           How this works
         </button>
       </p>
       {solo !== null && (
-        <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <p className="border-b border-warning-rule bg-warning-surface px-4 py-2 text-xs text-warning">
           {solo.name} runs on its own. The other rule passes are held while it is on; turn it off
           to run them again.
         </p>
@@ -58,11 +58,11 @@ export function RulePassesPanel({
         {rulePasses.map((pass) => {
           const held = solo !== null && pass.id !== solo.id;
           return (
-            <li key={pass.id} className="border-b border-stone-200/70 last:border-b-0">
+            <li key={pass.id} className="border-b border-rule-soft/70 last:border-b-0">
               <div className="flex items-start gap-2 px-4 py-2">
                 <input
                   type="checkbox"
-                  className="mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+                  className="mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   checked={pass.enabled}
                   aria-label={`Enable ${pass.name}`}
                   onChange={(event) => onToggle(pass.id, event.target.checked)}
@@ -71,23 +71,23 @@ export function RulePassesPanel({
                   <p
                     className={
                       pass.enabled && !held
-                        ? "text-sm font-semibold text-stone-900"
-                        : "text-sm font-medium text-stone-600"
+                        ? "text-sm font-semibold text-ink"
+                        : "text-sm font-medium text-muted-ink"
                     }
                   >
                     {pass.name}
                     {held && (
-                      <span className="ml-1.5 rounded bg-stone-200 px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-stone-700">
+                      <span className="ml-1.5 rounded bg-sunk-strong px-1 py-0.5 text-xs font-medium uppercase tracking-wide text-quiet-ink">
                         held
                       </span>
                     )}
                   </p>
-                  <p className="mt-0.5 text-xs text-stone-600">{pass.description}</p>
-                  {!pass.enabled && <p className="mt-1 text-xs italic text-stone-600">Disabled.</p>}
+                  <p className="mt-0.5 text-xs text-muted-ink">{pass.description}</p>
+                  {!pass.enabled && <p className="mt-1 text-xs italic text-muted-ink">Disabled.</p>}
                 </div>
                 <button
                   type="button"
-                  className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600"
+                  className="rounded border border-rule bg-paper px-2 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   onClick={() => setEditingId((current) => (current === pass.id ? null : pass.id))}
                 >
                   {editingId === pass.id ? "Close" : "Edit"}

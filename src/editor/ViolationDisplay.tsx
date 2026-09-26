@@ -12,7 +12,7 @@ export function StruckText({ text, violations }: { text: string; violations: Vio
     <>
       {markViolations(text, violations).map((segment, index) =>
         segment.violated ? (
-          <s key={index} className="text-stone-600 decoration-rose-500 decoration-2">
+          <s key={index} className="text-muted-ink decoration-violation decoration-2">
             {segment.text}
           </s>
         ) : (
@@ -34,7 +34,7 @@ export function StruckViolations({ violations }: { violations: Violation[] }) {
       {violations.map((violation, index) => (
         <span key={index}>
           {index > 0 && ", "}
-          <s className="text-stone-600 decoration-rose-500 decoration-2">{violation.text}</s>
+          <s className="text-muted-ink decoration-violation decoration-2">{violation.text}</s>
         </span>
       ))}
     </>
@@ -48,12 +48,12 @@ export function StruckViolations({ violations }: { violations: Violation[] }) {
  */
 export function QuarantinedRewrite({ violations }: { violations: Violation[] }) {
   return (
-    <details className="mt-2 rounded border border-stone-300 bg-stone-50">
-      <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-600">
+    <details className="mt-2 rounded border border-rule bg-ground">
+      <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-muted-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
         Reveal quarantined rewrite
       </summary>
       <div
-        className="select-none border-t border-stone-200 px-2 py-1.5 font-mono text-xs text-stone-600"
+        className="select-none border-t border-rule-soft px-2 py-1.5 font-mono text-xs text-muted-ink"
         style={{ userSelect: "none" }}
       >
         {violations.map((violation, index) => (
@@ -61,7 +61,7 @@ export function QuarantinedRewrite({ violations }: { violations: Violation[] }) 
             {violation.text}
           </p>
         ))}
-        <p className="mt-1 font-sans text-xs italic text-stone-600">
+        <p className="mt-1 font-sans text-xs italic text-muted-ink">
           Shown for inspection only. Your keyboard is the only way text enters your Document.
         </p>
       </div>
