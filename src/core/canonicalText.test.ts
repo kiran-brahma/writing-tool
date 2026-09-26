@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canonicalText, canonicalTextWithMap, wordCount } from "./canonicalText";
+import {
+  canonicalParagraphs,
+  canonicalText,
+  canonicalTextWithMap,
+  wordCount,
+} from "./canonicalText";
 import type { BlockNode, DocTree, ParagraphNode } from "./docTree";
 import { parseCanonical } from "./parseCanonical";
 
@@ -329,5 +334,56 @@ describe("wordCount", () => {
     expect(wordCount("- one\n- two")).toBe(2);
     expect(wordCount("1. one\n2. two\n")).toBe(2);
     expect(wordCount("> quoted words here")).toBe(3);
+  });
+});
+
+describe("canonicalParagraphs", () => {
+  function item(...content: BlockNode[]) {
+    return { type: "listItem" as const, content };
+  }
+
+  it("finds the Paragraphs inside list items, nested lists included, in document order", () => {
+    const tree = doc(
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Title" }] },
+      paragraph("Before."),
+      {
+        type: "bulletList",
+        content: [
+          item(paragraph("Outer."), paragraph("Continued.   "), {
+            type: "orderedList",
+            attrs: { start: 3 },
+            content: [item(paragraph("Inner *item*."))],
+          }),
+          item({ type: "codeBlock", content: [{ type: "text", text: "Not prose." }] }),
+          item(paragraph("")),
+          item(paragraph("- Last.")),
+        ],
+      },
+      paragraph("After."),
+    );
+    const canonical = canonicalText(tree);
+    const paragraphs = canonicalParagraphs(tree);
+
+    expect(paragraphs.map((entry) => entry.text)).toEqual([
+      "Before.",
+      "Outer.",
+      "Continued.",
+      "Inner \\*item\\*.",
+      "\\- Last.",
+      "After.",
+    ]);
+    expect(paragraphs.map((entry) => entry.index)).toEqual([1, 2, 2, 2, 2, 3]);
+    for (const entry of paragraphs) {
+      expect(canonical.slice(entry.start, entry.end)).toBe(entry.text);
+    }
+  });
+
+  it("finds nothing in a Document without prose", () => {
+    const tree = doc(
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Title" }] },
+      { type: "bulletList", content: [item(), item(paragraph("  "))] },
+    );
+
+    expect(canonicalParagraphs(tree)).toEqual([]);
   });
 });
