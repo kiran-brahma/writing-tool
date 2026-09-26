@@ -63,6 +63,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
     paragraphs: [
       "You write in Obelus, and everything runs in your browser. Your Documents stay on this machine until you ask a model to read one.",
       "When you run a model pass, Obelus sends only the text that pass needs. The text goes from this browser tab straight to the Connection you configured. The reply comes back to this tab and is saved here.",
+      "The Pass workbench's prompt assistant sends only your request and your prompt draft, never a Document, to the Connection assigned to the Critic.",
       "You do not sign in, and there is no Obelus account. There is no telemetry, no analytics, no crash or error reporting and no usage counter. The only requests that leave your browser are the ones you trigger.",
       "One server serves the app itself. It sends the app's static files and the security headers described below. It has no API route and never touches a Provider. No Obelus machine sees your key or your prose.",
     ],
@@ -98,7 +99,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
     paragraphs: [
       "Obelus makes two privacy claims. Different things enforce them, so keep them apart.",
       "No third-party script can load. The Worker sets a Content-Security-Policy header. Its script-src is 'self', so only JavaScript from Obelus's own origin can run. No third-party origin, CDN or inline script can execute. Your browser enforces this from the header. It is not a promise in application code.",
-      "Requests go only to your Connection, and the header does not enforce this one. The CSP's connect-src is deliberately broad (*), because a static header cannot list a base URL you type for a Custom Connection or the local Ollama origin. The code path enforces it instead. Before any request leaves, assertWithinConnection checks that the request URL sits inside your Connection's base URL. A URL outside it is refused. Every model pass and the Judge go through this one seam, and a test asserts that the seam only ever sees the base URL you configured.",
+      "Requests go only to your Connection, and the header does not enforce this one. The CSP's connect-src is deliberately broad (*), because a static header cannot list a base URL you type for a Custom Connection or the local Ollama origin. The code path enforces it instead. Before any request leaves, assertWithinConnection checks that the request URL sits inside your Connection's base URL. A URL outside it is refused. Every model pass, the Judge, the prompt assistant, Test connection and model listing go through this one seam, and a test asserts that the seam only ever sees the base URL you configured.",
       "So script-src 'self' is the header's claim, and only-your-Connection is the code's claim. Obelus does not claim the header enforces the second.",
     ],
     links: [
@@ -141,7 +142,7 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
       {
         title: "Watch the network",
         body: [
-          "Open DevTools, then Network, and tick Preserve log. Reload, then run a model pass or use Test connection. Every request you see goes to the base URL of the Connection you configured. If you have not configured a Connection yet, reload with this tab open. Obelus makes no outbound request at all.",
+          "Open DevTools, then Network, and tick Preserve log. Reload, then run a model pass or use Test connection. You will first see the requests that load Obelus itself from its own origin: the page, its scripts and styles, the manifest and the offline shell's service worker. Every other request goes to the base URL of the Connection you configured. If you have not configured a Connection yet, reload with this tab open. You will see only those app files, and Obelus makes no outbound request at all.",
         ],
       },
       {
