@@ -5,6 +5,7 @@ import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor, type HighlightHit } from "./editor/DocumentEditor";
 import { FindingCallout } from "./editor/FindingCallout";
+import { StatusLine } from "./editor/StatusLine";
 import { calloutFindings } from "./editor/callout";
 import { isTypingTarget } from "./editor/typingTarget";
 import { WorkingOrderRail } from "./editor/WorkingOrderRail";
@@ -583,11 +584,6 @@ export default function App() {
           <main className="flex min-h-0 flex-1 flex-col bg-paper">
             {document !== null && (
               <>
-                <DocumentTitleField
-                  key={document.id}
-                  title={document.title}
-                  onCommit={(title) => void renameDocument(document.id, title)}
-                />
                 {!firstRunNoteDismissed && (
                   <EditorNote
                     heading={FIRST_RUN_NOTE.heading}
@@ -617,7 +613,15 @@ export default function App() {
                   jumpRequest={jumpRequest}
                   onHighlightClick={openCallout}
                   calloutOpen={calloutOpen}
+                  pageHeading={
+                    <DocumentTitleField
+                      key={document.id}
+                      title={document.title}
+                      onCommit={(title) => void renameDocument(document.id, title)}
+                    />
+                  }
                 />
+                <StatusLine wordCount={document.wordCount} />
                 {calloutOpen && calloutHit !== null && (
                   <FindingCallout
                     findings={calloutEntries}
@@ -658,7 +662,9 @@ export default function App() {
 /**
  * The Document's title, editable in place. It is the Writer's name for the
  * Document, never a model's (story 74): the field commits on blur or Enter and
- * holds no generated text.
+ * holds no generated text. It sits at the head of the column in the page's
+ * typeface, so it reads as the top of the Document rather than a form field
+ * (story 196).
  */
 function DocumentTitleField({
   title,
@@ -685,7 +691,7 @@ function DocumentTitleField({
       }}
       aria-label="Document title"
       placeholder="Untitled"
-      className="border-b border-rule-soft bg-paper px-8 py-3 text-xl font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
+      className="mb-6 block w-full rounded-sm bg-transparent font-page text-[2rem] leading-tight font-semibold text-ink placeholder:text-ghost-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-4"
     />
   );
 }

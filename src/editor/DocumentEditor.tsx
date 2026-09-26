@@ -68,6 +68,11 @@ export interface DocumentEditorProps {
    * that Highlight as the prose scrolls, or the callout would reopen.
    */
   calloutOpen?: boolean;
+  /**
+   * The head of the page: the Document's title field, set in the column above
+   * the prose so it reads as the top of the Document (story 196).
+   */
+  pageHeading?: ReactNode;
 }
 
 /**
@@ -86,6 +91,7 @@ export function DocumentEditor({
   jumpRequest,
   onHighlightClick,
   calloutOpen = false,
+  pageHeading,
 }: DocumentEditorProps) {
   const [, refresh] = useReducer((count: number) => count + 1, 0);
   const lastTargetRef = useRef(-1);
@@ -299,110 +305,120 @@ export function DocumentEditor({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Toolbar editor={editor} />
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-        <EditorContent editor={editor} />
+      {/*
+       * The gutter is reserved on both edges, so a scrollbar never pulls the
+       * centred column off the toolbar above it and the Status line below.
+       */}
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto py-8 [scrollbar-gutter:stable_both-edges]"
+      >
+        <div className="obelus-column">
+          {pageHeading}
+          <EditorContent editor={editor} />
+        </div>
       </div>
     </div>
   );
 }
 
+/**
+ * Stories 197–199: formatting that has no universal shortcut, aligned with the
+ * column and quiet beside the prose. Undo and Redo are left to the keyboard
+ * (⌘Z or Ctrl+Z, and ⇧⌘Z or Ctrl+Y): the history is StarterKit's, unchanged,
+ * and so are its Markdown input rules.
+ */
 function Toolbar({ editor }: { editor: Editor | null }) {
   if (editor === null) {
-    return <div className="h-11 border-b border-rule-soft" />;
+    return <div className="h-9 border-b border-rule-faint" />;
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-rule-soft px-3 py-1.5">
-      <ToolbarButton
-        label="Heading 1"
-        active={editor.isActive("heading", { level: 1 })}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-      >
-        H1
-      </ToolbarButton>
-      <ToolbarButton
-        label="Heading 2"
-        active={editor.isActive("heading", { level: 2 })}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        H2
-      </ToolbarButton>
-      <ToolbarButton
-        label="Heading 3"
-        active={editor.isActive("heading", { level: 3 })}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-      >
-        H3
-      </ToolbarButton>
+    <div className="border-b border-rule-faint">
+      <div className="obelus-column">
+        {/* Pulled left by a button's padding, so the first label lines up with the prose. */}
+        <div
+          role="toolbar"
+          aria-label="Formatting"
+          className="-ml-2 flex flex-wrap items-center gap-0.5 py-1"
+        >
+          <ToolbarButton
+            label="Heading 1"
+            active={editor.isActive("heading", { level: 1 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          >
+            H1
+          </ToolbarButton>
+          <ToolbarButton
+            label="Heading 2"
+            active={editor.isActive("heading", { level: 2 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          >
+            H2
+          </ToolbarButton>
+          <ToolbarButton
+            label="Heading 3"
+            active={editor.isActive("heading", { level: 3 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          >
+            H3
+          </ToolbarButton>
 
-      <Separator />
+          <Separator />
 
-      <ToolbarButton
-        label="Bold"
-        active={editor.isActive("bold")}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <span className="font-bold">B</span>
-      </ToolbarButton>
-      <ToolbarButton
-        label="Italic"
-        active={editor.isActive("italic")}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <span className="italic">I</span>
-      </ToolbarButton>
-      <ToolbarButton
-        label="Inline code"
-        active={editor.isActive("code")}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-      >
-        <span className="font-mono">{"<>"}</span>
-      </ToolbarButton>
+          <ToolbarButton
+            label="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          >
+            <span className="font-bold">B</span>
+          </ToolbarButton>
+          <ToolbarButton
+            label="Italic"
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          >
+            <span className="italic">I</span>
+          </ToolbarButton>
+          <ToolbarButton
+            label="Inline code"
+            active={editor.isActive("code")}
+            onClick={() => editor.chain().focus().toggleCode().run()}
+          >
+            <span className="font-mono">{"<>"}</span>
+          </ToolbarButton>
 
-      <Separator />
+          <Separator />
 
-      <ToolbarButton
-        label="Bulleted list"
-        active={editor.isActive("bulletList")}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        • List
-      </ToolbarButton>
-      <ToolbarButton
-        label="Numbered list"
-        active={editor.isActive("orderedList")}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      >
-        1. List
-      </ToolbarButton>
-      <ToolbarButton
-        label="Block quote"
-        active={editor.isActive("blockquote")}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      >
-        Quote
-      </ToolbarButton>
-
-      <Separator />
-
-      <ToolbarButton
-        label="Undo"
-        onClick={() => editor.chain().focus().undo().run()}
-      >
-        Undo
-      </ToolbarButton>
-      <ToolbarButton
-        label="Redo"
-        onClick={() => editor.chain().focus().redo().run()}
-      >
-        Redo
-      </ToolbarButton>
+          <ToolbarButton
+            label="Bulleted list"
+            active={editor.isActive("bulletList")}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          >
+            • List
+          </ToolbarButton>
+          <ToolbarButton
+            label="Numbered list"
+            active={editor.isActive("orderedList")}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          >
+            1. List
+          </ToolbarButton>
+          <ToolbarButton
+            label="Block quote"
+            active={editor.isActive("blockquote")}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          >
+            Quote
+          </ToolbarButton>
+        </div>
+      </div>
     </div>
   );
 }
 
 function Separator() {
-  return <span className="mx-1 h-5 w-px bg-sunk-strong" aria-hidden="true" />;
+  return <span className="mx-1 h-4 w-px bg-rule-soft" aria-hidden="true" />;
 }
 
 interface ToolbarButtonProps {
@@ -421,8 +437,8 @@ function ToolbarButton({ label, active = false, onClick, children }: ToolbarButt
       aria-pressed={active}
       onClick={onClick}
       className={[
-        "rounded px-2 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-        active ? "bg-ink text-on-ink focus-visible:ring-offset-2" : "text-quiet-ink hover:bg-sunk",
+        "rounded px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+        active ? "bg-sunk-strong text-ink" : "text-muted-ink hover:bg-sunk hover:text-ink",
       ].join(" ")}
     >
       {children}
