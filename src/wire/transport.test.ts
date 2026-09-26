@@ -143,6 +143,34 @@ describe("send", () => {
     ).not.toThrow();
   });
 
+  it("compares parsed URLs, so no spelling of a URL escapes the base (privacy, story 13)", () => {
+    const openai = connection("openai");
+    for (const url of [
+      // Dot segments the browser would resolve to a path above the base.
+      "https://api.openai.com/v1/../other",
+      "https://api.openai.com/v1/%2e%2e/other",
+      // A host that merely starts with the base's host.
+      "https://api.openai.com.evil.example/v1/models",
+      // Userinfo that makes the real host a different one.
+      "https://api.openai.com@evil.example/v1/models",
+      // A sibling path that shares the base's prefix.
+      "https://api.openai.com/v10/models",
+      // Another scheme on the same host.
+      "http://api.openai.com/v1/models",
+      "not a url",
+    ]) {
+      expect(() => assertWithinConnection(openai, url), url).toThrow(
+        /outside the configured Connection/,
+      );
+    }
+    expect(() =>
+      assertWithinConnection(
+        connection("openai", { baseUrl: "https://api.openai.com/v1/" }),
+        "https://api.openai.com/v1/chat/completions",
+      ),
+    ).not.toThrow();
+  });
+
   it("reports Provider usage to the request's onUsage callback", async () => {
     vi.stubGlobal(
       "fetch",

@@ -36,7 +36,7 @@ Two constraints shape the product:
 - No model output can enter your document. The findings schema has no field for a rewritten sentence, and the app has no apply, accept, or insert control for model text. Your keyboard is the only path by which words enter a document.
 - No praise. The prompts forbid it, a client-side linter catches it anyway, and the app shows it struck through rather than hiding it, so you can see when a prompt has drifted.
 
-Everything runs in the browser. Documents, revisions, findings, passes, connections, and API keys live in IndexedDB. The only outbound requests go to the model provider you configure. There is no account, no sync, and no telemetry.
+Everything runs in the browser. Documents, revisions, findings, passes, connections, and persisted API keys live in IndexedDB; a session-only key is held in memory and gone on reload. The only outbound requests go to the model provider you configure. There is no account, no sync, and no telemetry.
 
 ### What it does
 
