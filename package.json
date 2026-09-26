@@ -1,6 +1,6 @@
 {
   "name": "obelus",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Obelus — a browser-only writing tool that uses models as a copyeditor and a judge, never as a ghostwriter.",
   "license": "GPL-3.0-or-later",
