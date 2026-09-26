@@ -5,25 +5,29 @@
 
 *The only way to write is to write. - Ralph Waldo Emerson*
 
-I did most of my writing as a student. I never considered emails I sent or presentations I made as writing, but it was writing nonetheless. The only time I wrote without any agenda was when I jotted down my observations or ideas from the books I was reading. 
+I did most of my writing as a student. I never considered emails I sent or presentations  as writing, but I was communicating with others in the written form.  The only time I wrote without any agenda was when I jotted my observations or ideas from the books I was reading.
 
-Around 5 years back, I started writing my notes in Obsidian, not in a physical notebook. Obsidian’s wiki-link and graph features encouraged me to try and connect ideas across my different notes. Slowly, I started writing mini essays for every book I read, connecting ideas across my notes. 
+Around 5 years back, I started jotting down my notes in Obsidian. Obsidian’s wiki-link and graph features encouraged me to develop connections across my vault. I composed mini-essays  to aid me in building the Obsidian's knowledge-graph.
 
-I never had any plans to publish my mini essays but did post occasionally on LinkedIn. While none of my posts ever went viral, every post went through multiple iterations before I felt satisfied with it. 
+I did not write my essays with an intent to publish, but I did post occasionally on LinkedIn. I spent more time editing and rewriting before posting.
 
-After the launch of ChatGPT, it took on the role of an editor for my writings. I could never write prose as polished as an AI, so it became my ghostwriter. AI’s writing quality improved with every new model release but my own skills started deteriorating.
+After launch of ChatGPT, I started to use it for polishing my posts. AI composed highly polished prose, which was beyond my skill. AI became my ghostwriter. 
 
-In early 2026, I decided to actually learn how to write better. I paused using AI to write my initial drafts and used it to review my writings. My writing slowly started improving but I knew in the back of my head that most of the improvements came from AI’s suggestions not due to my efforts. 
+With every new model release, AI got much better at writing, but not me. So, in early  2026, I decided to learn how to write . I asked AI to review my writing and provide suggestions. 
 
-In September 2026, I finally read William Zinsser's *On Writing Well*. The book’s final section, "Attitude", made me question my workflow all over again. On 18th Sept, I came across a post by Thomas Ptacek on ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/) and the word *obelus* - an editor’s mark for this word or passage is suspect. 
+ I slowly started improving but I knew in the back of my head that most of the improvements came from AI’s advice not completely from my efforts.
 
-Ptacek in his posts laid down two rules:
+In September 2026, I finished reading William Zinsser's ['On Writing Well'](https://link.amazon/B0gAgRBBI). The book’s final section, "Attitude", forced me to examine my process. While I was thinking how to best to use AI, I came across  Thomas Ptacek post on ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/). 
+
+Ptacek suggests adopting two rules:
 - Avoid using words suggested by AI
 - Avoid encouragement by AI
-  
-Ptacek’s argument was simple: AI is trained to be helpful even when you are wrong. His posts goes into further details on how to build a workflow that actually helps you write better. Luckily, I had done most of what he had recommended already as ‘Skills’ for my AI workflows. However, I never restricted AI from giving me suggestions.
 
-This app is my attempt on how to incorporate Ptacek’s rules along with numerous other rules and ideas that I accumulated. The app will always be a work in progress, but it will just inform me where my writing is poor.
+Ptacek’s advice makes sense as AI is trained to be helpful even when you are wrong. 
+
+Luckily, I had done most of what he recommendeds [‘Skills’](https://skills.md/). My skills never restricted AI from making recommendations.
+
+This app incorporates Ptacek’s advice along with other rules. I will be updating the project frequently, but the tool will only inform when the writing is poor.
 
 
 ## About the APP (AI generated text)
