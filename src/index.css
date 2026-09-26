@@ -67,6 +67,7 @@
  *   ring-stone-600                    focus
  *
  *   bg-amber-100                      mark-wash    the Current Finding's row
+ *                                     (blue pencil now, as the mark: story 214)
  *   bg-amber-50                       warning-surface
  *   text-amber-50                     warning-surface  text on a warning fill
  *   border-amber-200                  warning-rule
@@ -123,13 +124,18 @@
   --color-rule-focus: oklch(55.3% 0.013 58.071); /* stone-500 */
   --color-focus: oklch(44.4% 0.011 73.639); /* stone-600 */
 
-  /* The mark. */
-  --color-mark: #fde68a; /* amber-200: a Highlight */
-  --color-mark-line: #d97706; /* amber-600: a Highlight's underline */
-  --color-mark-hover: #fcd34d; /* amber-300: a Highlight under the pointer */
-  --color-current-mark: #fbbf24; /* amber-400: the Current Finding's Highlight */
-  --color-current-mark-line: #b45309; /* amber-700: its underline and ring */
-  --color-mark-wash: oklch(96.2% 0.059 95.617); /* amber-100: the Current Finding's row */
+  /*
+   * The mark: an editor's blue pencil (story 214), not amber, so a mark never
+   * reads as a warning or a failure (story 207). It is sky, a cyan-leaning blue
+   * (hue near 200°), where both links are a royal blue (near 222°): a link is
+   * blue text, a mark is a blue line and a blue fill under ink-coloured text.
+   * A Highlight at rest has no fill, only the line (story 211).
+   */
+  --color-mark-line: #0284c7; /* sky-600: a Highlight's underline */
+  --color-mark-hover: #bae6fd; /* sky-200: a Highlight under the pointer */
+  --color-current-mark: #7dd3fc; /* sky-300: the Current Finding's Highlight */
+  --color-current-mark-line: #0369a1; /* sky-700: its underline and ring */
+  --color-mark-wash: #e0f2fe; /* sky-100: the Current Finding's row */
 
   /* Warning: something to know about, not something that broke. */
   --color-warning: oklch(41.4% 0.112 45.904); /* amber-900: a notice's text */
@@ -193,8 +199,9 @@
  * sunk-strong, and so is `faint-ink` on paper and ground. `ghost-ink` is for
  * what is decorative, as in light.
  *
- * The mark is still amber here: a deep amber wash with a bright amber
- * underline, so ink stays readable on it.
+ * The mark is the same blue pencil: a bright sky underline on the dark paper,
+ * and deep blue fills, so the light ink stays at least 4.5:1 on a filled
+ * Highlight (story 215).
  */
 @layer theme {
   :root {
@@ -223,12 +230,11 @@
       --color-rule-focus: #8a837a;
       --color-focus: #b3aca3;
 
-      --color-mark: #4e3a12;
-      --color-mark-line: #e0a53a;
-      --color-mark-hover: #614815;
-      --color-current-mark: #7a5a17;
-      --color-current-mark-line: #f5c461;
-      --color-mark-wash: #3a2e15;
+      --color-mark-line: #38bdf8;
+      --color-mark-hover: #173a52;
+      --color-current-mark: #1e4f6e;
+      --color-current-mark-line: #7dd3fc;
+      --color-mark-wash: #172a36;
 
       --color-warning: #f2c872;
       --color-warning-soft: #e9b75a;
@@ -410,17 +416,19 @@
 }
 
 /*
- * A Highlight is the visual rendering of an Anchor. Amber so it reads as a mark
- * the Writer works through, not as an error; the underline keeps it legible
- * over bold and code.
+ * A Highlight is the visual rendering of an Anchor. At rest it is only an
+ * underline in blue pencil (story 211): the Writer sees where the marks are
+ * without the page becoming about them. Blue so it reads as an editing mark,
+ * not as an error; the underline keeps it legible over bold and code.
  *
  * The underline is a text decoration, never a box-shadow, and the span has no
  * border-radius. A Document can carry hundreds of Highlights, and WebKit
  * repaints an inset shadow on every one of them as the Writer types: measured in
  * WebKit with ~490 Highlights, the shadow tripled the time a keystroke took.
+ * A fill is drawn only on the Current Finding's Highlight and the one under the
+ * pointer, so at most two spans carry one.
  */
 .obelus-highlight {
-  background-color: var(--color-mark);
   text-decoration-line: underline;
   text-decoration-color: var(--color-mark-line);
   text-decoration-thickness: 0.15em;
@@ -428,23 +436,25 @@
 }
 
 /*
- * The Current Finding's Highlight, drawn beside `.obelus-highlight` rather than
- * instead of it. A deeper amber and a ring mark the one the queue is on without
- * changing what a Highlight means. The ring is an outline: only one Highlight is
- * ever current, so it never costs what a ring on every Highlight would.
- */
-.obelus-highlight-current {
-  background-color: var(--color-current-mark);
-  text-decoration-color: var(--color-current-mark-line);
-  outline: 1px solid var(--color-current-mark-line);
-}
-
-/*
- * A click on a Highlight opens its Findings beside the prose; deepening it
- * under the pointer says so without changing what a Highlight means.
+ * A click on a Highlight opens its Findings beside the prose; filling it under
+ * the pointer says so without changing what a Highlight means (story 213).
  */
 .obelus-highlight:hover {
   background-color: var(--color-mark-hover);
+}
+
+/*
+ * The Current Finding's Highlight, drawn beside `.obelus-highlight` rather than
+ * instead of it. A deeper fill and a ring mark the one the queue is on without
+ * changing what a Highlight means (story 212); it keeps that fill under the
+ * pointer, which is why the rule names both classes and comes after the hover.
+ * The ring is an outline: only one Highlight is ever current, so it never costs
+ * what a ring on every Highlight would.
+ */
+.obelus-highlight.obelus-highlight-current {
+  background-color: var(--color-current-mark);
+  text-decoration-color: var(--color-current-mark-line);
+  outline: 1px solid var(--color-current-mark-line);
 }
 
 .obelus-editor:focus {
