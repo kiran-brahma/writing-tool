@@ -225,6 +225,9 @@ export function useRuns(options: RunsOptions): RunsHandle {
   const runInFlightRef = useRef(false);
   /** Story 54: the controller for the in-flight Run, so Cancel can abort it. */
   const abortRef = useRef<AbortController | null>(null);
+  /** #46: the in-flight Reader and Audit Runs' controllers, so Cancel reaches them too. */
+  const readerAbortRef = useRef<AbortController | null>(null);
+  const auditAbortRef = useRef<AbortController | null>(null);
   /** Guards the structural set against a second click before its state renders. */
   const structuralInFlightRef = useRef(false);
   /** Guards the Reader pass against a second click before its state renders. */
@@ -337,9 +340,16 @@ export function useRuns(options: RunsOptions): RunsHandle {
     setPriceTableState(await loadPriceTableRecord(database));
   }, []);
 
-  /** Story 54: aborts the in-flight Run; the Run itself stores nothing. */
+  /**
+   * Story 54: aborts the in-flight Run; the Run itself stores nothing. #46: a
+   * Reader or Audit Run holds the mutation lock as a model Run does, so Cancel
+   * aborts those too rather than leaving the Library waiting on a stalled
+   * Provider.
+   */
   const cancelRun = useCallback(() => {
     abortRef.current?.abort();
+    readerAbortRef.current?.abort();
+    auditAbortRef.current?.abort();
   }, []);
 
   /**
@@ -534,6 +544,8 @@ export function useRuns(options: RunsOptions): RunsHandle {
       }
 
       readerInFlightRef.current = true;
+      const controller = new AbortController();
+      readerAbortRef.current = controller;
       setReaderError(null);
       setReaderRunning(true);
       setReaderStartedAt(Date.now());
@@ -550,6 +562,7 @@ export function useRuns(options: RunsOptions): RunsHandle {
           connection: criticConnection,
           transport,
           screeningFrame,
+          signal: controller.signal,
         });
         // As with a model Run: if the Writer opened another Document mid-run,
         // the accounts belong to the Document that was read, not the new view.
@@ -558,9 +571,11 @@ export function useRuns(options: RunsOptions): RunsHandle {
           savedCanonicalRef.current = latest.canonical;
         }
       } catch (error) {
-        // The Provider's own words, surfaced verbatim; never a silent failure.
-        setReaderError(describeError(error));
+        // A cancelled Run reports as cancelled; any other failure is the
+        // Provider's own words, surfaced verbatim. Neither is swallowed.
+        setReaderError(isCancelledError(error) ? "Run cancelled." : describeError(error));
       } finally {
+        if (readerAbortRef.current === controller) readerAbortRef.current = null;
         readerInFlightRef.current = false;
         setReaderRunning(false);
         setReaderStartedAt(null);
@@ -608,6 +623,8 @@ export function useRuns(options: RunsOptions): RunsHandle {
       }
 
       auditInFlightRef.current = true;
+      const controller = new AbortController();
+      auditAbortRef.current = controller;
       setAuditError(null);
       setAuditRunning(true);
       setAuditStartedAt(Date.now());
@@ -624,6 +641,7 @@ export function useRuns(options: RunsOptions): RunsHandle {
           connection: criticConnection,
           transport,
           characterLimit,
+          signal: controller.signal,
         });
         // As with a model Run: if the Writer opened another Document mid-run,
         // the account belongs to the Document that was read, not the new view.
@@ -633,9 +651,11 @@ export function useRuns(options: RunsOptions): RunsHandle {
           savedCanonicalRef.current = latest.canonical;
         }
       } catch (error) {
-        // The Provider's own words, surfaced verbatim; never a silent failure.
-        setAuditError(describeError(error));
+        // A cancelled Run reports as cancelled; any other failure is the
+        // Provider's own words, surfaced verbatim. Neither is swallowed.
+        setAuditError(isCancelledError(error) ? "Run cancelled." : describeError(error));
       } finally {
+        if (auditAbortRef.current === controller) auditAbortRef.current = null;
         auditInFlightRef.current = false;
         setAuditRunning(false);
         setAuditStartedAt(null);

@@ -156,7 +156,12 @@ export async function readSection(
     ...(config.maxOutputTokens === undefined ? {} : { maxOutputTokens: config.maxOutputTokens }),
   });
 
-  const rawResponse = await config.transport.send(request);
+  // #46: the Run's signal travels with the request, as it does for `critique`,
+  // so a cancelled Reader Run stops waiting on the Provider.
+  const rawResponse = await config.transport.send({
+    ...request,
+    ...(config.signal === undefined ? {} : { signal: config.signal }),
+  });
   const parsed = parseReaderAccount(rawResponse);
   const now = config.now ?? Date.now();
   const account: ReaderAccount = {
