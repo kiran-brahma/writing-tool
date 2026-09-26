@@ -249,18 +249,18 @@ Every ticket is presentation. No prompt changes, **no Dexie migration** (the two
 
 | Step | # | Ticket | Blocked by | What it makes work |
 |---|---|---|---|---|
-| 33 | **#58** | Colour names with today's colours | — | Named colours by meaning, light values identical to today; the Editor stylesheet uses them |
-| 34 | **#59** | Move the Editor surface to colour names, with focus rings | #58 | Shell, Editor, toolbar, Callout, banners on names; warnings stop borrowing the mark colour |
-| 35 | **#60** | Move the Rail to colour names, with focus rings | #58 | Every Rail panel on names; the Milestone badge gets its own colour |
-| 36 | **#61** | Move the other screens to colour names, type scale and focus rings | #58 | Library, Workbench, AI Settings, How this works, Privacy |
-| 37 | **#62** | Dark scheme and the Light \| Dark \| System choice | #59, #60, #61 | Dark values, the stored choice, `theme-color`, the gate against raw palette classes |
-| 38 | **#63** | The page | #62 | Bundled Literata, a ~68-character measure, the title in the column, a quieter toolbar, the Status line |
-| 39 | **#64** | The mark | #62 | Blue pencil; underlined at rest, filled for the Current Finding and on hover |
-| 40 | **#65** | Margin marks | #63, #64 | An obelus with a count beside each Paragraph where open Findings begin; a click opens the Callout |
-| 41 | **#66** | Rail modes | #62 | Findings \| Judge; queue keys only in Findings; one-line hint; raw response in AI Settings |
-| 42 | **#67** | The Outline in the left margin | #63 | The Outline beside the page at ≥1440px, in the Rail below |
-| 43 | **#68** | Header destinations and the Callout's verdicts | #62 | Editor and Library as the destinations; Addressed as the Callout's primary action |
-| 44 | **#69** | Narrow layout | #63 | Below 1024px the Rail overlays the prose, opened from the Status line |
+| 33 | **#58** | Colour names with today's colours | — | Named colours by meaning, light values identical to today; the Editor stylesheet uses them | - Completed
+| 34 | **#59** | Move the Editor surface to colour names, with focus rings | #58 | Shell, Editor, toolbar, Callout, banners on names; warnings stop borrowing the mark colour | - Completed
+| 35 | **#60** | Move the Rail to colour names, with focus rings | #58 | Every Rail panel on names; the Milestone badge gets its own colour | - Completed
+| 36 | **#61** | Move the other screens to colour names, type scale and focus rings | #58 | Library, Workbench, AI Settings, How this works, Privacy | - Completed
+| 37 | **#62** | Dark scheme and the Light \| Dark \| System choice | #59, #60, #61 | Dark values, the stored choice, `theme-color`, the gate against raw palette classes | - Completed
+| 38 | **#63** | The page | #62 | Bundled Literata, a ~68-character measure, the title in the column, a quieter toolbar, the Status line | - Completed
+| 39 | **#64** | The mark | #62 | Blue pencil; underlined at rest, filled for the Current Finding and on hover | - Completed
+| 40 | **#65** | Margin marks | #63, #64 | An obelus with a count beside each Paragraph where open Findings begin; a click opens the Callout | - Completed
+| 41 | **#66** | Rail modes | #62 | Findings \| Judge; queue keys only in Findings; one-line hint; raw response in AI Settings | - Completed
+| 42 | **#67** | The Outline in the left margin | #63 | The Outline beside the page at ≥1440px, in the Rail below | - Completed
+| 43 | **#68** | Header destinations and the Callout's verdicts | #62 | Editor and Library as the destinations; Addressed as the Callout's primary action | - Completed
+| 44 | **#69** | Narrow layout | #63 | Below 1024px the Rail overlays the prose, opened from the Status line | - Completed
 
 Waves, each workable in parallel:
 
@@ -288,14 +288,14 @@ requirement. #56 closes when the v1.3 docs branch merges.
 
 | Step | # | Ticket | Blocked by | Decision / what it makes work |
 |---|---|---|---|---|
-| 45 | **#45** | Run cache stale after a Connection is reconfigured | — | `maxOutputTokens`, `reasoningEffort` and `extraHeaders` (stably ordered) join the Run cache key |
-| 46 | **#46** | A stalled provider call holds the mutation lock | — | A request timeout in the transport; cancel threaded through Reader and Audit Runs; a timeout test through `send` |
-| 47 | **#47** | Unbalanced `)` in a link href breaks the round-trip | — | Escape `(` `)` in an emitted href; the fuzz test learns to emit links |
-| 48 | **#48** | The service-worker cache claim | — | **Correct the docs**: the navigation-time prune is the mechanism; `CACHE_NAME` stays constant |
-| 49 | **#51** | An opening ordinal counts as one sentence | — | **Accept and document** in the metrics panel's explanation; `sentences.ts` unchanged |
-| 50 | **#54** | A chunked Audit under-reports its call count | — | **True call count**: N chunks + 1 synthesis |
-| 51 | **#55** | A list-only Document has no paragraph-scope Target | — | Resolve the Target to a Paragraph inside a list item; Containment unaffected |
-| 52 | **#53** | The passive pass at note severity | #66 | An optional rule-pass-only `severity: "note"` and a distinct row treatment; the model schema unchanged |
+| 45 | **#45** | Run cache stale after a Connection is reconfigured | — | `maxOutputTokens`, `reasoningEffort` and `extraHeaders` (stably ordered) join the Run cache key | - Completed
+| 46 | **#46** | A stalled provider call holds the mutation lock | — | A request timeout in the transport; cancel threaded through Reader and Audit Runs; a timeout test through `send` | - Completed
+| 47 | **#47** | Unbalanced `)` in a link href breaks the round-trip | — | Escape `(` `)` in an emitted href; the fuzz test learns to emit links | - Completed
+| 48 | **#48** | The service-worker cache claim | — | **Correct the docs**: the navigation-time prune is the mechanism; `CACHE_NAME` stays constant | - Completed
+| 49 | **#51** | An opening ordinal counts as one sentence | — | **Accept and document** in the metrics panel's explanation; `sentences.ts` unchanged | - Completed
+| 50 | **#54** | A chunked Audit under-reports its call count | — | **True call count**: N chunks + 1 synthesis | - Completed
+| 51 | **#55** | A list-only Document has no paragraph-scope Target | — | Resolve the Target to a Paragraph inside a list item; Containment unaffected | - Completed
+| 52 | **#53** | The passive pass at note severity | #66 | An optional rule-pass-only `severity: "note"` and a distinct row treatment; the model schema unchanged | - Completed
 | 53 | **#52** | Decompose `useRuns` and `useDocumentLifecycle` | #65, #66, #67, #68, #69 | One run-state union replacing the five Run-kind triples; stop if it moves lines without deleting state |
 
 **How it fits v1.3.** Steps 45–51 touch Core, the wire, storage and docs, not the surfaces v1.3
