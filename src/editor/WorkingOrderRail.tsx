@@ -503,7 +503,7 @@ export function WorkingOrderRail({
           <button
             type="button"
             onClick={onFlagMilestone}
-            className="w-full rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="w-full rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             Flag this revision
           </button>

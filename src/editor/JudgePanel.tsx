@@ -309,7 +309,7 @@ export function JudgePanel({
             }
           }}
           disabled={!canJudge}
-          className="w-full rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink disabled:cursor-not-allowed disabled:bg-rule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="w-full rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink disabled:cursor-not-allowed disabled:bg-rule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
         >
           {running ? "Judging…" : "Judge"}
         </button>
@@ -383,7 +383,7 @@ function PredictionButton({
       className={[
         "rounded border px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
         active
-          ? "border-ink bg-ink text-on-ink"
+          ? "border-ink bg-ink text-on-ink focus-visible:ring-offset-2"
           : "border-rule bg-paper text-quiet-ink hover:bg-sunk",
       ].join(" ")}
     >
@@ -408,7 +408,7 @@ function ModeButton({
       aria-pressed={active}
       className={[
         "rounded px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-        active ? "bg-ink text-on-ink" : "border border-rule bg-paper text-quiet-ink",
+        active ? "bg-ink text-on-ink focus-visible:ring-offset-2" : "border border-rule bg-paper text-quiet-ink",
       ].join(" ")}
     >
       {children}

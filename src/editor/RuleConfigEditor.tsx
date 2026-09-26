@@ -42,7 +42,7 @@ export function RuleConfigEditor({ pass, onSave, onCancel }: RuleConfigEditorPro
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded bg-ink px-3 py-1 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="rounded bg-ink px-3 py-1 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           onClick={save}
         >
           Save
