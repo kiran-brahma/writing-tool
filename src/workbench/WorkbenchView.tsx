@@ -118,7 +118,7 @@ export function WorkbenchView({
           <button
             type="button"
             onClick={startNewPass}
-            className="rounded bg-ink px-3 py-1.5 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="rounded bg-ink px-3 py-1.5 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             New pass
           </button>
@@ -423,7 +423,7 @@ function ModelPassEditor({
         <button
           type="button"
           onClick={() => void save()}
-          className="rounded bg-ink px-3 py-1 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="rounded bg-ink px-3 py-1 text-xs font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
         >
           Save
         </button>

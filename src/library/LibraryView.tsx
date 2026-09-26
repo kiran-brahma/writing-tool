@@ -99,7 +99,7 @@ export function LibraryView({
           <button
             type="button"
             onClick={onCreate}
-            className="rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             New document
           </button>
@@ -307,7 +307,7 @@ function TagFilterChip({
       aria-pressed={active}
       className={
         active
-          ? "rounded-full bg-ink px-2.5 py-1 text-xs font-medium text-on-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          ? "rounded-full bg-ink px-2.5 py-1 text-xs font-medium text-on-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           : "rounded-full border border-rule bg-paper px-2.5 py-1 text-xs text-muted-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       }
     >
