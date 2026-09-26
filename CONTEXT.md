@@ -95,10 +95,16 @@ every other, and no Band is gated on another.
 _Avoid_: stage, tier, phase, step, section
 
 **Rail**:
-The surface the Writer navigates by Band: the reference strip, the Band control, the selected Band's
-Passes with their Findings and accounts, the Judge, and milestones and Revisions. It collapses so the
-prose has the width.
+The surface beside the prose, in two Rail modes. Findings mode holds the Band control, **All**, the
+selected Band's Passes with their Findings and accounts, and the run controls; Judge mode holds the
+Judge with milestones and Revisions (ADR 0012). It collapses so the prose has the width.
 _Avoid_: sidebar, panel, drawer, nav
+
+**Rail mode**:
+One of the Rail's two views — Findings or Judge — switched at its top. The Rail opens on Findings
+each session, and the mode is never stored. The queue keys act only in Findings mode; the modifier
+step switches to it first.
+_Avoid_: tab, view, page, screen
 
 **Target**:
 The text a Run is asked about.

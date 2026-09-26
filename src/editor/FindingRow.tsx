@@ -82,15 +82,23 @@ export function FindingRow({
         {!attached && (
           <p className="mt-1 text-xs italic text-muted-ink">No longer found in the text.</p>
         )}
-        <p className="mt-1 text-xs text-muted-ink">
-          {finding.provenance.model} · {new Date(finding.provenance.at).toLocaleString()}
-          {leftQueue && (
-            <span className="ml-2 rounded bg-rule/70 px-1.5 py-0.5 font-medium text-quiet-ink">
-              {finding.status}
-              {finding.declineReason === undefined ? "" : ` · ${finding.declineReason}`}
-            </span>
-          )}
-        </p>
+        {/* Story 239: model and time on the Current Finding only, so the queue
+            reads cleanly; the Callout shows them for every Finding. */}
+        {(current || leftQueue) && (
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-muted-ink">
+            {current && (
+              <span>
+                {finding.provenance.model} · {new Date(finding.provenance.at).toLocaleString()}
+              </span>
+            )}
+            {leftQueue && (
+              <span className="rounded bg-rule/70 px-1.5 py-0.5 font-medium text-quiet-ink">
+                {finding.status}
+                {finding.declineReason === undefined ? "" : ` · ${finding.declineReason}`}
+              </span>
+            )}
+          </p>
+        )}
       </button>
       {leftQueue && onReopen !== undefined && (
         <div className="border-t border-rule-soft/70 px-4 py-2">

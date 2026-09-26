@@ -30,7 +30,7 @@ export function MetricsPanel({
 
   return (
     <section className="border-b border-rule-soft px-4 py-3">
-      <h2 className="text-sm font-semibold">Rhythm</h2>
+      <h2 className="text-base font-semibold">Rhythm</h2>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <Metric label="Sentences" value={String(metrics.sentenceCount)} />
         <Metric label="Avg length" value={format(metrics.meanSentenceLength)} />

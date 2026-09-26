@@ -142,6 +142,9 @@ export interface DocumentHandle {
   /** Stories 201–204: the Writer's colour scheme, Light, Dark or System. */
   colorScheme: ColorSchemeSetting;
   setColorScheme: (setting: ColorSchemeSetting) => Promise<void>;
+  /** Stories 73 and 238: whether Finding rows show their raw provider response, set in AI Settings. */
+  showRawResponse: boolean;
+  setShowRawResponse: (show: boolean) => Promise<void>;
   /**
    * Story 50: how many chunks a document-scope Run of the current Document
    * would make at the current limit. `1` when it fits in a single call, so the
@@ -341,9 +344,9 @@ export function useDocument(): DocumentHandle {
   } = connectionsHandle;
 
   /**
-   * The seven global settings — the Screening frame, the chunk character
+   * The eight global settings — the Screening frame, the chunk character
    * limit, the Voice list, the rail's Band and collapsed state, the first-run
-   * note, and the colour scheme. A Voice list change re-runs the rule Passes, so the hook is built
+   * note, the colour scheme, and the raw-response toggle. A Voice list change re-runs the rule Passes, so the hook is built
    * here, after `rerunRules`.
    */
   const globalSettings = useGlobalSettings({
@@ -367,6 +370,8 @@ export function useDocument(): DocumentHandle {
     dismissFirstRunNote,
     colorScheme,
     setColorScheme,
+    showRawResponse,
+    setShowRawResponse,
   } = globalSettings;
 
   /**
@@ -548,6 +553,8 @@ export function useDocument(): DocumentHandle {
     dismissFirstRunNote,
     colorScheme,
     setColorScheme,
+    showRawResponse,
+    setShowRawResponse,
     documentChunks,
     structuralEstimate,
     rawResponses,

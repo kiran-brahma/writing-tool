@@ -31,6 +31,8 @@ export interface AiSettingsViewProps {
   priceTable: PriceTable;
   /** Stories 201–202: Light, Dark or System. */
   colorScheme: ColorSchemeSetting;
+  /** Stories 73 and 238: whether Finding rows in the Rail show their raw provider response. */
+  showRawResponse: boolean;
   onSaveConnection: (connection: Connection) => void;
   onAddCustom: () => void;
   onRemoveConnection: (connectionId: string) => void;
@@ -40,6 +42,7 @@ export interface AiSettingsViewProps {
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
   onSetColorScheme: (setting: ColorSchemeSetting) => void;
+  onToggleRawResponse: (show: boolean) => void;
   onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
@@ -53,6 +56,7 @@ export function AiSettingsView({
   voiceList,
   priceTable,
   colorScheme,
+  showRawResponse,
   onSaveConnection,
   onAddCustom,
   onRemoveConnection,
@@ -62,6 +66,7 @@ export function AiSettingsView({
   onSaveVoiceList,
   onSavePriceTable,
   onSetColorScheme,
+  onToggleRawResponse,
   onOpenHelp,
 }: AiSettingsViewProps) {
   return (
@@ -93,10 +98,12 @@ export function AiSettingsView({
         characterLimit={characterLimit}
         voiceList={voiceList}
         priceTable={priceTable}
+        showRawResponse={showRawResponse}
         onToggleScreening={onToggleScreening}
         onSetCharacterLimit={onSetCharacterLimit}
         onSaveVoiceList={onSaveVoiceList}
         onSavePriceTable={onSavePriceTable}
+        onToggleRawResponse={onToggleRawResponse}
         onOpenHelp={onOpenHelp}
       />
 
@@ -368,20 +375,24 @@ function RunSettingsPanel({
   characterLimit,
   voiceList,
   priceTable,
+  showRawResponse,
   onToggleScreening,
   onSetCharacterLimit,
   onSaveVoiceList,
   onSavePriceTable,
+  onToggleRawResponse,
   onOpenHelp,
 }: {
   screeningFrame: boolean;
   characterLimit: number;
   voiceList: string[];
   priceTable: PriceTable;
+  showRawResponse: boolean;
   onToggleScreening: (enabled: boolean) => void;
   onSetCharacterLimit: (limit: number) => void;
   onSaveVoiceList: (voiceList: string[]) => void;
   onSavePriceTable: (table: PriceTable) => void;
+  onToggleRawResponse: (show: boolean) => void;
   onOpenHelp?: (sectionId: HelpSectionId) => void;
 }) {
   return (
@@ -409,6 +420,17 @@ function RunSettingsPanel({
           onChange={(event) => onToggleScreening(event.target.checked)}
         />
         Screening frame (critic finding passes only)
+      </label>
+
+      {/* Stories 73 and 238: a debugging aid, so it lives here rather than above the queue. */}
+      <label className="flex items-center gap-2 border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
+        <input
+          type="checkbox"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          checked={showRawResponse}
+          onChange={(event) => onToggleRawResponse(event.target.checked)}
+        />
+        Show the raw provider response on each Finding in the Rail
       </label>
 
       <div className="flex items-center justify-between gap-2 border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">

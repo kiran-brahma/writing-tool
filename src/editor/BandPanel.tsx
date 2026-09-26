@@ -244,8 +244,8 @@ function PassHeading({
         <p
           className={
             pass.enabled
-              ? "text-sm font-semibold text-ink"
-              : "text-sm font-medium text-muted-ink"
+              ? "text-base font-semibold text-ink"
+              : "text-base font-medium text-muted-ink"
           }
         >
           {pass.name}

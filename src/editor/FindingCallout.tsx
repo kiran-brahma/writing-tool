@@ -105,6 +105,10 @@ function CalloutEntry({ finding, onAddress, onDecline }: CalloutEntryProps) {
       <p className="mt-0.5 text-muted-ink">
         <StruckText text={finding.diagnosis} violations={violations} />
       </p>
+      {/* Story 239: each Finding's provenance, where the Writer judges it. */}
+      <p className="mt-1 text-xs text-muted-ink">
+        {finding.provenance.model} · {new Date(finding.provenance.at).toLocaleString()}
+      </p>
       {elsewhere.length > 0 && (
         <p className="mt-1 text-xs text-muted-ink">
           Praise from the model: <StruckViolations violations={elsewhere} />
