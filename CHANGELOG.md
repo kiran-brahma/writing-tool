@@ -7,6 +7,8 @@ release is cut.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-27
+
 ### Added
 
 - Reasoning effort now offers Off (no thinking), Minimal, Extra high and Max alongside Low, Medium
@@ -64,5 +66,6 @@ Cloudflare Workers.
 - The web app manifest has a stable `id`, and its `theme_color` matches the light background, so an
   installed window's title bar no longer flashes dark.
 
-[Unreleased]: https://github.com/kiran-brahma/writing-tool/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kiran-brahma/writing-tool/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kiran-brahma/writing-tool/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kiran-brahma/writing-tool/releases/tag/v0.1.0
