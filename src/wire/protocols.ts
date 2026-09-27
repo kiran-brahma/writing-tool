@@ -132,14 +132,22 @@ const anthropicAdapter: ProtocolAdapter = {
     // has no `system` role.
     const system = systemPrompt(request);
     if (system !== null) body.system = system;
-    if (request.temperature !== undefined) body.temperature = request.temperature;
+    // No temperature, ever: Claude models released after Opus 4.6 answer 400 to
+    // any value but 1.0, and every model refuses one while it thinks. Older
+    // models lose temperature 0 and run at their default instead.
+    const effort = anthropicEffort(request.reasoningEffort);
+    const outputConfig: Record<string, unknown> = {};
+    if (request.reasoningEffort === "none") body.thinking = { type: "disabled" };
+    if (effort !== null) {
+      body.thinking = { type: "adaptive" };
+      outputConfig.effort = effort;
+    }
     if (request.jsonSchema !== undefined) {
       // `output_config.format` takes the schema directly; there is no `name`
       // and no `strict` here, unlike the OpenAI-shaped `response_format`.
-      body.output_config = {
-        format: { type: "json_schema", schema: request.jsonSchema },
-      };
+      outputConfig.format = { type: "json_schema", schema: request.jsonSchema };
     }
+    if (Object.keys(outputConfig).length > 0) body.output_config = outputConfig;
 
     return {
       url: joinUrl(request.connection.baseUrl, "/messages"),
@@ -170,6 +178,8 @@ const geminiAdapter: ProtocolAdapter = {
       maxOutputTokens: request.maxOutputTokens,
     };
     if (request.temperature !== undefined) generationConfig.temperature = request.temperature;
+    const thinkingConfig = geminiThinkingConfig(request.model, request.reasoningEffort);
+    if (thinkingConfig !== null) generationConfig.thinkingConfig = thinkingConfig;
     if (request.jsonSchema !== undefined) {
       // Gemini's native surface takes the schema as `responseJsonSchema` and
       // requires `responseMimeType` alongside it.
@@ -220,6 +230,78 @@ const geminiAdapter: ProtocolAdapter = {
       .map((name) => (name.startsWith("models/") ? name.slice("models/".length) : name));
   },
 };
+
+/**
+ * Anthropic's `output_config.effort` for a thinking effort, or null when the
+ * request should not think at all (`none`) or leaves the default (unset).
+ * Anthropic has no `minimal`, so it rounds up to `low`. A model that always
+ * thinks (Fable, Opus 5.5) answers 400 to `none`, and one that predates
+ * adaptive thinking (Haiku 4.5) answers 400 to the rest; the Provider's error
+ * names the problem, so the adapter does not guess at model families.
+ */
+function anthropicEffort(effort: string | undefined): string | null {
+  switch (effort) {
+    case "minimal":
+    case "low":
+      return "low";
+    case "medium":
+    case "high":
+    case "xhigh":
+    case "max":
+      return effort;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Gemini 2.5 budgets thinking in tokens, where 0 turns it off (Flash; Pro
+ * refuses 0). Low, medium and high are the budgets Gemini's OpenAI-compatible
+ * surface maps those efforts to (1024, 8192, 24576, per ai.google.dev/gemini-api/
+ * docs/openai, 2026-09-27); it documents no budget for `minimal`, so 512 is
+ * Obelus's own step below low. 2.5 has nothing above high.
+ */
+const GEMINI_25_BUDGETS: Record<string, number> = {
+  none: 0,
+  minimal: 512,
+  low: 1024,
+  medium: 8192,
+  high: 24576,
+  xhigh: 24576,
+  max: 24576,
+};
+
+/**
+ * Gemini 3 names a level instead. It cannot turn thinking off, so `none` sends
+ * its lowest level, and it has no level above `high`.
+ */
+const GEMINI_3_LEVELS: Record<string, string> = {
+  none: "minimal",
+  minimal: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "high",
+  max: "high",
+};
+
+/**
+ * The `thinkingConfig` for an effort, or null to leave the model's default.
+ * Gemini answers 400 to a request carrying both a budget and a level, and 2.5
+ * takes only the budget, so the model id decides which one is sent.
+ */
+function geminiThinkingConfig(
+  model: string,
+  effort: string | undefined,
+): Record<string, unknown> | null {
+  if (effort === undefined || effort === "") return null;
+  if (/^(models\/)?gemini-2\./.test(model)) {
+    const budget = GEMINI_25_BUDGETS[effort];
+    return budget === undefined ? null : { thinkingBudget: budget };
+  }
+  const level = GEMINI_3_LEVELS[effort];
+  return level === undefined ? null : { thinkingLevel: level };
+}
 
 const ADAPTERS: Record<Protocol, ProtocolAdapter> = {
   "openai-shaped": openAIAdapter,

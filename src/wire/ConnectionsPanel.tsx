@@ -23,6 +23,18 @@ interface Feedback {
   message: string;
 }
 
+/** What each effort reads as in the menu; the stored value stays the wire value. */
+const EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  "": "Provider default",
+  none: "Off (no thinking)",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max",
+};
+
 /**
  * Story 2–14: the Writer's Connections. A Connection is a route: a Protocol, a
  * base URL, a key, a concurrency cap and the two output limits. The model is
@@ -235,7 +247,7 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
           >
             {REASONING_EFFORTS.map((effort) => (
               <option key={effort} value={effort}>
-                {effort === "" ? "Don't send" : effort}
+                {EFFORT_LABELS[effort]}
               </option>
             ))}
           </select>
@@ -244,9 +256,11 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
 
       <p className="mt-1 text-xs text-faint-ink">
         A thinking model spends the output budget on its reasoning before it answers. If a Run
-        stops at the ceiling, raise the tokens or lower the effort. Ollama caps a response at
-        16384 whatever the model's context window. Leave the effort unsent on Providers whose
-        models do not reason: OpenAI rejects the field on those.
+        stops at the ceiling, lower the effort or turn thinking off; Ollama caps a response at
+        16384 whatever the model's context window. Not every model takes every level: some
+        always think and refuse Off, and Gemini 3 cannot go below Minimal. The Provider says so
+        when it refuses. Leave it on Provider default for models that do not reason: OpenAI
+        rejects the field on those.
       </p>
 
       <div className="mt-2 flex items-end gap-2">

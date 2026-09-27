@@ -31,12 +31,11 @@ export interface ModelRequest {
   jsonSchema?: object;
   /**
    * How much of `maxOutputTokens` the model may spend thinking before it
-   * answers, for the Providers that expose the control (Ollama's
-   * OpenAI-compatible surface, OpenAI's reasoning models). A thinking model
-   * otherwise spends the whole ceiling on its trace and returns empty or
-   * half-finished `content`. It comes from the Writer's Connection and is sent
-   * only when set, because OpenAI answers 400 to the field on a model that
-   * does not reason.
+   * answers, one of `REASONING_EFFORTS`. A thinking model otherwise spends the
+   * whole ceiling on its trace and returns empty or half-finished `content`.
+   * Each Protocol adapter translates it to its own field. It comes from the
+   * Writer's Connection and is sent only when set, because OpenAI answers 400
+   * to the field on a model that does not reason.
    */
   reasoningEffort?: string;
   /**

@@ -77,6 +77,14 @@ describe("parseFindings", () => {
     expect(parseFindings(raw, "findings").findings[0].offset).toBe(0);
   });
 
+  it("reads an offset the schema no longer asks for as a hint, not a quarantined field", () => {
+    const raw = JSON.stringify({
+      findings: [{ issue: "I", diagnosis: "D", quote: "q", offset: "12" }],
+    });
+
+    expect(parseFindings(raw, "findings").findings[0].violations).toEqual([]);
+  });
+
   it("lints the returned strings and surfaces violation text", () => {
     const raw = JSON.stringify({
       findings: [
@@ -269,14 +277,15 @@ describe("the findings schema", () => {
     expect(JSON.stringify(FINDINGS_SCHEMA).toLowerCase()).not.toContain("replacement");
   });
 
-  it("publishes exactly the fields the parser treats as known", () => {
-    expect(FINDING_FIELDS).toEqual(["issue", "diagnosis", "pattern", "quote", "offset"]);
+  it("publishes exactly the fields the model authors or quotes", () => {
+    expect(FINDING_FIELDS).toEqual(["issue", "diagnosis", "pattern", "quote"]);
   });
 
-  it("exposes issue, diagnosis, pattern, quote and offset", () => {
+  it("exposes issue, diagnosis, pattern and quote, and never asks for an offset", () => {
     const serialized = JSON.stringify(FINDINGS_SCHEMA);
-    for (const field of ["issue", "diagnosis", "pattern", "quote", "offset"]) {
+    for (const field of ["issue", "diagnosis", "pattern", "quote"]) {
       expect(serialized).toContain(`"${field}"`);
     }
+    expect(serialized).not.toContain("offset");
   });
 });

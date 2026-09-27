@@ -68,16 +68,28 @@ export const CONSTITUTION_CLAUSES =
   "Do not praise the writing and do not suggest replacement prose.";
 
 /**
+ * Asked for a character offset, a reasoning model spells the text out letter by
+ * letter to count it and runs out of output budget before it answers. Core
+ * resolves the quote itself, so every model prompt says not to count. Quotes
+ * match exactly, and models straighten a curly apostrophe unless told not to.
+ */
+const QUOTE_ONLY_CLAUSE =
+  "Copy each quote verbatim, keeping curly quotes, apostrophes and odd spacing exactly as " +
+  "written; do not count characters or compute positions.";
+
+/**
  * The reporting clause every paragraph-scope model Pass shares. It carries the
  * two clauses the constitution harness checks for — no praise and no
- * replacement prose — and it names the Anchor a Finding needs (a quote and its
- * zero-based offset in the Target). One constant rather than one per Pass, so a
- * new Starter pass cannot ship without them and the clauses cannot drift apart.
+ * replacement prose — and it names the Anchor a Finding needs: a verbatim quote,
+ * never an offset, which Core finds for itself (see `QUOTE_ONLY_CLAUSE`). One
+ * constant rather than one per Pass, so a new Starter pass cannot ship without
+ * them and the clauses cannot drift apart.
  */
 const PARAGRAPH_REPORTING_CLAUSE =
-  "For each problem, quote the exact span from the target, give its zero-based offset within " +
-  "the target, a short issue label and a diagnosis. Report only problems in the target " +
-  "paragraph. " +
+  "For each problem, quote the exact span from the target, a short issue label and a " +
+  "diagnosis. " +
+  QUOTE_ONLY_CLAUSE +
+  " Report only problems in the target paragraph. " +
   CONSTITUTION_CLAUSES;
 
 /**
@@ -170,14 +182,14 @@ const SECTION_REPORTING_CLAUSE =
 /**
  * The reporting clause every document-scope model Pass shares. It carries the
  * two clauses the constitution harness checks for — no praise and no
- * replacement prose — and names the Anchor a Finding needs: a quote and its
- * zero-based offset in the whole Document, because the whole Document is the
- * target.
+ * replacement prose — and names the Anchor a Finding needs: a verbatim quote
+ * from the whole Document, because the whole Document is the target.
  */
 const DOCUMENT_REPORTING_CLAUSE =
-  "For each problem, quote the exact span from the document, give its zero-based offset " +
-  "within the document, a short issue label and a diagnosis. Report only problems in the " +
-  "document. " +
+  "For each problem, quote the exact span from the document, a short issue label and a " +
+  "diagnosis. " +
+  QUOTE_ONLY_CLAUSE +
+  " Report only problems in the document. " +
   CONSTITUTION_CLAUSES;
 
 export interface ConstitutionPromptClause {
@@ -343,6 +355,13 @@ export const CLAIM_STRENGTH_PASS: Pass = {
  * Story 41: cohesion across sentences, and the stress position — the slot at
  * the end of a sentence where the important new thing belongs. Enabled by
  * default (DESIGN §4, pass 8).
+ *
+ * Every junction in the Document is a candidate, so a reasoning model given no
+ * bound checks them all, copies the text out, drafts each Finding and then
+ * writes it again. Probed on 2026-09-27 against deepseek-v4.1-flash through
+ * Ollama, that ran into the 16384-token ceiling. The cap, the short quote and
+ * the ban on copying out are what brought it under; they cost no Finding the
+ * Writer could act on, because a short quote still resolves to its sentence.
  */
 export const TOPIC_STRINGS_PASS: Pass = {
   id: "topic-strings",
@@ -362,7 +381,13 @@ export const TOPIC_STRINGS_PASS: Pass = {
       "string does not carry the reader forward, or where a sentence's important new information",
       "is buried instead of placed at the stress position at the end. Say in the diagnosis what",
       "the reader is asked to hold on to and where the sentence puts its weight.",
-      DOCUMENT_REPORTING_CLAUSE,
+      "Report at most 10 problems, the ones that most disrupt the reader.",
+      "For each problem, quote only the opening six to ten words of the sentence where the",
+      "problem lands, give a short issue label, and a diagnosis of at most two sentences.",
+      QUOTE_ONLY_CLAUSE,
+      "Do not copy the document, its paragraphs or your quotes out while thinking; refer to them",
+      "by paragraph and sentence position. Compose the JSON once, in the answer.",
+      `Report only problems in the document. ${CONSTITUTION_CLAUSES}`,
     ].join("\n"),
   ),
 };

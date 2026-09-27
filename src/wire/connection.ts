@@ -54,11 +54,24 @@ export interface Connection {
 }
 
 /**
- * The reasoning budgets Obelus offers. Empty is "send nothing"; the rest are
- * the values the OpenAI-shaped surfaces share. A pass wants a short trace and a
- * complete JSON answer, so the useful settings are the low end.
+ * The reasoning budgets Obelus offers. Empty is "send nothing", leaving the
+ * Provider's default; `none` turns thinking off where the model allows it. The
+ * values are the OpenAI-shaped ladder (OpenRouter accepts all of them), and each
+ * Protocol adapter translates a value to its own surface — Anthropic's
+ * `output_config.effort`, Gemini's `thinkingLevel` or `thinkingBudget`. A pass
+ * wants a short trace and a complete JSON answer, so the useful settings are
+ * the low end.
  */
-export const REASONING_EFFORTS = ["", "none", "low", "medium", "high"] as const;
+export const REASONING_EFFORTS = [
+  "",
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 /** Story 57: no more than a small number of requests in flight per Connection. */
