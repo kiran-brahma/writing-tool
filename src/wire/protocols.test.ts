@@ -104,6 +104,16 @@ describe("the openai-shaped adapter", () => {
     expect((bodyOf(without) as { reasoning_effort?: unknown }).reasoning_effort).toBeUndefined();
   });
 
+  it("passes every reasoning effort through unchanged, including off and the top levels", () => {
+    for (const effort of ["none", "minimal", "xhigh", "max"] as const) {
+      const built = protocolFor("openai-shaped").buildRequest({
+        ...request(connectionFor("openrouter")),
+        reasoningEffort: effort,
+      });
+      expect((bodyOf(built) as { reasoning_effort?: unknown }).reasoning_effort).toBe(effort);
+    }
+  });
+
   it("sends no auth header for a keyless local Ollama Connection", () => {
     const built = protocolFor("openai-shaped").buildRequest(
       request(connectionFor("ollama", { apiKey: "" })),
@@ -179,10 +189,59 @@ describe("the anthropic-shaped adapter", () => {
     expect(headers["anthropic-version"]).toBe("2023-06-01");
     expect(headers["anthropic-dangerous-direct-browser-access"]).toBe("true");
 
-    const body = bodyOf(built) as { model: string; max_tokens: number; temperature: number };
+    const body = bodyOf(built) as { model: string; max_tokens: number; temperature?: number };
     expect(body.model).toBe("test-model");
     expect(body.max_tokens).toBe(256);
-    expect(body.temperature).toBe(0.4);
+    // Claude models after Opus 4.6 answer 400 to any temperature but 1.0.
+    expect(body.temperature).toBeUndefined();
+  });
+
+  it("sends no thinking or effort field when the Connection leaves the effort unset", () => {
+    const body = bodyOf(
+      protocolFor("anthropic-shaped").buildRequest(request(connectionFor("anthropic"))),
+    );
+    expect(body.thinking).toBeUndefined();
+    expect(body.output_config).toBeUndefined();
+  });
+
+  it("turns thinking off for the none effort", () => {
+    const body = bodyOf(
+      protocolFor("anthropic-shaped").buildRequest({
+        ...request(connectionFor("anthropic")),
+        reasoningEffort: "none",
+      }),
+    );
+    expect(body.thinking).toEqual({ type: "disabled" });
+    expect(body.output_config).toBeUndefined();
+  });
+
+  it("maps a thinking effort to adaptive thinking and output_config.effort", () => {
+    const expected = { minimal: "low", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
+    for (const [effort, sent] of Object.entries(expected)) {
+      const body = bodyOf(
+        protocolFor("anthropic-shaped").buildRequest({
+          ...request(connectionFor("anthropic")),
+          reasoningEffort: effort,
+        }),
+      ) as { thinking?: unknown; output_config?: { effort?: string } };
+      expect(body.thinking).toEqual({ type: "adaptive" });
+      expect(body.output_config?.effort).toBe(sent);
+    }
+  });
+
+  it("keeps the schema and the effort side by side in output_config", () => {
+    const schema = { type: "object" };
+    const body = bodyOf(
+      protocolFor("anthropic-shaped").buildRequest({
+        ...request(connectionFor("anthropic")),
+        reasoningEffort: "medium",
+        jsonSchema: schema,
+      }),
+    ) as { output_config: unknown };
+    expect(body.output_config).toEqual({
+      effort: "medium",
+      format: { type: "json_schema", schema },
+    });
   });
 
   it("keeps the version and browser-access headers even if a Connection record lost them", () => {
@@ -291,6 +350,41 @@ describe("the gemini-native adapter", () => {
     };
     expect(body.generationConfig.maxOutputTokens).toBe(256);
     expect(body.generationConfig.temperature).toBe(0.4);
+  });
+
+  it("sends no thinkingConfig when the Connection leaves the effort unset", () => {
+    const body = bodyOf(
+      protocolFor("gemini-native").buildRequest(request(connectionFor("gemini"))),
+    ) as { generationConfig: Record<string, unknown> };
+    expect(body.generationConfig.thinkingConfig).toBeUndefined();
+  });
+
+  it("maps the effort to a thinkingLevel on Gemini 3, whose lowest level is minimal", () => {
+    const expected = { none: "minimal", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "high", max: "high" };
+    for (const [effort, level] of Object.entries(expected)) {
+      const body = bodyOf(
+        protocolFor("gemini-native").buildRequest({
+          ...request(connectionFor("gemini")),
+          model: "gemini-3.8-flash",
+          reasoningEffort: effort,
+        }),
+      ) as { generationConfig: { thinkingConfig?: unknown } };
+      expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: level });
+    }
+  });
+
+  it("maps the effort to a thinkingBudget on Gemini 2.5, where zero turns thinking off", () => {
+    const expected = { none: 0, minimal: 512, low: 1024, medium: 8192, high: 24576, xhigh: 24576, max: 24576 };
+    for (const [effort, budget] of Object.entries(expected)) {
+      const body = bodyOf(
+        protocolFor("gemini-native").buildRequest({
+          ...request(connectionFor("gemini")),
+          model: "models/gemini-2.5-flash",
+          reasoningEffort: effort,
+        }),
+      ) as { generationConfig: { thinkingConfig?: unknown } };
+      expect(body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: budget });
+    }
   });
 
   it("strips a leading models/ prefix and encodes the model into one path segment", () => {

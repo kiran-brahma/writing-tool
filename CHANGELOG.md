@@ -7,6 +7,12 @@ release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- Reasoning effort now offers Off (no thinking), Minimal, Extra high and Max alongside Low, Medium
+  and High, with clearer labels. It now reaches Anthropic and Gemini Connections too, not only the
+  OpenAI-compatible ones.
+
 ### Fixed
 
 - Thinking models no longer run out of output budget before answering a model pass. Passes stop
@@ -14,6 +20,8 @@ release is cut.
   each quote itself. The Topic strings pass also caps its findings at ten and asks for short quotes.
   An existing library keeps its saved Starter passes, so use Restore the Starter pack to pick up
   the new prompts.
+- Anthropic Connections work with current Claude models. Obelus no longer sends a temperature,
+  which Claude models released after Opus 4.6 reject.
 
 ## [0.1.0] - 2026-09-26
 

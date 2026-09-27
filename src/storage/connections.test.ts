@@ -305,6 +305,11 @@ describe("a Connection record written before the output limits existed", () => {
     expect(normalizeConnection(set as unknown as Connection).maxOutputTokens).toBe(4096);
     expect(normalizeConnection(set as unknown as Connection).reasoningEffort).toBe("high");
 
+    for (const effort of ["none", "minimal", "xhigh", "max"]) {
+      const stored = { id: "custom-1", maxOutputTokens: 4096, reasoningEffort: effort };
+      expect(normalizeConnection(stored as unknown as Connection).reasoningEffort).toBe(effort);
+    }
+
     const junk = { id: "custom-1", maxOutputTokens: -1, reasoningEffort: "banana" };
     expect(normalizeConnection(junk as unknown as Connection).maxOutputTokens).toBe(
       DEFAULT_MAX_OUTPUT_TOKENS,

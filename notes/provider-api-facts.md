@@ -656,6 +656,32 @@ with a `:cloud` suffix (e.g. `gemma4:cloud`).
 
 ---
 
+## Reasoning controls (checked 2026-09-27)
+
+Obelus stores one effort per Connection — `""` (send nothing), `none`, `minimal`, `low`, `medium`,
+`high`, `xhigh`, `max` — and each Protocol adapter translates it. Not re-probed live except Ollama;
+the rest is from the docs named below, so re-verify before relying on a model family.
+
+- **OpenAI-shaped** (OpenAI, OpenRouter, Ollama, Custom): `reasoning_effort` passed through as is.
+  OpenRouter accepts `max`, `xhigh`, `high`, `medium`, `low`, `minimal`, `none`, with `none`
+  disabling reasoning; a model whose reasoning is mandatory rejects `none`
+  (<https://openrouter.ai/docs/use-cases/reasoning-tokens>). OpenAI's accepted values vary by model
+  (reference page returned 403 to a fetch; not re-read). Ollama: `none` turns thinking off —
+  probed live 2026-09-27 on `deepseek-v4.1-flash:cloud`, no trace returned; `low` still produced one.
+- **Anthropic**: off is `thinking: {type: "disabled"}`; on is `thinking: {type: "adaptive"}` with
+  `output_config: {effort: "low"|"medium"|"high"|"xhigh"|"max"}` (no `minimal`; Obelus sends `low`).
+  Fable 5/5.1 and Opus 5.5 always think and answer 400 to `disabled`; Opus 5 accepts `disabled` only
+  at effort `high` or below; Haiku 4.5 takes `budget_tokens`, not adaptive. Sampling
+  (`temperature`) is refused while thinking. Source: Anthropic's API skill, cached 2026-06-24.
+- **Gemini native**: `generationConfig.thinkingConfig`. Gemini 3.x takes `thinkingLevel`
+  (`minimal`, `low`, `medium`, `high`) and cannot turn thinking off; 2.5 takes `thinkingBudget`
+  in tokens, 0 turning it off on Flash (Pro refuses 0). Sending both is a 400. Google maps efforts
+  to 2.5 budgets as low 1024, medium 8192, high 24576
+  (<https://ai.google.dev/gemini-api/docs/openai>,
+  <https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5>).
+
+---
+
 ## Comparison tables
 
 ### A. Connection and auth
