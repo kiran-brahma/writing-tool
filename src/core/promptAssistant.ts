@@ -35,8 +35,9 @@ export const PROMPT_ASSISTANT_SYSTEM = [
   "placeholder is refused when the prompt is saved, so do not invent one.",
   "",
   "The prompt must name the text the model may analyze, and say that surrounding text is context",
-  "rather than target. It must ask for each problem as a quote from the target, a zero-based offset",
-  "within the target, a short issue label and a diagnosis. It must include this sentence exactly:",
+  "rather than target. It must ask for each problem as a quote copied verbatim from the target, a",
+  "short issue label and a diagnosis, and must not ask for character offsets or positions. It must",
+  "include this sentence exactly:",
   CONSTITUTION_CLAUSES,
 ].join("\n");
 

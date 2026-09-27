@@ -28,10 +28,13 @@ export interface ContainmentResult<T extends AnchorDraft> {
  * two-argument `resolveAnchor`) rather than diff-projecting from a Revision.
  * Re-location of *stored* Findings across edits is `reResolveFindings`.
  *
- * A model is asked for an offset within the Target it was shown, so that hint is
- * first moved into canonical coordinates. Without that, a quote that appears in
- * the context as well would tie-break to the context and a valid Finding would
- * be dropped as out of scope.
+ * The quote is matched within the Target alone, so a quote that also appears in
+ * the context cannot tie-break to the context and drop a valid Finding. Any
+ * offset the model sent is a Target-relative hint for choosing between
+ * occurrences inside the Target; prompts no longer ask for one, because a
+ * reasoning model spends its whole output budget counting characters. The kept
+ * draft carries the resolved canonical position as its offset, which is a
+ * better hint for later re-resolution than anything the model could count.
  */
 export function applyContainment<T extends AnchorDraft>(
   drafts: T[],
@@ -42,13 +45,13 @@ export function applyContainment<T extends AnchorDraft>(
   let dropped = 0;
 
   for (const draft of drafts) {
-    const anchored: T = { ...draft, offset: target.start + draft.offset };
-    const interval = resolveAnchor(anchored, canonical);
-    if (interval === null || !isContained(interval, target)) {
+    const local = resolveAnchor(draft, canonical.slice(target.start, target.end));
+    if (local === null) {
       dropped += 1;
       continue;
     }
-    kept.push({ draft: anchored, interval });
+    const interval = { start: target.start + local.start, end: target.start + local.end };
+    kept.push({ draft: { ...draft, offset: interval.start }, interval });
   }
 
   return { kept, dropped };

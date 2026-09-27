@@ -7,6 +7,14 @@ release is cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- Thinking models no longer run out of output budget before answering a model pass. Passes stop
+  asking the model for character offsets, which it spent its whole budget counting; Obelus finds
+  each quote itself. The Topic strings pass also caps its findings at ten and asks for short quotes.
+  An existing library keeps its saved Starter passes, so use Restore the Starter pack to pick up
+  the new prompts.
+
 ## [0.1.0] - 2026-09-26
 
 The first tagged release. It covers the v1 spec through v1.3 (the page and the mark), as deployed to

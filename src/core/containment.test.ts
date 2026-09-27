@@ -32,14 +32,31 @@ describe("applyContainment", () => {
     expect(result.dropped).toBe(1);
   });
 
-  it("moves a target-relative offset into canonical coordinates before tie-breaking", () => {
-    // "para" occurs in every paragraph; offset 0 is target-relative, so the
-    // occurrence in the middle paragraph — not the first — must win.
+  it("resolves a quote every paragraph shares to the Target's occurrence", () => {
+    // "para" occurs in every paragraph; the occurrence in the middle paragraph —
+    // not the first — must win.
     const result = applyContainment([{ quote: "para", offset: 0 }], CANONICAL, TARGET);
 
     expect(result.dropped).toBe(0);
     expect(result.kept[0].interval).toEqual({ start: 15, end: 19 });
-    expect(result.kept[0].draft.offset).toBe(11);
+  });
+
+  it("keeps a quote the Target contains even when the context holds it nearer the hint", () => {
+    // A model is no longer asked for an offset, so the hint is 0. "same words"
+    // sits in the context just before the Target and again deep inside it; the
+    // Target's own occurrence must win or a valid Finding is dropped.
+    const canonical = "Context with same words.\n\nA long Target paragraph that ends with same words.\n";
+    const target = { start: 26, end: canonical.length - 1 };
+    const result = applyContainment([{ quote: "same words", offset: 0 }], canonical, target);
+
+    expect(result.dropped).toBe(0);
+    expect(result.kept[0].interval).toEqual({ start: 65, end: 75 });
+  });
+
+  it("records the resolved position as the Anchor's offset, not the model's hint", () => {
+    const result = applyContainment([{ quote: "para", offset: 40 }], CANONICAL, TARGET);
+
+    expect(result.kept[0].draft.offset).toBe(15);
   });
 
   it("keeps the whole Target when the Target is the whole Document", () => {

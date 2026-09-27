@@ -1,10 +1,15 @@
 /**
  * The findings schema Obelus sends a model. This is the constitutional
  * decision, not a prompt instruction: it exposes only the issue, the diagnosis,
- * an optional pattern, the quoted span and its offset. There is deliberately no
+ * an optional pattern and the quoted span. There is deliberately no
  * field for rewritten prose, and `additionalProperties: false` refuses one if a
  * model invents it. A model cannot hand the Writer a sentence through a schema
  * that has nowhere to put it.
+ *
+ * There is no offset field either. Core finds the quote inside the Target and
+ * records the position itself (`applyContainment`); a reasoning model asked for
+ * a character offset spelled the Document out letter by letter and ran out of
+ * output budget before it answered.
  */
 const FINDING_ITEM_PROPERTIES: Record<string, unknown> = {
   issue: {
@@ -21,11 +26,7 @@ const FINDING_ITEM_PROPERTIES: Record<string, unknown> = {
   },
   quote: {
     type: "string",
-    description: "The exact span from the target paragraph, copied verbatim.",
-  },
-  offset: {
-    type: "integer",
-    description: "The zero-based character offset of the quote in the target.",
+    description: "The exact span from the target, copied verbatim.",
   },
 };
 
@@ -40,7 +41,7 @@ export const FINDINGS_SCHEMA: Record<string, unknown> = {
   properties: {
     findings: {
       type: "array",
-      description: "Problems found in the target paragraph.",
+      description: "Problems found in the target.",
       items: {
         type: "object",
         properties: FINDING_ITEM_PROPERTIES,

@@ -195,10 +195,17 @@ function candidatesOf(value: unknown): unknown[] {
  */
 const AUTHORED_FIELDS = ["issue", "diagnosis", "pattern"];
 
+/**
+ * `offset` left the wire schema, but a model that sends one anyway is sending a
+ * position hint, not prose, so it is still read as a hint and never quarantined.
+ */
+const HINT_FIELDS = ["offset"];
+
 /** Known fields the model does not author, so a string there is not a breach. */
-const NON_AUTHORED_KNOWN_FIELDS = new Set(
-  FINDING_FIELDS.filter((field) => !AUTHORED_FIELDS.includes(field)),
-);
+const NON_AUTHORED_KNOWN_FIELDS = new Set([
+  ...FINDING_FIELDS.filter((field) => !AUTHORED_FIELDS.includes(field)),
+  ...HINT_FIELDS,
+]);
 
 function validateFinding(candidate: unknown): FindingDraft | null {
   if (!isRecord(candidate)) return null;
