@@ -3,31 +3,23 @@
 ## Why I built Obelus
 
 
-*The only way to write is to write. - Ralph Waldo Emerson*
+*The only way to write is to write. - Ralph Waldo Emerson.*
 
-I did most of my writing as a student. I never considered emails I sent or presentations  as writing, but I was communicating with others in the written form.  The only time I wrote without any agenda was when I jotted my observations or ideas from the books I was reading.
+I did most of my writing as a student. I never considered emails I sent or presentations as writing, but I was communicating with others in the written form. The only time I wrote without any agenda was when I jotted my observations or ideas from the books I was reading.
 
-Around 5 years back, I started jotting down my notes in Obsidian. Obsidian’s wiki-link and graph features encouraged me to develop connections across my vault. I composed mini-essays  to aid me in building the Obsidian's knowledge-graph.
+Around 5 years back, I started jotting down my notes in Obsidian. Obsidian’s wiki-link and graph features encouraged me to develop connections across my vault. I wrote down my understanding of a book below each note, linking it with other notes in my vault. I never had the intent to publish the essays, but they did inspire my Likedin posts. I rewrote my posts 5-6 times before I posted them. 
 
-I did not write my essays with an intent to publish, but I did post occasionally on LinkedIn. I spent more time editing and rewriting before posting.
+After launch of ChatGPT, I outsourced the editing and polishing role to AI. The writing quality improved with every new model release, but my writing went in the opposite direction. 
+In Feb 2026, I decided to avoid using AI to write for me and actually learn how to improve on my own. I used AI for feedback on my writing and how to improve it. My writing did improve after I started incorporating AI’s feedback and suggestions. 
 
-After launch of ChatGPT, I started to use it for polishing my posts. AI composed highly polished prose, which was beyond my skill. AI became my ghostwriter. 
+I started questioning my process after I finished reading ['On Writing Well'](https://link.amazon/B0gAgRBBI) by William Zinsser. If an editor controls how you write, then your own voice will be lost.  As I was reflecting back on my AI usage, I came across a post by Thomas Ptacek: ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/). 
 
-With every new model release, AI got much better at writing, but not me. So, in early  2026, I decided to learn how to write . I asked AI to review my writing and provide suggestions. 
 
- I slowly started improving but I knew in the back of my head that most of the improvements came from AI’s advice not completely from my efforts.
+Thomas Ptackek recommends adopting two simple rules: (1) Don't use words suggested by AI (2) Don't ask AI to encourage you. 
 
-In September 2026, I finished reading William Zinsser's ['On Writing Well'](https://link.amazon/B0gAgRBBI). The book’s final section, "Attitude", forced me to examine my process. While I was thinking how to best to use AI, I came across  Thomas Ptacek post on ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/). 
+Ptackek's post shares a lot of advice and tips on how to adopt AI into your writing workflow. In the past few months, I built my own set of grammatical rules, word list and style guide as a 'Skill' for AI. However, I never restricted AI from making suggestions for improvements. 
 
-Ptacek suggests adopting two rules:
-- Avoid using words suggested by AI
-- Avoid encouragement by AI
-
-Ptacek’s advice makes sense as AI is trained to be helpful even when you are wrong. 
-
-Luckily, I had done most of what he recommendeds [‘Skills’](https://skills.md/). My skills never restricted AI from making recommendations.
-
-This app incorporates Ptacek’s advice along with other rules. I will be updating the project frequently, but the tool will only inform when the writing is poor.
+This app is my attempt to incorporate rules, ideas and advice shared by well known writers in my writings. It is still a work in progress and I will keep updating it on a weekly basis. 
 
 
 ## About the APP (AI generated text)
