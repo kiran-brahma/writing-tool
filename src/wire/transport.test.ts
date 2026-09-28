@@ -173,6 +173,24 @@ describe("send", () => {
     expect(result.error).toContain("OLLAMA_ORIGINS");
   });
 
+  it("points an ollama.com Connection at the local daemon instead of the key", async () => {
+    // ollama.com answers the preflight with 405 and no CORS headers, so the
+    // browser blocks the request before the key is read. Checking the key
+    // would send the Writer after the wrong thing.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const cloud = connection("openai", {
+      id: "custom-2",
+      name: "Ollama Cloud",
+      baseUrl: "https://ollama.com/v1",
+    });
+    const result = await testConnection(createFetchTransport(), cloud);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("does not accept requests from a browser");
+    expect(result.error).toContain("ollama signin");
+    expect(result.error).toContain(":cloud");
+    expect(result.error).not.toContain("Check the base URL and key");
+  });
+
   it("refuses a URL outside the configured Connection (privacy, story 13)", () => {
     expect(() => assertWithinConnection(connection("openai"), "https://evil.example/v1")).toThrow(
       /outside the configured Connection/,

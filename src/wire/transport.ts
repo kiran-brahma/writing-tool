@@ -1,7 +1,13 @@
 import { describeError } from "../errors";
 import { DEFAULT_CONCURRENCY, type Connection } from "./connection";
 import type { ModelRequest } from "./modelRequest";
-import { isLocalOllama, ollamaUnreachableAdvice, pageOrigin } from "./ollama";
+import {
+  isLocalOllama,
+  isOllamaCloud,
+  ollamaCloudUnreachableAdvice,
+  ollamaUnreachableAdvice,
+  pageOrigin,
+} from "./ollama";
 import { protocolFor, type BuiltRequest } from "./protocols";
 
 /**
@@ -24,16 +30,16 @@ export interface TransportOptions {
   requestTimeoutMs?: number;
 }
 
-const DEFAULT_MAX_ATTEMPTS = 4;
-const DEFAULT_BASE_DELAY_MS = 500;
-const MAX_DELAY_MS = 30_000;
+export const DEFAULT_MAX_ATTEMPTS = 4;
+export const DEFAULT_BASE_DELAY_MS = 500;
+export const MAX_DELAY_MS = 30_000;
 /**
  * #46: a Run holds the mutation lock while it waits on the Provider, so a
  * Provider that accepts the connection and then stalls would stop the whole
  * Library. The bound is generous, because a reasoning model on a long Document
  * is legitimately slow; it exists so a stall ends, not to hurry a slow answer.
  */
-const DEFAULT_REQUEST_TIMEOUT_MS = 5 * 60_000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * A response Obelus could not use: a non-2xx the browser could read, or a 2xx
@@ -61,7 +67,9 @@ export class UnreachableError extends Error {
   constructor(connection: Connection, detail: string) {
     const advice = isLocalOllama(connection)
       ? ollamaUnreachableAdvice(pageOrigin())
-      : `Check the base URL and key, then use "Test connection".`;
+      : isOllamaCloud(connection)
+        ? ollamaCloudUnreachableAdvice()
+        : `Check the base URL and key, then use "Test connection".`;
     super(`Could not reach the ${connection.name} Connection: ${detail}. ${advice}`);
     this.name = "UnreachableError";
   }

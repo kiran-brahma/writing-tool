@@ -21,6 +21,34 @@ export function isLocalOllama(connection: Connection): boolean {
   return LOOPBACK_HOSTS.has(base.hostname) && base.port === OLLAMA_PORT;
 }
 
+/**
+ * True for a Connection pointed straight at Ollama Cloud. `ollama.com` answers
+ * a browser's preflight with 405 and sends no CORS headers even on a real
+ * response, so a request from this page can never be read, whatever the key.
+ */
+export function isOllamaCloud(connection: Connection): boolean {
+  try {
+    const host = new URL(connection.baseUrl).hostname;
+    return host === "ollama.com" || host.endsWith(".ollama.com");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What to say when an Ollama Cloud Connection could not be reached. Checking
+ * the key would be wasted effort: the browser blocks the request before the
+ * key is ever read, so the only working route is the local daemon.
+ */
+export function ollamaCloudUnreachableAdvice(): string {
+  return (
+    `ollama.com does not accept requests from a browser, so no key saved here can reach it. ` +
+    `Use the Ollama (local) Connection instead: install Ollama, run "ollama signin" once, and ` +
+    `choose a model ending in :cloud. Leave its key blank; the Ollama app uses your account. ` +
+    `You can remove this Connection and its key.`
+  );
+}
+
 /** The origin this page is served from, or null outside a browser. */
 export function pageOrigin(): string | null {
   const origin = (globalThis as { location?: { origin?: unknown } }).location?.origin;

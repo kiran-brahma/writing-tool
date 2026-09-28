@@ -8,6 +8,7 @@ import type { Connection } from "../wire/connection";
 import { ConnectionsPanel } from "../wire/ConnectionsPanel";
 import { transport } from "../wire/productionTransport";
 import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
+import { AiGuideView } from "./AiGuideView";
 
 /**
  * The AI Settings view: every global choice about how Obelus talks to a model,
@@ -69,45 +70,85 @@ export function AiSettingsView({
   onToggleRawResponse,
   onOpenHelp,
 }: AiSettingsViewProps) {
+  const [page, setPage] = useState<"settings" | "guide">("settings");
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-6">
-      <SlotsPanel
-        connections={connections}
-        slots={slots}
-        judgeNote={
-          judgeIsDefault
-            ? `Not set — defaulting to ${judgeDefaultName ?? "another connection"}.`
-            : null
-        }
-        onAssignSlot={onAssignSlot}
-        onOpenHelp={onOpenHelp}
-      />
-
-      <div className="overflow-hidden rounded border border-rule bg-paper">
-        <ConnectionsPanel
-          connections={connections}
-          onSave={onSaveConnection}
-          onAddCustom={onAddCustom}
-          onRemove={onRemoveConnection}
-          onOpenHelp={onOpenHelp}
-        />
+      <div role="group" aria-label="AI Settings page" className="flex gap-1.5">
+        {(
+          [
+            ["settings", "Settings"],
+            ["guide", "Guide"],
+          ] as const
+        ).map(([id, label]) => {
+          const active = page === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setPage(id)}
+              className={[
+                "rounded border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                active
+                  ? "border-ink bg-ink text-on-ink focus-visible:ring-offset-2"
+                  : "border-rule bg-paper text-quiet-ink hover:bg-sunk",
+              ].join(" ")}
+            >
+              {label}
+            </button>
+          );
+        })}
+        {page === "settings" && (
+          <span className="self-center text-xs text-faint-ink">
+            New to this? The Guide covers every Provider, setting and error.
+          </span>
+        )}
       </div>
 
-      <RunSettingsPanel
-        screeningFrame={screeningFrame}
-        characterLimit={characterLimit}
-        voiceList={voiceList}
-        priceTable={priceTable}
-        showRawResponse={showRawResponse}
-        onToggleScreening={onToggleScreening}
-        onSetCharacterLimit={onSetCharacterLimit}
-        onSaveVoiceList={onSaveVoiceList}
-        onSavePriceTable={onSavePriceTable}
-        onToggleRawResponse={onToggleRawResponse}
-        onOpenHelp={onOpenHelp}
-      />
+      {page === "guide" ? (
+        <AiGuideView />
+      ) : (
+        <>
+          <SlotsPanel
+            connections={connections}
+            slots={slots}
+            judgeNote={
+              judgeIsDefault
+                ? `Not set — defaulting to ${judgeDefaultName ?? "another connection"}.`
+                : null
+            }
+            onAssignSlot={onAssignSlot}
+            onOpenHelp={onOpenHelp}
+          />
 
-      <ColorSchemePanel colorScheme={colorScheme} onSetColorScheme={onSetColorScheme} />
+          <div className="overflow-hidden rounded border border-rule bg-paper">
+            <ConnectionsPanel
+              connections={connections}
+              onSave={onSaveConnection}
+              onAddCustom={onAddCustom}
+              onRemove={onRemoveConnection}
+              onOpenHelp={onOpenHelp}
+            />
+          </div>
+
+          <RunSettingsPanel
+            screeningFrame={screeningFrame}
+            characterLimit={characterLimit}
+            voiceList={voiceList}
+            priceTable={priceTable}
+            showRawResponse={showRawResponse}
+            onToggleScreening={onToggleScreening}
+            onSetCharacterLimit={onSetCharacterLimit}
+            onSaveVoiceList={onSaveVoiceList}
+            onSavePriceTable={onSavePriceTable}
+            onToggleRawResponse={onToggleRawResponse}
+            onOpenHelp={onOpenHelp}
+          />
+
+          <ColorSchemePanel colorScheme={colorScheme} onSetColorScheme={onSetColorScheme} />
+        </>
+      )}
     </div>
   );
 }

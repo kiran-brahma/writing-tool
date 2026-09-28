@@ -7,12 +7,22 @@ release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- AI Settings has a **Guide** page: how to connect OpenAI, Anthropic, Gemini, OpenRouter, local
+  Ollama, Ollama cloud models and custom servers; how to choose models for the Critic and the
+  Judge; every Connection, Slot and run setting; the limits on each request; each error with its
+  cause and fix; and why requests leave from your browser.
+
 ### Fixed
 
 - When local Ollama cannot be reached, the error now says why and what to do: it names the
   `OLLAMA_ORIGINS` command for this site instead of asking you to check a key Ollama does not use.
   The Ollama (local) card in AI Settings has setup steps for macOS, Windows and Linux with the
   site's address filled in, and opens them when "Test connection" fails.
+- A custom Connection pointed at `ollama.com` now explains why it fails: Ollama Cloud does not
+  accept requests from a browser, whatever the key. The error points to the Ollama (local)
+  Connection with `ollama signin` and a `:cloud` model instead.
 
 ## [0.2.0] - 2026-09-27
 
