@@ -9,7 +9,7 @@ I did most of my writing as a student. I never considered emails I sent or prese
 
 Around 5 years back, I started jotting down my notes in Obsidian. Obsidian’s wiki-link and graph features encouraged me to develop connections across my vault. I wrote down my understanding of a book below each note, linking it with other notes in my vault. I never had the intent to publish the essays, but they did inspire my Likedin posts. I rewrote my posts 5-6 times before I posted them. 
 
-After launch of ChatGPT, I outsourced the editing and polishing role to AI. The writing quality improved with every new model release, but my writing went in the opposite direction. 
+fter launch of ChatGPT, I outsourced the editing and polishing role to AI. Initially, it made multiple silly errors. However, its skill improved with every new model update. While Ai was improving, I couldn't say the same for my own writing ability. 
 In Feb 2026, I decided to avoid using AI to write for me and actually learn how to improve on my own. I used AI for feedback on my writing and how to improve it. My writing did improve after I started incorporating AI’s feedback and suggestions. 
 
 I started questioning my process after I finished reading ['On Writing Well'](https://link.amazon/B0gAgRBBI) by William Zinsser. If an editor controls how you write, then your own voice will be lost.  As I was reflecting back on my AI usage, I came across a post by Thomas Ptacek: ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/). 
