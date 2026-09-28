@@ -2,7 +2,6 @@
 
 ## Why I built Obelus
 
-
 *The only way to write is to write. - Ralph Waldo Emerson.*
 
 I did most of my writing as a student. I never considered emails I sent or presentations as writing, but I was communicating with others in the written form. The only time I wrote without any agenda was when I jotted my observations or ideas from the books I was reading.
@@ -10,17 +9,16 @@ I did most of my writing as a student. I never considered emails I sent or prese
 Around 5 years back, I started jotting down my notes in Obsidian. Obsidian’s wiki-link and graph features encouraged me to develop connections across my vault. I wrote down my understanding of a book below each note, linking it with other notes in my vault. I never had the intent to publish the essays, but they did inspire my Likedin posts. I rewrote my posts 5-6 times before I posted them. 
 
 fter launch of ChatGPT, I outsourced the editing and polishing role to AI. Initially, it made multiple silly errors. However, its skill improved with every new model update. While Ai was improving, I couldn't say the same for my own writing ability. 
+
 In Feb 2026, I decided to avoid using AI to write for me and actually learn how to improve on my own. I used AI for feedback on my writing and how to improve it. My writing did improve after I started incorporating AI’s feedback and suggestions. 
 
 I started questioning my process after I finished reading ['On Writing Well'](https://link.amazon/B0gAgRBBI) by William Zinsser. If an editor controls how you write, then your own voice will be lost.  As I was reflecting back on my AI usage, I came across a post by Thomas Ptacek: ['How To Write With An LLM'](https://sockpuppet.org/blog/2026/09/17/how-to-write-with-an-llm/). 
 
+Thomas Ptackek recommends adopting two simple rules: (1) Don't use words suggested by AI (2) Don't ask AI to encourage you.  Ptackek's post shares a lot of advice and tips on how to adopt AI into your writing workflow. 
 
-Thomas Ptackek recommends adopting two simple rules: (1) Don't use words suggested by AI (2) Don't ask AI to encourage you. 
+In the past few months, I built my own set of grammatical rules, word list and style guide as a 'Skill' for AI. However, I never restricted AI from making suggestions for improvements. 
 
-Ptackek's post shares a lot of advice and tips on how to adopt AI into your writing workflow. In the past few months, I built my own set of grammatical rules, word list and style guide as a 'Skill' for AI. However, I never restricted AI from making suggestions for improvements. 
-
-This app is my attempt to incorporate rules, ideas and advice shared by well known writers in my writings. It is still a work in progress and I will keep updating it on a weekly basis. 
-
+This app is my attempt to incorporate rules, ideas and advice shared by well known writers in my writings. It is still a work in progress. I will keep updating it whenever time permits.
 
 ## About the APP (AI generated text)
 
@@ -89,7 +87,11 @@ On macOS with the Ollama app, set the variable for GUI apps, then quit Ollama fr
 launchctl setenv OLLAMA_ORIGINS "https://obelus.kiranbrahma.com,https://writing-tool.kiranbrahma.workers.dev,http://localhost:5173"
 ```
 
-`launchctl setenv` lasts until the next restart. Add the line to `~/.zshrc` to keep it. To check it took effect, send the preflight yourself and look for `204` and an `Access-Control-Allow-Origin` header naming your origin:
+If Ollama will not quit from the menu bar, run `pkill -x Ollama` and open it again. `launchctl setenv` lasts until the next restart, so run it again after a restart; putting it in `~/.zshrc` does not help, because the Ollama app does not read your shell profile.
+
+On Windows, run `setx OLLAMA_ORIGINS "https://obelus.kiranbrahma.com"`, then quit Ollama from the taskbar and open it again. On Linux with the systemd service, run `sudo systemctl edit ollama.service`, add `Environment="OLLAMA_ORIGINS=https://obelus.kiranbrahma.com"` under `[Service]`, then `sudo systemctl restart ollama`. If `OLLAMA_ORIGINS` is already set, add the address to it, separated by a comma.
+
+The Ollama (local) card in AI Settings shows these steps with the page's own address filled in, and opens them when "Test connection" fails. To check it took effect, send the preflight yourself and look for `204` and an `Access-Control-Allow-Origin` header naming your origin:
 
 ```sh
 curl -i -X OPTIONS http://localhost:11434/v1/chat/completions \

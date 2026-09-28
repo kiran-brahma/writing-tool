@@ -1,6 +1,7 @@
 import { describeError } from "../errors";
 import { DEFAULT_CONCURRENCY, type Connection } from "./connection";
 import type { ModelRequest } from "./modelRequest";
+import { isLocalOllama, ollamaUnreachableAdvice, pageOrigin } from "./ollama";
 import { protocolFor, type BuiltRequest } from "./protocols";
 
 /**
@@ -57,11 +58,11 @@ export class ProviderError extends Error {
  * expose. It is reported as unreachable rather than guessed at.
  */
 export class UnreachableError extends Error {
-  constructor(connectionName: string, detail: string) {
-    super(
-      `Could not reach the ${connectionName} Connection: ${detail}. Check the base URL and key, ` +
-        `then use "Test connection".`,
-    );
+  constructor(connection: Connection, detail: string) {
+    const advice = isLocalOllama(connection)
+      ? ollamaUnreachableAdvice(pageOrigin())
+      : `Check the base URL and key, then use "Test connection".`;
+    super(`Could not reach the ${connection.name} Connection: ${detail}. ${advice}`);
     this.name = "UnreachableError";
   }
 }
@@ -252,7 +253,7 @@ async function attemptOnce(
     if (signal?.aborted || isCancelledError(error)) throw new CancelledError();
     // `fetch` throwing means no readable response at all — the browser's
     // opaque network failure. There is no status to retry on.
-    throw new UnreachableError(connection.name, describeError(error));
+    throw new UnreachableError(connection, describeError(error));
   } finally {
     deadline.clear();
   }

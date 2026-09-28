@@ -134,6 +134,45 @@ describe("send", () => {
     expect((error as Error).message).toContain("Failed to fetch");
   });
 
+  it("names OLLAMA_ORIGINS and this site when local Ollama refuses a deployed page", async () => {
+    // Ollama answers an origin it was not told to allow with a 403 preflight,
+    // which the browser reports as "Failed to fetch". "Check the key" would
+    // point at the wrong thing: local Ollama has no key.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    vi.stubGlobal("location", { origin: "https://obelus.example.com" });
+    const result = await testConnection(createFetchTransport(), connection("ollama"));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Ollama (local)");
+    expect(result.error).toContain("Failed to fetch");
+    expect(result.error).toContain('launchctl setenv OLLAMA_ORIGINS "https://obelus.example.com"');
+    expect(result.error).toContain("restart Ollama");
+    expect(result.error).not.toContain("key");
+  });
+
+  it("says Ollama is not running when the page is served from this machine", async () => {
+    // Ollama allows loopback origins by default, so there is nothing to allow.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    vi.stubGlobal("location", { origin: "http://localhost:5173" });
+    const error = await createFetchTransport()
+      .send(request(connection("ollama")))
+      .catch((thrown) => thrown);
+    expect(error).toBeInstanceOf(UnreachableError);
+    expect((error as Error).message).toContain("not appear to be running");
+    expect((error as Error).message).not.toContain("OLLAMA_ORIGINS");
+  });
+
+  it("gives Ollama advice to a custom Connection pointed at a local daemon", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    vi.stubGlobal("location", { origin: "https://obelus.example.com" });
+    const custom = connection("openai", {
+      id: "custom-1",
+      name: "My Ollama",
+      baseUrl: "http://127.0.0.1:11434/v1",
+    });
+    const result = await testConnection(createFetchTransport(), custom);
+    expect(result.error).toContain("OLLAMA_ORIGINS");
+  });
+
   it("refuses a URL outside the configured Connection (privacy, story 13)", () => {
     expect(() => assertWithinConnection(connection("openai"), "https://evil.example/v1")).toThrow(
       /outside the configured Connection/,

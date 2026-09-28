@@ -7,6 +7,13 @@ release is cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- When local Ollama cannot be reached, the error now says why and what to do: it names the
+  `OLLAMA_ORIGINS` command for this site instead of asking you to check a key Ollama does not use.
+  The Ollama (local) card in AI Settings has setup steps for macOS, Windows and Linux with the
+  site's address filled in, and opens them when "Test connection" fails.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added

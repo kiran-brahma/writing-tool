@@ -6,6 +6,7 @@ import {
   type KeyMode,
   type ReasoningEffort,
 } from "./connection";
+import { allowOriginCommands, isLocalOllama, originNeedsAllowing, pageOrigin } from "./ollama";
 import { concurrencyGate, transport } from "./productionTransport";
 import { testConnection } from "./transport";
 import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
@@ -305,7 +306,99 @@ function ConnectionCard({ connection, onSave, onRemove }: ConnectionCardProps) {
           {feedback.message}
         </p>
       )}
+
+      {isLocalOllama(current()) && <OllamaSetup open={feedback?.kind === "error"} />}
     </li>
+  );
+}
+
+/**
+ * The setup steps for local Ollama, with this page's own origin filled in.
+ * Opened automatically when a test fails, because that is when the Writer
+ * needs them.
+ */
+function OllamaSetup({ open }: { open: boolean }) {
+  const origin = pageOrigin() ?? "this site's address";
+  const needsAllowing = originNeedsAllowing(origin);
+  const commands = allowOriginCommands(origin);
+
+  return (
+    <details open={open} className="mt-2 rounded border border-rule-soft bg-sunk/40 p-2 text-xs">
+      <summary className="cursor-pointer font-medium text-quiet-ink">
+        Setting up local Ollama
+      </summary>
+      <ol className="mt-2 list-decimal space-y-2 pl-4 text-faint-ink">
+        <li>
+          Install Ollama from ollama.com and open it, or run <code>ollama serve</code>.
+        </li>
+        <li>
+          Get a model: <code>ollama pull</code> a local model, or run <code>ollama signin</code>{" "}
+          once to use a cloud model such as one ending in <code>:cloud</code>.{" "}
+          <code>ollama list</code> shows what you have. Choose it in the Slots section.
+        </li>
+        {needsAllowing ? (
+          <li>
+            Allow this site ({origin}). Ollama refuses any website it has not been told to trust,
+            and the browser reports that as &ldquo;Failed to fetch&rdquo;.
+            <p className="mt-1 text-quiet-ink">macOS, then quit Ollama from the menu bar and open it again:</p>
+            <CopyableCommand command={commands.macos} />
+            <p className="mt-1">
+              This lasts until you restart the Mac; run it again after a restart.
+            </p>
+            <p className="mt-1 text-quiet-ink">
+              Windows, then quit Ollama from the taskbar and open it again:
+            </p>
+            <CopyableCommand command={commands.windows} />
+            <p className="mt-1 text-quiet-ink">
+              Linux: run <code>sudo systemctl edit ollama.service</code>, add this under{" "}
+              <code>[Service]</code>, then run <code>sudo systemctl restart ollama</code>:
+            </p>
+            <CopyableCommand command={commands.linuxServiceLine} />
+            <p className="mt-1">
+              If OLLAMA_ORIGINS is already set, add this address to it, separated by a comma.
+            </p>
+          </li>
+        ) : (
+          <li>
+            Nothing to allow: this page is served from your own machine, and Ollama accepts it by
+            default.
+          </li>
+        )}
+        <li>
+          Use &ldquo;Test connection&rdquo;. If the browser asks to reach devices on your local
+          network, allow it.
+        </li>
+      </ol>
+    </details>
+  );
+}
+
+function CopyableCommand({ command }: { command: string }) {
+  const [label, setLabel] = useState("Copy");
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setLabel("Copied");
+    } catch {
+      setLabel("Select it");
+    }
+    globalThis.setTimeout(() => setLabel("Copy"), 1500);
+  };
+
+  return (
+    <div className="mt-1 flex items-start gap-2">
+      <code className="flex-1 break-all rounded border border-rule-soft bg-paper px-2 py-1 text-soft-ink">
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={() => void onCopy()}
+        className="rounded border border-rule bg-paper px-2 py-1 font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        {label}
+      </button>
+    </div>
   );
 }
 
