@@ -1,20 +1,9 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AnchorDraft, Violation } from "../core/finding";
-import type { JudgeResult, JudgeSide, JudgeVerdict } from "../core/judge";
-import {
-  clearPrediction,
-  getPrediction,
-  predictionAgreement,
-  setPrediction,
-  subscribePrediction,
-  type JudgePrediction,
-  type PredictionAgreement,
-} from "../core/judgeCalibration";
+import type { JudgeResult, JudgeVerdict } from "../core/judge";
 import { defaultJudgePair, extractPassages, type ExtractedPassages } from "../core/judgeSelection";
-import { lardFactorOfDiff } from "../core/metrics";
 import { wordDiff, type WordDiffSegment } from "../core/wordDiff";
 import type { Connection } from "../wire/connection";
-import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 import { QuarantinedRewrite, StruckText, StruckViolations } from "./ViolationDisplay";
 import { TYPING_PAUSE_MS } from "./persistence";
 import { useSettledValue } from "./useSettledValue";
@@ -53,10 +42,7 @@ export interface JudgePanelProps {
   error: string | null;
   result: JudgeResult | null;
   onJudge: (before: string, after: string) => void;
-  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
-
-type SelectionMode = "span" | "section";
 
 export function JudgePanel({
   revisions,
@@ -70,19 +56,13 @@ export function JudgePanel({
   error,
   result,
   onJudge,
-  onOpenHelp,
 }: JudgePanelProps) {
-  const [mode, setMode] = useState<SelectionMode>("span");
   /** Stories 171–172: the pair the panel opens on, recomputed only when the Revisions change. */
   const defaultPair = useMemo(() => defaultJudgePair(revisions), [revisions]);
   const [beforeId, setBeforeId] = useState<string | null>(() => defaultPair.before);
   const [afterId, setAfterId] = useState<string | null>(() => defaultPair.after);
   /** The passages the shown Verdict was produced from, so it is never misattributed. */
   const [judged, setJudged] = useState<{ before: string; after: string } | null>(null);
-  // Stories 156–157: the Writer's own prediction, held in memory for the session
-  // and never persisted. The store is subscribed rather than mirrored, so it is
-  // the one source of truth.
-  const prediction = useSyncExternalStore(subscribePrediction, getPrediction);
 
   // Stories 171–172: Revisions load just after the panel mounts, so the default
   // pair settles once they are available — the last flagged Revision against
@@ -99,7 +79,7 @@ export function JudgePanel({
   // waits for the selection to hold still, and runs once per settled selection
   // rather than on every render. A word selected and immediately retyped never
   // pays for it.
-  const anchor = useSettledValue(mode === "span" ? selection : section, TYPING_PAUSE_MS);
+  const anchor = useSettledValue(selection ?? section, TYPING_PAUSE_MS);
   const beforeRevision = revisions.find((revision) => revision.id === beforeId) ?? null;
   const afterRevision = revisions.find((revision) => revision.id === afterId) ?? null;
   const beforeCanonical = beforeRevision?.canonical ?? null;
@@ -123,25 +103,11 @@ export function JudgePanel({
     [beforeCanonical, afterCanonical],
   );
 
-  // Story 144: the Lard Factor for the same pair the diff is for, so the number
-  // and the diff on screen cannot disagree. Display only.
-  const lard = useMemo(
-    () => (beforeCanonical !== null && afterCanonical !== null ? lardFactorOfDiff(diff) : null),
-    [beforeCanonical, afterCanonical, diff],
-  );
-
   // A Verdict is shown only while the passages on screen are the ones it judged,
   // so switching the pair never leaves a stale preference labelled as this one's.
   const shownResult =
     result !== null && judged !== null && judged.before === beforeText && judged.after === afterText
       ? result
-      : null;
-
-  // A prediction is shown only for the pair it was recorded against, so a
-  // Verdict for a different pair is never paired with a stale prediction.
-  const predictionForPair =
-    prediction !== null && prediction.before === beforeText && prediction.after === afterText
-      ? prediction
       : null;
 
   const canJudge =
@@ -150,12 +116,6 @@ export function JudgePanel({
     judge !== null &&
     !running &&
     beforeId !== afterId;
-
-  /** Records the Writer's prediction for the current pair. Never a gate. */
-  const recordPrediction = (side: JudgeSide) => {
-    if (beforeText === null || afterText === null) return;
-    setPrediction({ before: beforeText, after: afterText, side });
-  };
 
   const hasTwoRevisions = revisions.length >= 2;
 
@@ -169,17 +129,6 @@ export function JudgePanel({
       </div>
 
       <div className="space-y-3 p-4">
-        <p className="text-xs text-muted-ink">
-          {PANEL_GLOSSES.judge.text}{" "}
-          <button
-            type="button"
-            onClick={() => onOpenHelp?.(PANEL_GLOSSES.judge.sectionId)}
-            className="rounded px-0.5 underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            How this works
-          </button>
-        </p>
-
         {!hasTwoRevisions && (
           <p className="text-sm text-muted-ink">
             Take at least two revisions to compare: keep writing, or flag a milestone.
@@ -229,32 +178,11 @@ export function JudgePanel({
               diff.map((segment, index) => <DiffSegmentView key={index} segment={segment} />)
             )}
           </pre>
-          {lard !== null && (
-            <p className="mt-1 text-xs text-muted-ink">
-              Lard Factor:{" "}
-              <span className="font-medium text-soft-ink">{formatLardFactor(lard)}</span>{" "}
-              <span className="text-muted-ink">
-                — the share of the earlier revision's words cut in the later one. A signal, not a
-                verdict.
-              </span>
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <ModeButton active={mode === "span"} onClick={() => setMode("span")}>
-            Selected span
-          </ModeButton>
-          <ModeButton active={mode === "section"} onClick={() => setMode("section")}>
-            Section at cursor
-          </ModeButton>
         </div>
 
         {anchor === null && (
           <p className="text-xs text-muted-ink">
-            {mode === "span"
-              ? "Select a span of text in the document to judge."
-              : "Place the cursor inside a section (a heading and its body) to judge it."}
+            Select a span, or place the cursor inside a section, to judge it.
           </p>
         )}
 
@@ -262,41 +190,6 @@ export function JudgePanel({
           <div className="grid grid-cols-2 gap-2">
             <Passage label="Version 1 passage" text={beforeText} />
             <Passage label="Version 2 passage" text={afterText} />
-          </div>
-        )}
-
-        {beforeText !== null && afterText !== null && (
-          <div className="rounded border border-rule-soft bg-ground p-2">
-            <h3 className="mb-1 text-xs font-semibold text-muted-ink">
-              Your prediction (optional)
-            </h3>
-            <p className="mb-2 text-xs text-muted-ink">
-              Which version do you think is clearer? Kept in this session only, never sent to
-              the judge, and never required to run it.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <PredictionButton
-                active={predictionForPair?.side === "before"}
-                onClick={() => recordPrediction("before")}
-              >
-                Version 1 is clearer
-              </PredictionButton>
-              <PredictionButton
-                active={predictionForPair?.side === "after"}
-                onClick={() => recordPrediction("after")}
-              >
-                Version 2 is clearer
-              </PredictionButton>
-              {predictionForPair !== null && (
-                <button
-                  type="button"
-                  onClick={clearPrediction}
-                  className="rounded px-0.5 text-xs text-muted-ink underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
           </div>
         )}
 
@@ -320,14 +213,7 @@ export function JudgePanel({
           </p>
         )}
 
-        {shownResult !== null && (
-          <div className="space-y-2">
-            {predictionForPair !== null && (
-              <PredictionNote prediction={predictionForPair} verdict={shownResult.verdict} />
-            )}
-            <Verdict result={shownResult} />
-          </div>
-        )}
+        {shownResult !== null && <Verdict result={shownResult} />}
       </div>
     </section>
   );
@@ -366,56 +252,6 @@ function RevisionSelect({
   );
 }
 
-function PredictionButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={[
-        "rounded border px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-        active
-          ? "border-ink bg-ink text-on-ink focus-visible:ring-offset-2"
-          : "border-rule bg-paper text-quiet-ink hover:bg-sunk",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={[
-        "rounded px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-        active ? "bg-ink text-on-ink focus-visible:ring-offset-2" : "border border-rule bg-paper text-quiet-ink",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Passage({ label, text }: { label: string; text: string | null }) {
   return (
     <div>
@@ -444,47 +280,6 @@ function DiffSegmentView({ segment }: { segment: WordDiffSegment }) {
       {segment.value}
     </span>
   );
-}
-
-function PredictionNote({
-  prediction,
-  verdict,
-}: {
-  prediction: JudgePrediction;
-  verdict: JudgeVerdict | null;
-}) {
-  const agreement = predictionAgreement(prediction, verdict);
-  if (agreement === null) return null;
-  return (
-    <div className={`rounded border p-2 text-xs ${AGREEMENT_CLASS[agreement]}`}>
-      <span className="font-semibold">Your prediction:</span>{" "}
-      {preferenceLabel(prediction.side)}. {agreementText(agreement, verdict)}
-    </div>
-  );
-}
-
-const AGREEMENT_CLASS: Record<PredictionAgreement, string> = {
-  agrees: "border-agreement-rule bg-agreement-surface text-agreement",
-  disagrees: "border-warning-rule bg-warning-surface text-warning",
-  tie: "border-rule bg-ground text-quiet-ink",
-  unstable: "border-rule bg-ground text-quiet-ink",
-};
-
-function agreementText(agreement: PredictionAgreement, verdict: JudgeVerdict | null): string {
-  switch (agreement) {
-    case "agrees":
-      return "The judge agreed.";
-    case "disagrees": {
-      const preference = verdict?.preference;
-      return preference === "before" || preference === "after"
-        ? `The judge preferred ${preferenceLabel(preference)}.`
-        : "The judge preferred the other version.";
-    }
-    case "tie":
-      return "The judge called it a tie.";
-    case "unstable":
-      return "The judge was unstable, so there is no verdict to compare.";
-  }
 }
 
 function Verdict({ result }: { result: JudgeResult }) {
@@ -593,9 +388,4 @@ function preferenceLabel(preference: JudgeVerdict["preference"]): string {
     case "tie":
       return "Neither version is clearly better";
   }
-}
-
-/** The Lard Factor as a signed percentage, one decimal, so 0.125 reads "12.5%". */
-function formatLardFactor(factor: number): string {
-  return `${(factor * 100).toFixed(1)}%`;
 }

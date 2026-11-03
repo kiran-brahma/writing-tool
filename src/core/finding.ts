@@ -56,13 +56,6 @@ export interface Finding {
   provenance: Provenance;
   violations?: Violation[];
   /**
-   * Story 152: true when a model Finding duplicates a Voice-list entry. The
-   * post-filter annotates rather than hides it, so a model that ignored the
-   * Voice list stays visible. It is local analysis, never sent to a model and
-   * absent from the findings schema.
-   */
-  inVoiceList?: true;
-  /**
    * Story 138: how heavily a rule pass reports this Finding. Only `note` exists
    * — a problem the Writer judges rather than an error, such as a passive the
    * sentence's topic may need — and absence is the ordinary weight. A rule-pass
@@ -106,12 +99,3 @@ export interface EditorRange {
   to: number;
 }
 
-/**
- * The key a Run's raw response is stored under: a Finding's Pass and the
- * `promptHash` of the Pass that produced it. Keying on the hash means a Finding
- * kept from an earlier prompt still shows the response of the Run that produced
- * it, rather than the latest Run of the same Pass.
- */
-export function responseKey(passId: string, promptHash: string): string {
-  return `${passId}:${promptHash}`;
-}

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Pass } from "../core/pass";
-import { blankModelPass } from "../core/starterPasses";
+import { blankModelPass, HEDGES_PASS } from "../core/starterPasses";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
   loadOrCreatePasses,
@@ -36,47 +36,21 @@ describe("loadOrCreatePasses", () => {
 
     expect(passes.map((pass) => pass.id)).toEqual([
       "hedges",
-      "nominalizations",
-      "openers",
       "wordiness",
       "repetition",
-      "passive",
-      "ai-tells",
-      "banned-words",
-      "worn-phrases",
-      "orwell",
-      "characters-actions",
-      "topic-strings",
-      "paragraph-reorder",
       "paragraph-unity",
       "cut-candidates",
-      "cliche",
       "claim-strength",
-      "reader",
-      "audit",
     ]);
     expect(passes.filter((pass) => pass.kind === "rule").map((pass) => pass.id)).toEqual([
       "hedges",
-      "nominalizations",
-      "openers",
       "wordiness",
       "repetition",
-      "passive",
-      "ai-tells",
-      "banned-words",
-      "worn-phrases",
-      "orwell",
     ]);
     expect(passes.filter((pass) => pass.kind === "model").map((pass) => pass.id)).toEqual([
-      "characters-actions",
-      "topic-strings",
-      "paragraph-reorder",
       "paragraph-unity",
       "cut-candidates",
-      "cliche",
       "claim-strength",
-      "reader",
-      "audit",
     ]);
   });
 
@@ -102,17 +76,28 @@ describe("loadOrCreatePasses", () => {
     expect(passes.find((pass) => pass.id === "hedges")?.enabled).toBe(false);
   });
 
-  it("refuses a stored Pass whose output shape this build cannot run (story 158)", async () => {
+  it("refuses a stored Pack Pass whose output shape this build cannot run (story 158)", async () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
-    // A legacy row: the note shape was offered by an older Obelus.
+    // A legacy row for a pass that still ships: the note shape was offered by
+    // an older Obelus.
     await database.passes.put({
-      ...blankModelPass("legacy-note"),
+      ...HEDGES_PASS,
       output: "note",
     } as unknown as Pass);
 
     await expect(loadOrCreatePasses(database)).rejects.toBeInstanceOf(UnrunnablePassError);
     await expect(loadOrCreatePasses(database)).rejects.toThrow(/cannot run/i);
+  });
+
+  it("ignores a stored Pass that is no longer in the pack", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    await savePass(database, blankModelPass("old-custom-pass"));
+
+    const passes = await loadOrCreatePasses(database);
+
+    expect(passes.map((pass) => pass.id)).not.toContain("old-custom-pass");
   });
 });
 
@@ -138,18 +123,18 @@ describe("setPassEnabled", () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
 
-    // Characters and actions ships enabled in v1.1 (ADR 0009).
-    await expect(database.passes.get("characters-actions")).resolves.toMatchObject({
+    // The surviving model passes ship enabled; Review is what makes them run.
+    await expect(database.passes.get("paragraph-unity")).resolves.toMatchObject({
       enabled: true,
     });
 
-    const disabled = await setPassEnabled(database, "characters-actions", false);
+    const disabled = await setPassEnabled(database, "paragraph-unity", false);
     expect(disabled?.enabled).toBe(false);
 
     const reloaded = await loadOrCreatePasses(database);
-    expect(reloaded.find((pass) => pass.id === "characters-actions")?.enabled).toBe(false);
+    expect(reloaded.find((pass) => pass.id === "paragraph-unity")?.enabled).toBe(false);
 
-    const reenabled = await setPassEnabled(database, "characters-actions", true);
+    const reenabled = await setPassEnabled(database, "paragraph-unity", true);
     expect(reenabled?.enabled).toBe(true);
   });
 });

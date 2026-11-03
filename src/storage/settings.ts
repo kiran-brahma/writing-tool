@@ -5,7 +5,6 @@ import {
   type ColorSchemeSetting,
 } from "../core/colorScheme";
 import { isWorkingOrderBand, type WorkingOrderBand } from "../core/pass";
-import { normalizeVoiceList } from "../core/voiceList";
 import type { ObelusDatabase } from "./obelusDatabase";
 
 /**
@@ -65,20 +64,6 @@ const characterLimitSetting = setting<number>(CHARACTER_LIMIT_SETTING_KEY, norma
 export const loadCharacterLimit = characterLimitSetting.load;
 export const saveCharacterLimit = characterLimitSetting.save;
 
-/**
- * Stories 149–152: the Voice list, the words and phrases the Writer has
- * declared theirs. It is a JSON array of strings in the settings store beside
- * the Screening frame and the character limit. Stored as structured data rather
- * than a serialised string: the setting is read back by Core, not by a parser,
- * and normalisation is `normalizeVoiceList`, so a bad value degrades to the
- * empty list rather than throwing.
- */
-export const VOICE_LIST_SETTING_KEY = "voiceList";
-
-const voiceListSetting = setting<string[]>(VOICE_LIST_SETTING_KEY, normalizeVoiceList);
-
-export const loadVoiceList = voiceListSetting.load;
-export const saveVoiceList = voiceListSetting.save;
 
 /**
  * ADR 0010: the rail opens on Structure the first time and on the last Band the

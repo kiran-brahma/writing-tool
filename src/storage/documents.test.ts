@@ -195,8 +195,7 @@ describe("saveDocument", () => {
       extraHeaders: {},
       screeningFrame: true,
       characterLimit: 12_000,
-      voiceList: [],
-      target: { start: 0, end: 10 },
+        target: { start: 0, end: 10 },
     };
   }
 

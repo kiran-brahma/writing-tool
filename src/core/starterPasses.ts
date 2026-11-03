@@ -16,6 +16,8 @@ export {
   AI_TELLS_PASS,
   BANNED_WORDS_PASS,
   HEDGES_PASS,
+  NOMINALIZATIONS_PASS,
+  OPENERS_PASS,
   ORWELL_RULES_PASS,
   PASSIVE_PASS,
   WORDINESS_PASS,
@@ -225,7 +227,7 @@ export function constitutionPromptClauses(scope: PassScope): ConstitutionPromptC
  * Story 146: it ships enabled in v1.1 — the source method's most satisfying win
  * is a default, not a gate (ADR 0009). The Writer can still turn it off.
  */
-const CHARACTERS_ACTIONS_PASS: Pass = {
+export const CHARACTERS_ACTIONS_PASS: Pass = {
   id: "characters-actions",
   name: "Characters and actions",
   description: "Flags sentences where the actor is missing from the subject position.",
@@ -505,39 +507,22 @@ export const AUDIT_PASS: Pass = {
 };
 
 /**
- * The Starter pack. Rule passes first, in the order DESIGN §4 lists them, then
- * the v1.1 rule passes (passive, AI tells), then the house-style passes the
- * Prose Linter and the Economist guide supply (banned words, worn phrases) and
- * Orwell's five rules, then the model passes: characters and actions, topic
- * strings and stress position, paragraphs that could move, paragraph unity, cut
- * candidates, cliché and headline-ese (the one #4 shipped), claim strength, the
- * Reader pass (#11) and the Audit pass (#27). The document-scope model passes
- * ship with #7; the Reader pass ships with #11; the Audit ships with #27.
+ * The Starter pack, deliberately small: three rule passes that run on save and
+ * three paragraph-scope model passes that run only when the Writer asks for a
+ * Review. A pass the Writer does not see is a pass that cannot distract them.
  *
- * `enabled` here is only the default: the Writer's toggle is persisted, and
- * `loadOrCreatePasses` seeds a Starter pass only when its id is missing, so an
- * edit survives a later Obelus. In v1.1 the two model passes the source method
- * treats as its most satisfying wins — characters and actions and paragraphs
- * that could move — ship on; `orwell` stays off.
+ * The rule engine keeps its other matchers and the remaining model prompts in
+ * the repository's history, not in the shipped pack. A removed pass's stored
+ * row is ignored on load, so it cannot keep running after an update.
+ *
+ * `enabled` here is the default. The model passes are off until the Writer
+ * clicks Review; the rule passes run on save, offline and with no API key.
  */
 export const STARTER_PASSES: Pass[] = [
   HEDGES_PASS,
-  NOMINALIZATIONS_PASS,
-  OPENERS_PASS,
   WORDINESS_PASS,
   REPETITION_PASS,
-  PASSIVE_PASS,
-  AI_TELLS_PASS,
-  BANNED_WORDS_PASS,
-  WORN_PHRASES_PASS,
-  ORWELL_RULES_PASS,
-  CHARACTERS_ACTIONS_PASS,
-  TOPIC_STRINGS_PASS,
-  PARAGRAPH_REORDER_PASS,
   PARAGRAPH_UNITY_PASS,
   CUT_CANDIDATES_PASS,
-  CLICHE_PASS,
   CLAIM_STRENGTH_PASS,
-  READER_PASS,
-  AUDIT_PASS,
 ];

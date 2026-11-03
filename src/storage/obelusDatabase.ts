@@ -1,10 +1,8 @@
 import Dexie, { type Table } from "dexie";
-import type { AuditAccount } from "../core/audit";
 import type { DocTree } from "../core/docTree";
-import type { Finding, Interval, Violation } from "../core/finding";
+import type { Finding, Interval, Provenance, Violation } from "../core/finding";
 import type { DocumentStatus } from "../core/library";
 import type { Pass } from "../core/pass";
-import type { ReaderAccount } from "../core/reader";
 import type { SectionRef } from "../core/sections";
 import type { Connection } from "../wire/connection";
 import type { ModelUsage } from "../wire/modelRequest";
@@ -62,12 +60,14 @@ export interface FindingRecord extends Finding {
  * and a reload can still name the Pass. It is a separate record kind from a
  * Finding: reader output never mixes with the queue that still needs work.
  */
-export interface ReaderAccountRecord extends ReaderAccount {
+export interface ReaderAccountRecord {
   id: string;
   documentId: string;
   passId: string;
   promptHash: string;
   section: SectionRef;
+  provenance: Provenance;
+  [field: string]: unknown;
 }
 
 /**
@@ -78,11 +78,13 @@ export interface ReaderAccountRecord extends ReaderAccount {
  * to anchor to, and forcing one into the queue would break the `j`/`k`/`a`/`x`
  * loop the queue exists for.
  */
-export interface AuditAccountRecord extends AuditAccount {
+export interface AuditAccountRecord {
   id: string;
   documentId: string;
   passId: string;
   promptHash: string;
+  provenance: Provenance;
+  [field: string]: unknown;
 }
 
 /**

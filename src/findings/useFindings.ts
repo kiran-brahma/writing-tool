@@ -18,7 +18,6 @@ export interface FindingsOptions {
   databaseRef: RefObject<ObelusDatabase | null>;
   documentRef: RefObject<DocumentRecord | null>;
   passesRef: RefObject<Pass[]>;
-  voiceListRef: RefObject<string[]>;
   /** Surfaces a status write failure; never a silent failure. */
   onError: (message: string) => void;
 }
@@ -54,7 +53,7 @@ export interface FindingsHandle {
 }
 
 export function useFindings(options: FindingsOptions): FindingsHandle {
-  const { databaseRef, documentRef, passesRef, voiceListRef, onError } = options;
+  const { databaseRef, documentRef, passesRef, onError } = options;
   const findingsRef = useRef<Finding[]>([]);
   const canonicalsRef = useRef<Map<string, string>>(new Map());
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -117,11 +116,10 @@ export function useFindings(options: FindingsOptions): FindingsHandle {
     if (database === null || current === null) return;
     await runRulePasses(database, current, {
       passes: passesRef.current,
-      voiceList: voiceListRef.current,
     });
     await refreshFindings(current);
     await refreshRevisions();
-  }, [databaseRef, documentRef, passesRef, voiceListRef, refreshFindings, refreshRevisions]);
+  }, [databaseRef, documentRef, passesRef, refreshFindings, refreshRevisions]);
 
   /**
    * Writes a status through storage, then reflects it in the queue and

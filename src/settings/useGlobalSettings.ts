@@ -12,7 +12,6 @@ import {
   loadRailCollapsed,
   loadScreeningFrame,
   loadShowRawResponse,
-  loadVoiceList,
   saveCharacterLimit,
   saveColorScheme,
   saveFirstRunNoteDismissed,
@@ -20,7 +19,6 @@ import {
   saveRailCollapsed,
   saveScreeningFrame,
   saveShowRawResponse,
-  saveVoiceList,
 } from "../storage/settings";
 
 /**
@@ -93,13 +91,6 @@ export interface GlobalSettingsOptions {
   databaseRef: RefObject<ObelusDatabase | null>;
   /** Surfaces a write failure; never a silent failure. */
   onError: (message: string) => void;
-  /**
-   * Story 149: the Voice list is read synchronously by every rule and model Run,
-   * so the setting keeps a ref beside its state.
-   */
-  voiceListRef: RefObject<string[]>;
-  /** A Voice list change must re-run the rule Passes so declared words leave the queue. */
-  onVoiceListSaved: () => void | Promise<void>;
 }
 
 export interface GlobalSettingsHandle {
@@ -109,9 +100,6 @@ export interface GlobalSettingsHandle {
   /** Story 50: the character limit above which a document Run is chunked. */
   characterLimit: number;
   setCharacterLimit: (limit: number) => Promise<void>;
-  /** Stories 149–152: the words and phrases the Writer has declared theirs. */
-  voiceList: string[];
-  setVoiceList: (entries: string[]) => Promise<void>;
   /** ADR 0010: the Band the rail opens on, and whether it is collapsed. */
   railBand: WorkingOrderBand;
   setRailBand: (band: WorkingOrderBand) => Promise<void>;
@@ -139,7 +127,7 @@ export interface GlobalSettingsHandle {
  * value into a ref and re-runs the rule Passes when it changes.
  */
 export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSettingsHandle {
-  const { databaseRef, onError, voiceListRef, onVoiceListSaved } = options;
+  const { databaseRef, onError } = options;
 
   const screeningFrame = useSetting({
     load: loadScreeningFrame,
@@ -154,17 +142,6 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     initial: DEFAULT_CHARACTER_LIMIT,
     databaseRef,
     onError,
-  });
-  const voiceList = useSetting({
-    load: loadVoiceList,
-    save: saveVoiceList,
-    initial: [],
-    databaseRef,
-    onError,
-    onSaved: (saved) => {
-      voiceListRef.current = saved;
-      return onVoiceListSaved();
-    },
   });
   // The rail's three preferences move the surface before the write resolves.
   const railBand = useSetting({
@@ -222,7 +199,6 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
       await characterLimit.load(database);
       // Read the Voice list through the ref as well as the state, so the rule
       // Passes `enterDocument` runs next see the Writer's declared words.
-      voiceListRef.current = await voiceList.load(database);
       await railBand.load(database);
       await railCollapsed.load(database);
       await firstRunNote.load(database);
@@ -232,8 +208,6 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     [
       screeningFrame.load,
       characterLimit.load,
-      voiceList.load,
-      voiceListRef,
       railBand.load,
       railCollapsed.load,
       firstRunNote.load,
@@ -247,8 +221,6 @@ export function useGlobalSettings(options: GlobalSettingsOptions): GlobalSetting
     setScreeningFrame: screeningFrame.set,
     characterLimit: characterLimit.value,
     setCharacterLimit: characterLimit.set,
-    voiceList: voiceList.value,
-    setVoiceList: voiceList.set,
     railBand: railBand.value,
     setRailBand: railBand.set,
     railCollapsed: railCollapsed.value,

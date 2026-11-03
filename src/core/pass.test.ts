@@ -58,10 +58,10 @@ describe("structuralPasses", () => {
     ]);
   });
 
-  it("excludes a document-scope rule Pass, which is free and runs on save", () => {
-    const structural = structuralPasses(STARTER_PASSES);
-    expect(structural.every((pass) => pass.kind === "model")).toBe(true);
-    expect(structural.map((pass) => pass.id)).not.toContain("hedges");
+  it("finds no structural model Pass in the simplified pack", () => {
+    // The shipped model passes are all paragraph-scope; document-scope prompts
+    // remain only as harness fixtures.
+    expect(structuralPasses(STARTER_PASSES)).toEqual([]);
   });
 
   it("excludes a document-scope Pass whose output is not Findings", () => {

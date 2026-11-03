@@ -8,7 +8,6 @@ import {
   RAIL_BAND_SETTING_KEY,
   RAIL_COLLAPSED_SETTING_KEY,
   SHOW_RAW_RESPONSE_SETTING_KEY,
-  VOICE_LIST_SETTING_KEY,
   loadCharacterLimit,
   loadColorScheme,
   loadFirstRunNoteDismissed,
@@ -16,7 +15,6 @@ import {
   loadRailCollapsed,
   loadScreeningFrame,
   loadShowRawResponse,
-  loadVoiceList,
   saveCharacterLimit,
   saveColorScheme,
   saveFirstRunNoteDismissed,
@@ -24,7 +22,6 @@ import {
   saveRailCollapsed,
   saveScreeningFrame,
   saveShowRawResponse,
-  saveVoiceList,
 } from "./settings";
 
 const openedDatabases: ObelusDatabase[] = [];
@@ -87,29 +84,6 @@ describe("the character limit setting", () => {
     await database.settings.put({ key: CHARACTER_LIMIT_SETTING_KEY, value: "lots" });
 
     await expect(loadCharacterLimit(database)).resolves.toBe(DEFAULT_CHARACTER_LIMIT);
-  });
-});
-
-describe("the Voice list setting", () => {
-  it("defaults to the empty list", async () => {
-    const database = await openTestDatabase();
-
-    await expect(loadVoiceList(database)).resolves.toEqual([]);
-  });
-
-  it("persists the Writer's words and phrases, normalised", async () => {
-    const database = await openTestDatabase();
-
-    await expect(saveVoiceList(database, [" leverage ", "", "leverage", "at its core"])).resolves
-      .toEqual(["leverage", "at its core"]);
-    await expect(loadVoiceList(database)).resolves.toEqual(["leverage", "at its core"]);
-  });
-
-  it("reads a stored value that is not an array as the empty list", async () => {
-    const database = await openTestDatabase();
-    await database.settings.put({ key: VOICE_LIST_SETTING_KEY, value: "leverage" });
-
-    await expect(loadVoiceList(database)).resolves.toEqual([]);
   });
 });
 

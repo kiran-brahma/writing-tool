@@ -4,7 +4,6 @@ import { cleanTerms, literalTermSpans, termPattern } from "./literalTerms";
 import { hashPass, type Pass, type RuleConfig } from "./pass";
 import { splitSentences, type Sentence } from "./sentences";
 import { tokenizeWords } from "./tokens";
-import { filterVoiceMatches } from "./voiceList";
 
 /**
  * The rule engine's contract: a pure function from the canonical string plus a
@@ -54,15 +53,9 @@ export function runRulePass(
   canonical: string,
   pass: Pass,
   context: RuleRunContext,
-  voiceList: string[] = [],
-  matches: RuleMatch[] = ruleMatches(canonical, pass, voiceList),
+  matches: RuleMatch[] = ruleMatches(canonical, pass),
 ): Finding[] {
-  return findingsFromMatches(
-    filterVoiceMatches(matches, canonical, voiceList),
-    canonical,
-    pass,
-    context,
-  );
+  return findingsFromMatches(matches, canonical, pass, context);
 }
 
 /**
@@ -70,11 +63,7 @@ export function runRulePass(
  * match inside a Voice-list entry is dropped here, so a declared word leaves the
  * queue before a Finding or a Revision is minted for it.
  */
-export function ruleMatches(
-  canonical: string,
-  pass: Pass,
-  voiceList: string[] = [],
-): RuleMatch[] {
+export function ruleMatches(canonical: string, pass: Pass): RuleMatch[] {
   const config: RuleConfig = pass.ruleConfig ?? {};
   const matches: RuleMatch[] = [];
 
@@ -120,7 +109,7 @@ export function ruleMatches(
     matches.push(...matchAiTellOpeners(canonical, config.aiTellOpeners));
   }
 
-  return filterVoiceMatches(matches.sort((a, b) => a.offset - b.offset), canonical, voiceList);
+  return matches.sort((a, b) => a.offset - b.offset);
 }
 
 /** Shapes matches into Findings, computing each Anchor's state by resolution. */

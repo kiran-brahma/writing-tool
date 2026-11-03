@@ -3,9 +3,9 @@ import type { Pass } from "../src/core/pass";
 import {
   AUDIT_PASS,
   CLAIM_STRENGTH_PASS,
-  CLICHE_PASS,
   CUT_CANDIDATES_PASS,
   PARAGRAPH_REORDER_PASS,
+  PARAGRAPH_UNITY_PASS,
   READER_PASS,
   TOPIC_STRINGS_PASS,
 } from "../src/core/starterPasses";
@@ -143,7 +143,11 @@ export const HARNESS_DOCUMENTS: HarnessDocument[] = [
 ];
 
 /** Exactly three real Starter model Passes: the matrix's other axis. */
-export const HARNESS_PASSES: Pass[] = [CLICHE_PASS, CLAIM_STRENGTH_PASS, CUT_CANDIDATES_PASS];
+export const HARNESS_PASSES: Pass[] = [
+  PARAGRAPH_UNITY_PASS,
+  CUT_CANDIDATES_PASS,
+  CLAIM_STRENGTH_PASS,
+];
 
 /**
  * The two document-scope Starter Passes, run over the same fixtures as a second

@@ -58,7 +58,6 @@ export interface DocumentLifecycleOptions {
   findingsRef: RefObject<Finding[]>;
   canonicalsRef: RefObject<Map<string, string>>;
   passesRef: RefObject<Pass[]>;
-  voiceListRef: RefObject<string[]>;
   transportRef: RefObject<Transport | null>;
   /** The canonical string last saved or read, for the Reader/Audit freshness rule. */
   savedCanonicalRef: RefObject<string | null>;
@@ -135,7 +134,6 @@ export function useDocumentLifecycle(
     findingsRef,
     canonicalsRef,
     passesRef,
-    voiceListRef,
     transportRef,
     savedCanonicalRef,
     setDocumentRecord,
@@ -200,7 +198,6 @@ export function useDocumentLifecycle(
       await runs.loadAnalysis(database, opened);
       await runRulePasses(database, opened, {
         passes: passesRef.current,
-        voiceList: voiceListRef.current,
       });
       await refreshFindings(opened);
       await refreshRevisions();
@@ -213,8 +210,7 @@ export function useDocumentLifecycle(
       applyResolution,
       runs.loadAnalysis,
       passesRef,
-      voiceListRef,
-      refreshFindings,
+        refreshFindings,
       refreshRevisions,
     ],
   );
@@ -271,8 +267,7 @@ export function useDocumentLifecycle(
             onError(null);
             await runRulePasses(database, current, {
               passes: passesRef.current,
-              voiceList: voiceListRef.current,
-            });
+                  });
             await refreshFindings(current);
             await refreshRevisions();
             // The prose changed, so any Reader account describes text that is
@@ -319,7 +314,6 @@ export function useDocumentLifecycle(
     documentRef,
     savedCanonicalRef,
     passesRef,
-    voiceListRef,
     loadGlobalState,
     enterDocument,
     refreshRevisions,
@@ -426,7 +420,6 @@ export function useDocumentLifecycle(
 
       await runRulePasses(database, updated, {
         passes: passesRef.current,
-        voiceList: voiceListRef.current,
       });
       await refreshFindings(updated);
       await refreshRevisions();
@@ -439,8 +432,7 @@ export function useDocumentLifecycle(
       setDocumentRecord,
       runs.resetAnalysis,
       passesRef,
-      voiceListRef,
-      refreshFindings,
+        refreshFindings,
       refreshRevisions,
     ],
   );

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_CHARACTER_LIMIT } from "../core/chunking";
 import type { DocTree } from "../core/docTree";
-import { responseKey } from "../core/finding";
 import { hashPass } from "../core/pass";
 import { passContext, documentContext } from "../core/passContext";
 import { hashRunText } from "../core/runCache";
@@ -11,7 +10,7 @@ import { CONNECTION_PREFILLS, connectionFromPrefill, type Connection } from "../
 import { createFixtureTransport, type FixtureTransport } from "../wire/fixtureTransport";
 import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
 import { declineFinding, listFindings, listFindingsForPass } from "./findings";
-import { listRunResponses, loadRunResponse, runModelPass } from "./modelRuns";
+import { runModelPass } from "./modelRuns";
 import { openObelusDatabase, type DocumentRecord, type ObelusDatabase } from "./obelusDatabase";
 import { saveRunCache } from "./runCache";
 import { listRevisions } from "./revisions";
@@ -101,13 +100,6 @@ describe("runModelPass", () => {
     expect(stored).toHaveLength(1);
     expect(stored[0].id).toBe(run.findings[0].id);
 
-    await expect(
-      loadRunResponse(database, document.id, CLICHE_PASS.id, hashPass(CLICHE_PASS)),
-    ).resolves.toBe(RESPONSE);
-    await expect(listRunResponses(database, document.id)).resolves.toEqual({
-      [responseKey(CLICHE_PASS.id, hashPass(CLICHE_PASS))]: RESPONSE,
-    });
-
     const revisions = await listRevisions(database, document.id);
     expect(revisions).toHaveLength(1);
     expect(revisions[0].canonical).toBe("Context paragraph.\n\nTarget with a cliché.\n");
@@ -141,45 +133,6 @@ describe("runModelPass", () => {
     expect(second.findings[0].status).toBe("declined");
     expect(second.findings[0].declineReason).toBe("advice");
     expect(await listFindings(database, document.id)).toHaveLength(1);
-  });
-
-  it("keeps the raw response of the most recent Run for the same promptHash", async () => {
-    const database = await openTestDatabase();
-    const document = await savedDocument(database);
-    await runModelPass(database, document, runOptions(document, RESPONSE));
-
-    const second = JSON.stringify({
-      findings: [{ issue: "Other", diagnosis: "D", quote: "Target", offset: 0 }],
-    });
-    // A different model is a cache miss, so this Run reaches the Provider and
-    // its raw response overwrites the one stored for the same promptHash.
-    await runModelPass(database, document, {
-      ...runOptions(document, second),
-      connection: { ...connection(), model: "gpt-test-2" },
-    });
-
-    await expect(
-      loadRunResponse(database, document.id, CLICHE_PASS.id, hashPass(CLICHE_PASS)),
-    ).resolves.toBe(second);
-  });
-
-  it("keeps a raw response from an earlier prompt alongside the current one", async () => {
-    const database = await openTestDatabase();
-    const document = await savedDocument(database);
-    const edited = { ...CLICHE_PASS, prompt: `${CLICHE_PASS.prompt}\nExtra line.` };
-
-    await runModelPass(database, document, runOptions(document, RESPONSE));
-    const secondResponse = JSON.stringify({
-      findings: [{ issue: "Second", diagnosis: "D", quote: "Target", offset: 0 }],
-    });
-    await runModelPass(database, document, {
-      ...runOptions(document, secondResponse),
-      pass: edited,
-    });
-
-    const stored = await listRunResponses(database, document.id);
-    expect(stored[responseKey(CLICHE_PASS.id, hashPass(CLICHE_PASS))]).toBe(RESPONSE);
-    expect(stored[responseKey(edited.id, hashPass(edited))]).toBe(secondResponse);
   });
 
   it("persists a document-scope Pass's Finding that a local Pass would have dropped", async () => {
@@ -254,9 +207,6 @@ describe("runModelPass", () => {
 
     const stored = await listFindingsForPass(database, saved.id, pass.id);
     expect(stored).toHaveLength(run.findings.length);
-    await expect(
-      loadRunResponse(database, saved.id, pass.id, hashPass(pass)),
-    ).resolves.toContain("--- chunk ---");
   });
 });
 
@@ -354,7 +304,6 @@ describe("the Run cache (story 53)", () => {
         extraHeaders: connection().extraHeaders,
         screeningFrame: true,
         characterLimit: DEFAULT_CHARACTER_LIMIT,
-        voiceList: [],
         target: current.interval,
       },
       {

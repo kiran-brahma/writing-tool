@@ -336,12 +336,12 @@ export const QUEUE_HINT = "Keys work in Findings when not typing · Alt + ↓ �
  * the control that stores the dismissal.
  */
 export const FIRST_RUN_NOTE = {
-  heading: "The rule passes have already run",
+  heading: "Your rule passes have already run",
   body: [
-    "Their Findings are in the rail on the right, under Word and Paragraph.",
-    "Nothing leaves your browser until you run a model pass through a Connection you configured.",
+    "Their findings are in the rail on the right. Three model passes wait behind Review.",
+    "Nothing leaves your browser until you press Review through a Connection you configured.",
   ],
-  helpLabel: "How this works",
+  helpLabel: "Read the help",
   dismissLabel: "Dismiss",
 } as const;
 

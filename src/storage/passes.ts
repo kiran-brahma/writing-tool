@@ -21,6 +21,9 @@ export class UnrunnablePassError extends Error {
   }
 }
 
+/** The ids the shipped pack owns. A stored row outside this set is ignored. */
+const STARTER_PASS_IDS = new Set(STARTER_PASSES.map((pass) => pass.id));
+
 /** The first stored Pass whose output shape this build cannot run, or null. */
 function firstUnrunnablePass(passes: Pass[]): Pass | null {
   return passes.find((pass) => !isOutputShape(pass.output)) ?? null;
@@ -35,10 +38,17 @@ function firstUnrunnablePass(passes: Pass[]): Pass | null {
  *
  * Passes are global rather than per-Document: a rule Pass is the Writer's taste
  * about prose, not a property of one piece of writing.
+ *
+ * Only the shipped pack is loaded. A stored Pass that is no longer in it — a
+ * pass from an older Obelus, or one the Writer added before the Workbench was
+ * removed — is left in the store but ignored, so it cannot keep running and
+ * emitting Findings. The surviving rows keep the Writer's edits.
  */
 export async function loadOrCreatePasses(database: ObelusDatabase): Promise<Pass[]> {
   return database.transaction("rw", database.passes, async () => {
-    const stored = await database.passes.toArray();
+    const stored = (await database.passes.toArray()).filter((pass) =>
+      STARTER_PASS_IDS.has(pass.id),
+    );
     // A stored Pass whose output shape this build cannot run is refused before
     // anything is seeded or returned, rather than coerced to a runnable shape
     // or silently dropped from the set (story 158).
@@ -52,21 +62,16 @@ export async function loadOrCreatePasses(database: ObelusDatabase): Promise<Pass
       for (const pass of missing) byId.set(pass.id, pass);
     }
 
-    return orderPasses(stored, byId);
+    return orderPasses(byId);
   });
 }
 
-/** Starter order first, then any Pass the Writer added, both stable. */
-function orderPasses(stored: Pass[], byId: Map<string, Pass>): Pass[] {
-  const ordered: Pass[] = [];
-  for (const starter of STARTER_PASSES) {
+/** Starter order, stable. Stored rows outside the pack never reach here. */
+function orderPasses(byId: Map<string, Pass>): Pass[] {
+  return STARTER_PASSES.flatMap((starter) => {
     const pass = byId.get(starter.id);
-    if (pass !== undefined) ordered.push(pass);
-  }
-  for (const pass of stored) {
-    if (!STARTER_PASSES.some((starter) => starter.id === pass.id)) ordered.push(pass);
-  }
-  return ordered;
+    return pass === undefined ? [] : [pass];
+  });
 }
 
 /**

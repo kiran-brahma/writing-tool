@@ -1,9 +1,8 @@
 import type { Connection } from "../wire/connection";
 import type { ModelRequest } from "../wire/modelRequest";
 import type { Provenance } from "./finding";
-import { isFindingsPass, passAcceptsFrame, type Pass } from "./pass";
+import { passAcceptsFrame, type Pass } from "./pass";
 import { frameText } from "./screeningFrame";
-import { voiceListClause } from "./voiceList";
 
 /**
  * The pieces every model Pass builds the same way, so `critique` and
@@ -39,12 +38,6 @@ export interface PassRequestOptions {
   /** The JSON Schema for this output shape. */
   schema: object;
   screeningFrame: boolean;
-  /**
-   * Story 151: the Writer's Voice list. A Findings pass is told not to report
-   * these words; the Reader and the Audit are not, because the Voice list is
-   * about the copyedit queue and their output is not a Finding.
-   */
-  voiceList?: string[];
   maxOutputTokens?: number;
 }
 
@@ -56,16 +49,13 @@ export interface PassRequestOptions {
  * instruction rather than several.
  */
 export function buildPassRequest(options: PassRequestOptions): ModelRequest {
-  const { pass, connection, prompt, schema, screeningFrame, voiceList, maxOutputTokens } = options;
+  const { pass, connection, prompt, schema, screeningFrame, maxOutputTokens } = options;
   const system: string[] = [];
   if (screeningFrame && pass.slot === "critic" && passAcceptsFrame(pass)) {
     // Story 153: the Pass chooses which reader the Critic writes for; unset
     // means the existing default. The global toggle is the master switch, so
     // turning it off sends no frame at all (story 77).
     system.push(frameText(pass.frame));
-  }
-  if (isFindingsPass(pass) && voiceList !== undefined && voiceList.length > 0) {
-    system.push(voiceListClause(voiceList));
   }
   return {
     connection,

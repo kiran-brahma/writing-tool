@@ -5,7 +5,7 @@ import { critique, type RunConfig, type Target } from "./critique";
 import type { BlockNode, DocTree } from "./docTree";
 import { FINDINGS_SCHEMA } from "./findingsSchema";
 import { jsonShapeInstruction } from "./modelCall";
-import { hashPass, isFindingsPass, type Pass } from "./pass";
+import { hashPass, type Pass } from "./pass";
 import { passContext, documentContext } from "./passContext";
 import { UnsupportedOutputShapeError } from "./parseFindings";
 import { frameText } from "./screeningFrame";
@@ -251,39 +251,6 @@ describe("critique", () => {
     expect(messages.some((message) => message.role === "system")).toBe(false);
   });
 
-  it("tells a Findings pass about the Voice list in its request (story 151)", async () => {
-    const { transport, config } = fixture(RESPONSE);
-    await critique(target(), CLICHE_PASS, connection(), { ...config, voiceList: ["leverage"] });
-
-    const messages = (transport.requests[0].body as { messages: { role: string; content: string }[] })
-      .messages;
-    const system = messages.find((message) => message.role === "system");
-    expect(system?.content).toContain("leverage");
-  });
-
-  it("annotates a surviving Voice-list match instead of hiding it (story 152)", async () => {
-    const { transport, config } = fixture(RESPONSE);
-    const run = await critique(target(), CLICHE_PASS, connection(), {
-      ...config,
-      voiceList: ["Bravo"],
-    });
-
-    // The model returned the Finding despite the list: it stays, marked.
-    expect(run.findings).toHaveLength(1);
-    expect(run.findings[0].inVoiceList).toBe(true);
-    expect(transport.requests).toHaveLength(1);
-  });
-
-  it("does not annotate a Finding the Voice list does not cover", async () => {
-    const { config } = fixture(RESPONSE);
-    const run = await critique(target(), CLICHE_PASS, connection(), {
-      ...config,
-      voiceList: ["leverage"],
-    });
-
-    expect(run.findings[0].inVoiceList).toBeUndefined();
-  });
-
   it("surfaces violations the response carried instead of hiding them", async () => {
     const praise = JSON.stringify({
       findings: [{ issue: "P", diagnosis: "This is great writing.", quote: "Bravo", offset: 0 }],
@@ -403,9 +370,7 @@ const DOCUMENT_RESPONSE = JSON.stringify({
 });
 
 describe("critique over a document-scope Pass", () => {
-  const STARTER_DOCUMENT_PASSES = STARTER_PASSES.filter(
-    (pass) => pass.kind === "model" && pass.scope === "document" && isFindingsPass(pass),
-  );
+  const STARTER_DOCUMENT_PASSES = [TOPIC_STRINGS_PASS];
 
   function wholeDocument(): Target {
     const built = documentContext(TREE, "My Title");

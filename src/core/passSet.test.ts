@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BANNED_WORDS_PASS, CLICHE_PASS, HEDGES_PASS, ORWELL_RULES_PASS, STARTER_PASSES, WORN_PHRASES_PASS } from "./starterPasses";
+import { AUDIT_PASS, BANNED_WORDS_PASS, CLICHE_PASS, HEDGES_PASS, ORWELL_RULES_PASS, READER_PASS, STARTER_PASSES, WORN_PHRASES_PASS } from "./starterPasses";
 import {
   parsePassSet,
   passProblem,
@@ -118,10 +118,8 @@ describe("passProblem", () => {
   });
 
   it("refuses a frame on a Pass that is not a critic Finding pass (story 154)", () => {
-    const audit = STARTER_PASSES.find((pass) => pass.id === "audit");
-    if (audit === undefined) throw new Error("the Starter pack has no audit pass");
-    const reader = STARTER_PASSES.find((pass) => pass.id === "reader");
-    if (reader === undefined) throw new Error("the Starter pack has no reader pass");
+    const audit = AUDIT_PASS;
+    const reader = READER_PASS;
 
     // A frame applies to critic Finding Passes only: the Reader and the Audit
     // keep their own prescribed stance.

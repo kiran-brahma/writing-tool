@@ -46,7 +46,6 @@ function input(canonicalHash: string, passId = "pass-1", documentId = DOCUMENT_I
     extraHeaders: {},
     screeningFrame: true,
     characterLimit: DEFAULT_CHARACTER_LIMIT,
-    voiceList: [],
     target: { start: 0, end: 10 },
   };
 }

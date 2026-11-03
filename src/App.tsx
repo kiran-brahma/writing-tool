@@ -5,33 +5,22 @@ import { selectionAnchor as selectionAnchorFor } from "./core/judgeSelection";
 import { sectionAt, sections } from "./core/sections";
 import { DocumentEditor, type HighlightHit } from "./editor/DocumentEditor";
 import { FindingCallout } from "./editor/FindingCallout";
+import { FindingsRail } from "./editor/FindingsRail";
+import { JudgeDialog } from "./editor/JudgeDialog";
 import { MarginOutline } from "./editor/OutlinePanel";
 import { StatusLine } from "./editor/StatusLine";
 import { calloutFindings } from "./editor/callout";
 import { railPresentation } from "./editor/railPresentation";
-import { isTypingTarget } from "./editor/typingTarget";
 import { useWideLayout } from "./editor/useWideLayout";
-import { WorkingOrderRail } from "./editor/WorkingOrderRail";
-import { HowThisWorksView } from "./help/HowThisWorksView";
-import {
-  FIRST_RUN_NOTE,
-  HELP_SECTION_IDS,
-  SCRATCHPAD_EMPTY_STATE,
-  SHORTCUTS_KEY,
-  type HelpSectionId,
-} from "./help/helpContent";
+import { FIRST_RUN_NOTE } from "./help/helpContent";
 import { LibraryView } from "./library/LibraryView";
-import { PrivacyView } from "./privacy/PrivacyView";
-import { SCRATCHPAD_DOCUMENT_ID } from "./storage/documents";
+import { SettingsView } from "./settings/SettingsView";
 import { describeError } from "./errors";
 import { useDocument } from "./useDocument";
-import { AiSettingsView } from "./settings/AiSettingsView";
 import { useColorScheme } from "./settings/useColorScheme";
-import { WorkbenchView } from "./workbench/WorkbenchView";
 import { DocumentMenu } from "./DocumentMenu";
-import { HelpMenu } from "./HelpMenu";
 import {
-  destinationsAt,
+  DESTINATIONS,
   isCurrentDestination,
   type DestinationId,
 } from "./navigation";
@@ -50,92 +39,71 @@ export default function App() {
     openDocument,
     createDocument,
     renameDocument,
-    setDocumentStatus,
-    setDocumentTags,
     passes,
+    findings,
     highlights,
     targetBlockIndex,
     setTargetBlockIndex,
-    priceTable,
-    savePriceTable,
-    screeningFrame,
-    setScreeningFrame,
-    characterLimit,
-    setCharacterLimit,
-    voiceList,
-    setVoiceList,
     connections,
     slots,
-    saveConnection,
-    addCustomConnection,
-    removeConnection,
-    assignSlot,
+    judgeIsDefault,
+    judgeConnection,
+    sameModelWarning,
+    judgeRunning,
+    judgeError,
+    judgeResult,
+    runJudge,
+    revisions,
+    markAddressed,
+    decline,
+    reopen,
+    flagMilestone,
+    handleChange,
     importFromMarkdown,
     exportToMarkdown,
+    importBundle,
     backupLibrary,
     restoreLibrary,
-    exportBundle,
-    importBundle,
     lastBackedUp,
     backupError,
     clearBackupError,
-    savePass,
-    newPassDraft,
-    exportPassSet,
-    importPassSet,
-    restoreStarterPack,
-    passSetError,
-    clearPassSetError,
-    assistantRunning,
-    assistantError,
-    runPromptAssistant,
-    handleChange,
-    flagMilestone,
-    togglePass,
-    saveRuleConfig,
     criticConnection,
-    judgeConnection,
-    judgeIsDefault,
     firstRunNoteDismissed,
     dismissFirstRunNote,
     colorScheme,
     setColorScheme,
-    showRawResponse,
-    setShowRawResponse,
+    saveConnection,
+    addCustomConnection,
+    removeConnection,
+    assignSlot,
+    saveRuleConfig,
+    restoreStarterPack,
+    passSetError,
+    clearPassSetError,
+    railCollapsed,
+    setRailCollapsed,
+    reviewParagraph,
+    runningPassId,
   } = handle;
   useColorScheme(colorScheme);
-  const [milestoneNote, setMilestoneNote] = useState("");
-  const [milestonesOnly, setMilestonesOnly] = useState(false);
-  /** Story 20 & 190: persistent destinations; the Editor is the default. */
+
   const [view, setView] = useState<DestinationId>("editor");
-  /** Story 178: the section How this works should open at, or null for the top. */
-  const [helpSection, setHelpSection] = useState<HelpSectionId | null>(null);
   const [currentFindingId, setCurrentFindingId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  // The Editor is uncontrolled, so an import remounts it rather than trying to
-  // push a new document into an editor that already has one.
   const [editorGeneration, setEditorGeneration] = useState(0);
-  /** The Writer's current text selection, as a canonical interval. */
   const [selectionInterval, setSelectionInterval] = useState<Interval | null>(null);
-  /** A heading the Writer asked to jump to; the nonce lets a repeat click move again. */
+  const [judgeOpen, setJudgeOpen] = useState(false);
   const [jumpRequest, setJumpRequest] = useState<{
     blockIndex: number;
     nonce: number;
     focus?: boolean;
   } | null>(null);
 
-  /**
-   * Stories 251–255: how the Rail is drawn. At 1024px and wider the stored
-   * collapsed preference decides; below that only this local flag does. It is
-   * false on every load, never stored, and cleared on crossing to wide, so a
-   * desktop preference never covers the prose.
-   */
   const wide = useWideLayout();
   const [overlayOpen, setOverlayOpen] = useState(false);
   useEffect(() => {
     if (wide) setOverlayOpen(false);
   }, [wide]);
-  const { railCollapsed, setRailCollapsed } = handle;
   const presentation = railPresentation(wide, railCollapsed, overlayOpen);
   const showRail = useCallback(() => {
     if (wide) void setRailCollapsed(false);
@@ -145,17 +113,16 @@ export default function App() {
     if (wide) void setRailCollapsed(true);
     else setOverlayOpen(false);
   }, [wide, setRailCollapsed]);
+
   const openFindingCount = useMemo(
-    () => handle.findings.filter(isOpenFinding).length,
-    [handle.findings],
+    () => findings.filter(isOpenFinding).length,
+    [findings],
   );
 
-  /** Story 25: the outline, derived from the Document's headings. */
   const outlineSections = useMemo(
     () => (document === null ? [] : sections(document.tree)),
     [document],
   );
-  /** The Section the cursor is in, so the outline can mark the Writer's place. */
   const activeSection = useMemo(
     () => (document === null ? null : sectionAt(document.tree, targetBlockIndex)),
     [document, targetBlockIndex],
@@ -164,7 +131,6 @@ export default function App() {
     setJumpRequest((current) => ({ blockIndex, nonce: (current?.nonce ?? 0) + 1 }));
   }, []);
 
-  /** Every open Finding's interval, with the Current Finding's flagged for the Editor. */
   const editorHighlights = useMemo<HighlightInterval[]>(
     () =>
       highlights.map((highlight) => ({
@@ -175,13 +141,6 @@ export default function App() {
     [highlights, currentFindingId],
   );
 
-  /**
-   * Selects the Current Finding and moves the Editor to the prose it concerns.
-   * The jump request's nonce changes on every selection, so re-selecting the
-   * Finding already current moves the Editor again. An Orphaned Finding has no
-   * interval and so no block to move to; selecting it changes the row and leaves
-   * the prose where it is, which is never misleading.
-   */
   const selectFinding = useCallback(
     (findingId: string | null) => {
       setCurrentFindingId(findingId);
@@ -193,31 +152,21 @@ export default function App() {
       setJumpRequest((current) => ({
         blockIndex,
         nonce: (current?.nonce ?? 0) + 1,
-        // Working the queue must not move the keyboard into the prose, or the
-        // next `j`/`k` would be typed into the Document instead of stepping.
         focus: false,
       }));
     },
     [document, highlights],
   );
 
-  /** The Highlight whose callout is open, or null when none is. */
   const [calloutHit, setCalloutHit] = useState<HighlightHit | null>(null);
   const calloutEntries = useMemo(
-    () => (calloutHit === null ? [] : calloutFindings(calloutHit.findingIds, handle.findings)),
-    [calloutHit, handle.findings],
+    () => (calloutHit === null ? [] : calloutFindings(calloutHit.findingIds, findings)),
+    [calloutHit, findings],
   );
   const closeCallout = useCallback(() => setCalloutHit(null), []);
   const calloutOpen = calloutHit !== null && calloutEntries.length > 0;
-
-  /**
-   * A click on a Highlight opens its callout and nothing else moves: the
-   * Current Finding stays put, so the Rail does not scroll to a row and the
-   * Writer keeps their place in the prose.
-   */
   const openCallout = useCallback((hit: HighlightHit | null) => setCalloutHit(hit), []);
 
-  /** A verdict given in the callout: the Finding leaves the queue and the callout. */
   const leaveQueueFromCallout = useCallback(
     (findingId: string, write: () => Promise<boolean>) => {
       void write().then((written) => {
@@ -228,89 +177,45 @@ export default function App() {
     [],
   );
   const addressFromCallout = useCallback(
-    (findingId: string) => leaveQueueFromCallout(findingId, () => handle.markAddressed(findingId)),
-    [leaveQueueFromCallout, handle.markAddressed],
+    (findingId: string) => leaveQueueFromCallout(findingId, () => markAddressed(findingId)),
+    [leaveQueueFromCallout, markAddressed],
   );
   const declineFromCallout = useCallback(
     (findingId: string, reason: DeclineReason) =>
-      leaveQueueFromCallout(findingId, () => handle.decline(findingId, reason)),
-    [leaveQueueFromCallout, handle.decline],
+      leaveQueueFromCallout(findingId, () => decline(findingId, reason)),
+    [leaveQueueFromCallout, decline],
   );
 
-  /**
-   * Opens the Library, flushing pending edits first so its rows show stored word
-   * counts and open-Finding counts rather than the state before the last save.
-   */
   const goToLibrary = useCallback(() => {
     setView("library");
     void refreshLibrary();
   }, [refreshLibrary]);
 
-  /**
-   * How this works: the method, reachable from any destination, and
-   * the destination the first-run note and a panel's gloss link to. Story 178's
-   * `?` opens it straight at the shortcut list.
-   */
-  const openHelpSection = useCallback((sectionId: HelpSectionId | null) => {
-    setHelpSection(sectionId);
-    setView("help");
-  }, []);
-  const openHelp = useCallback(() => openHelpSection(null), [openHelpSection]);
-  const openShortcuts = useCallback(
-    () => openHelpSection(HELP_SECTION_IDS.shortcuts),
-    [openHelpSection],
-  );
-
-  /**
-   * Story 190: navigates directly to any of the six persistent destinations.
-   * Moving to the Library flushes pending edits; moving to Help clears any
-   * pinned section unless a gloss explicitly supplied one.
-   */
   const navigateTo = useCallback(
     (destination: DestinationId) => {
-      if (destination === "library") {
-        goToLibrary();
-      } else if (destination === "help") {
-        openHelp();
-      } else {
-        setView(destination);
-      }
+      if (destination === "library") goToLibrary();
+      else setView(destination);
     },
-    [goToLibrary, openHelp],
+    [goToLibrary],
   );
 
+  const openHelp = useCallback(() => {
+    setView("settings");
+    window.setTimeout(() => {
+      window.document.getElementById("settings-help")?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+  }, []);
 
-
-  // Story 178: `?` opens the shortcuts from anywhere, as long as the Writer is
-  // not typing, where the question mark belongs to the text. The Editor's own
-  // queue keys live in the rail; this is the one the whole shell binds.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.key !== SHORTCUTS_KEY) return;
-      if (isTypingTarget(event.target)) return;
-      event.preventDefault();
-      openShortcuts();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openShortcuts]);
-
-  /** Clears the Editor's view state that belongs to the Document being left. */
   const leaveEditor = useCallback(() => {
     setCurrentFindingId(null);
     setSelectionInterval(null);
     setJumpRequest(null);
     setTargetBlockIndex(0);
     setEditorGeneration((generation) => generation + 1);
-  }, []);
+  }, [setTargetBlockIndex]);
 
   const openFromLibrary = useCallback(
     (documentId: string) => {
-      // Opening the Document already in the Editor is a no-op in the hook, so do
-      // not wipe the Writer's selection and remount the Editor for it.
       if (documentId !== document?.id) leaveEditor();
       setView("editor");
       void openDocument(documentId);
@@ -324,46 +229,22 @@ export default function App() {
     void createDocument();
   }, [createDocument, leaveEditor]);
 
-  /** The selected span, or null when the selection is collapsed. */
   const selection = useMemo(() => {
     if (document === null || selectionInterval === null) return null;
     return selectionAnchorFor(document.canonical, selectionInterval);
   }, [document, selectionInterval]);
 
-  /** The Section the cursor is in, ready to be projected across Revisions. */
   const section = useMemo(() => {
     if (document === null || activeSection === null) return null;
     return selectionAnchorFor(document.canonical, activeSection.interval);
   }, [document, activeSection]);
 
-  /** Story 102: downloads the whole Pass set as one JSON file. */
-  const onExportPassSet = useCallback(() => {
-    downloadText(
-      `obelus-pass-set-${fileStamp()}.json`,
-      exportPassSet(),
-      "application/json;charset=utf-8",
-    );
-  }, [exportPassSet]);
+  const onBackupLibrary = useCallback(() => {
+    void backupLibrary(false, (json) => {
+      downloadText(`obelus-library-${fileStamp()}.json`, json, "application/json;charset=utf-8");
+    });
+  }, [backupLibrary]);
 
-  /** Story 111: download a whole-Library backup, then the reminder updates. */
-  const onBackupLibrary = useCallback(
-    (includeKeys: boolean) => {
-      void backupLibrary(includeKeys, (json) => {
-        downloadText(
-          `obelus-library-${fileStamp()}.json`,
-          json,
-          "application/json;charset=utf-8",
-        );
-      });
-    },
-    [backupLibrary],
-  );
-
-  /**
-   * Story 111: replace the Library from a backup. The Editor is remounted even
-   * when the imported Library reuses the active Document's id, so it cannot
-   * keep showing prose the restore replaced.
-   */
   const onRestoreLibrary = useCallback(
     async (json: string) => {
       const restored = await restoreLibrary(json);
@@ -373,22 +254,6 @@ export default function App() {
     [restoreLibrary, leaveEditor],
   );
 
-  /** Story 114: download one Document's bundle. */
-  const onExportBundle = useCallback(
-    async (documentId: string) => {
-      const json = await exportBundle(documentId);
-      if (json === null) return;
-      const entry = library.find((candidate) => candidate.id === documentId);
-      downloadText(
-        `${slug(entry?.title ?? "document")}-bundle.json`,
-        json,
-        "application/json;charset=utf-8",
-      );
-    },
-    [exportBundle, library],
-  );
-
-  /** Story 114: import a bundle as a new Document and open it. */
   const onImportBundle = useCallback(
     async (json: string) => {
       const id = await importBundle(json);
@@ -398,6 +263,31 @@ export default function App() {
     },
     [importBundle, leaveEditor],
   );
+
+  const onExport = () => {
+    downloadText(
+      `${slug(document?.title ?? "document")}.md`,
+      exportToMarkdown(),
+      "text/markdown;charset=utf-8",
+    );
+  };
+
+  const onImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = "";
+    if (file === undefined) return;
+    try {
+      await importFromMarkdown(await file.text());
+      setCurrentFindingId(null);
+      setSelectionInterval(null);
+      setEditorGeneration((generation) => generation + 1);
+      setImportError(null);
+      setView("editor");
+    } catch (error) {
+      setImportError(describeError(error));
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -416,82 +306,23 @@ export default function App() {
     );
   }
 
-  const onFlagMilestone = async () => {
-    await flagMilestone(milestoneNote);
-    setMilestoneNote("");
-  };
-
-  const onExport = () => {
-    downloadText(
-      `${slug(document?.title ?? "document")}.md`,
-      exportToMarkdown(),
-      "text/markdown;charset=utf-8",
-    );
-  };
-
-  const onImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.target;
-    const file = input.files?.[0];
-    // Reset so importing the same file twice still fires a change event.
-    input.value = "";
-    if (file === undefined) return;
-
-    try {
-      await importFromMarkdown(await file.text());
-      setCurrentFindingId(null);
-      setSelectionInterval(null);
-      setEditorGeneration((generation) => generation + 1);
-      setImportError(null);
-      setView("editor");
-    } catch (error) {
-      setImportError(describeError(error));
-    }
-  };
-
   return (
     <div className="flex min-h-screen flex-col bg-ground text-ink">
-      {/*
-        The header's three zones: brand, document actions, navigation. It wraps
-        rather than scrolling sideways, so nothing clips the Document menu or
-        the help control's list when they open.
-      */}
-      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4 border-b border-rule-soft px-3 sm:px-6 py-2.5 whitespace-nowrap bg-ground text-ink">
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-rule-soft bg-ground px-3 py-2.5 text-ink sm:gap-x-4 sm:px-6">
         <div className="shrink-0">
           <h1 className="text-base font-semibold tracking-tight text-ink">Obelus</h1>
-          <p className="hidden sm:block text-xs text-faint-ink">It marks; it never holds the pen.</p>
+          <p className="hidden text-xs text-faint-ink sm:block">It marks; it never holds the pen.</p>
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-4">
           <DocumentMenu
             onExport={onExport}
             onImport={onImport}
+            onFlagVersion={() => void flagMilestone("")}
             canExport={document !== null}
+            canFlag={document !== null}
           />
-          <div className="hidden sm:block h-4 w-px bg-rule" aria-hidden="true" />
-          <nav aria-label="Main navigation" className="flex items-center gap-1 sm:gap-2">
-            {/* Stories 244–245: Editor and Library are the tabs; the tools follow, quieter. */}
-            <div className="flex items-center gap-0.5 sm:gap-1">
-              {destinationsAt("tab").map(({ id, label }) => {
-                const isCurrent = isCurrentDestination(id, view);
-                return (
-                  <button
-                    key={id}
-                    id={`nav-dest-${id}`}
-                    type="button"
-                    aria-current={isCurrent ? "page" : undefined}
-                    onClick={() => navigateTo(id)}
-                    className={[
-                      "rounded px-2.5 sm:px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-                      isCurrent
-                        ? "bg-ink font-semibold text-on-ink focus-visible:ring-offset-2"
-                        : "font-medium text-quiet-ink hover:bg-sunk-strong hover:text-ink",
-                    ].join(" ")}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            {destinationsAt("link").map(({ id, label }) => {
+          <nav aria-label="Main navigation" className="flex items-center gap-1">
+            {DESTINATIONS.map(({ id, label }) => {
               const isCurrent = isCurrentDestination(id, view);
               return (
                 <button
@@ -501,17 +332,16 @@ export default function App() {
                   aria-current={isCurrent ? "page" : undefined}
                   onClick={() => navigateTo(id)}
                   className={[
-                    "rounded px-1.5 sm:px-2 py-1 text-xs underline-offset-4 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                    "rounded px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
                     isCurrent
-                      ? "font-semibold text-ink underline decoration-rule-strong"
-                      : "font-medium text-faint-ink",
+                      ? "bg-ink font-semibold text-on-ink focus-visible:ring-offset-2"
+                      : "font-medium text-quiet-ink hover:bg-sunk-strong hover:text-ink",
                   ].join(" ")}
                 >
                   {label}
                 </button>
               );
             })}
-            <HelpMenu view={view} onNavigate={navigateTo} />
           </nav>
         </div>
       </header>
@@ -547,66 +377,32 @@ export default function App() {
           activeDocumentId={document?.id ?? null}
           onOpen={openFromLibrary}
           onCreate={startNewDocument}
-          onStatus={(id, status) => void setDocumentStatus(id, status)}
-          onTags={(id, tags) => void setDocumentTags(id, tags)}
           lastBackedUp={lastBackedUp}
           backupError={backupError}
-          onBackup={(includeKeys) => void onBackupLibrary(includeKeys)}
+          onBackup={onBackupLibrary}
           onRestore={onRestoreLibrary}
-          onExportBundle={(documentId) => void onExportBundle(documentId)}
           onImportBundle={(json) => void onImportBundle(json)}
           onDismissBackupError={clearBackupError}
-          onOpenHelp={openHelpSection}
         />
       )}
 
-      {view === "privacy" && <PrivacyView />}
-
-      {view === "help" && <HowThisWorksView initialSectionId={helpSection} />}
-
       {view === "settings" && (
-        <AiSettingsView
+        <SettingsView
           connections={connections}
           slots={slots}
           judgeIsDefault={judgeIsDefault}
-          judgeDefaultName={judgeIsDefault ? (judgeConnection?.name ?? null) : null}
-          screeningFrame={screeningFrame}
-          characterLimit={characterLimit}
-          voiceList={voiceList}
-          priceTable={priceTable}
+          judgeDefaultName={judgeConnection?.name ?? null}
+          passes={passes}
           colorScheme={colorScheme}
-          showRawResponse={showRawResponse}
+          passSetError={passSetError}
+          onClearPassSetError={clearPassSetError}
           onSaveConnection={(connection) => void saveConnection(connection)}
           onAddCustom={() => void addCustomConnection()}
           onRemoveConnection={(connectionId) => void removeConnection(connectionId)}
           onAssignSlot={(slot, binding) => void assignSlot(slot, binding)}
-          onToggleScreening={(enabled) => void setScreeningFrame(enabled)}
-          onSetCharacterLimit={(limit) => void setCharacterLimit(limit)}
-          onSaveVoiceList={(entries) => void setVoiceList(entries)}
-          onSavePriceTable={(table) => void savePriceTable(table)}
           onSetColorScheme={(setting) => void setColorScheme(setting)}
-          onToggleRawResponse={(show) => void setShowRawResponse(show)}
-          onOpenHelp={openHelpSection}
-        />
-      )}
-
-      {view === "workbench" && (
-        <WorkbenchView
-          passes={passes}
-          passSetError={passSetError}
-          onClearPassSetError={clearPassSetError}
-          onSavePass={savePass}
-          onNewPass={newPassDraft}
-          onExport={onExportPassSet}
-          onImport={importPassSet}
-          onRestore={restoreStarterPack}
-          onToggle={(passId, enabled) => void togglePass(passId, enabled)}
           onSaveRuleConfig={(passId, ruleConfig) => void saveRuleConfig(passId, ruleConfig)}
-          assistantRunning={assistantRunning}
-          assistantError={assistantError}
-          onAssist={runPromptAssistant}
-          criticName={criticConnection?.name ?? null}
-          onOpenHelp={openHelpSection}
+          onRestoreDefaults={() => void restoreStarterPack()}
         />
       )}
 
@@ -623,14 +419,6 @@ export default function App() {
                     onAction={openHelp}
                     dismissLabel={FIRST_RUN_NOTE.dismissLabel}
                     onDismiss={() => void dismissFirstRunNote()}
-                  />
-                )}
-                {document.id === SCRATCHPAD_DOCUMENT_ID && document.canonical.trim() === "" && (
-                  <EditorNote
-                    heading={SCRATCHPAD_EMPTY_STATE.heading}
-                    body={SCRATCHPAD_EMPTY_STATE.body}
-                    actionLabel={SCRATCHPAD_EMPTY_STATE.libraryLabel}
-                    onAction={goToLibrary}
                   />
                 )}
                 <DocumentEditor
@@ -661,15 +449,16 @@ export default function App() {
                 />
                 <StatusLine
                   wordCount={document.wordCount}
-                  rail={
-                    wide
-                      ? null
-                      : {
-                          openFindingCount,
-                          open: presentation === "overlay",
-                          onToggle: presentation === "overlay" ? hideRail : showRail,
-                        }
-                  }
+                  rail={{
+                    openFindingCount,
+                    open: presentation !== "hidden",
+                    onToggle: presentation === "hidden" ? showRail : hideRail,
+                  }}
+                  onReview={() => void reviewParagraph()}
+                  reviewRunning={runningPassId !== null}
+                  canReview={criticConnection !== null && document.canonical.trim() !== ""}
+                  onCompare={() => setJudgeOpen(true)}
+                  canCompare={revisions.length >= 2}
                 />
                 {calloutOpen && calloutHit !== null && (
                   <FindingCallout
@@ -684,40 +473,41 @@ export default function App() {
             )}
           </main>
 
-          <WorkingOrderRail
-            handle={handle}
-            presentation={presentation}
-            wide={wide}
-            onShowRail={showRail}
-            onHideRail={hideRail}
-            outlineSections={outlineSections}
-            activeHeadingBlockIndex={activeSection?.headingBlockIndex ?? null}
-            onJumpToSection={jumpToSection}
+          <FindingsRail
+            findings={findings}
+            passes={passes}
             currentFindingId={currentFindingId}
             onSelectFinding={selectFinding}
-            showRawResponse={showRawResponse}
-            selection={selection}
-            section={section}
-            milestoneNote={milestoneNote}
-            onMilestoneNoteChange={setMilestoneNote}
-            onFlagMilestone={() => void onFlagMilestone()}
-            milestonesOnly={milestonesOnly}
-            onMilestonesOnlyChange={setMilestonesOnly}
-            onOpenHelp={openHelpSection}
+            onAddress={markAddressed}
+            onDecline={decline}
+            onReopen={reopen}
+            presentation={presentation}
+            onHideRail={hideRail}
           />
+
+          {document !== null && (
+            <JudgeDialog
+              open={judgeOpen}
+              onClose={() => setJudgeOpen(false)}
+              revisions={revisions}
+              currentCanonical={document.canonical}
+              selection={selection}
+              section={section}
+              judge={judgeConnection}
+              judgeIsDefault={judgeIsDefault}
+              sameModelWarning={sameModelWarning}
+              running={judgeRunning}
+              error={judgeError}
+              result={judgeResult}
+              onJudge={(before, after) => void runJudge(before, after)}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-/**
- * The Document's title, editable in place. It is the Writer's name for the
- * Document, never a model's (story 74): the field commits on blur or Enter and
- * holds no generated text. It sits at the head of the column in the page's
- * typeface, so it reads as the top of the Document rather than a form field
- * (story 196).
- */
 function DocumentTitleField({
   title,
   onCommit,
@@ -748,12 +538,6 @@ function DocumentTitleField({
   );
 }
 
-/**
- * A note in the Editor body. Story 168's first-run note and story 170's empty
- * Scratchpad are one shape: a heading, a short body, one action, and optionally
- * a dismissal. It is not a modal; it sits in the writing surface, and it carries
- * no model text.
- */
 function EditorNote({
   heading,
   body,
@@ -801,7 +585,6 @@ function EditorNote({
   );
 }
 
-/** Saves a string as a download. Local only: no request leaves the browser. */
 function downloadText(filename: string, text: string, mime = "text/plain;charset=utf-8"): void {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -812,13 +595,16 @@ function downloadText(filename: string, text: string, mime = "text/plain;charset
   URL.revokeObjectURL(url);
 }
 
-/** A date stamp for a download filename, e.g. `2026-09-19`. */
 function fileStamp(now: number = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
 }
 
 function slug(title: string): string {
-  const cleaned = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const cleaned = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return cleaned === "" ? "document" : cleaned;
 }
 
