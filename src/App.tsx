@@ -10,7 +10,7 @@ import { JudgeDialog } from "./editor/JudgeDialog";
 import { MarginOutline } from "./editor/OutlinePanel";
 import { StatusLine } from "./editor/StatusLine";
 import { calloutFindings } from "./editor/callout";
-import { railPresentation } from "./editor/railPresentation";
+import { railPresentation, RAIL_ELEMENT_ID } from "./editor/railPresentation";
 import { useWideLayout } from "./editor/useWideLayout";
 import { FIRST_RUN_NOTE } from "./help/helpContent";
 import { LibraryView } from "./library/LibraryView";
@@ -39,6 +39,9 @@ export default function App() {
     openDocument,
     createDocument,
     renameDocument,
+    deleteDocument,
+    libraryError,
+    clearLibraryError,
     passes,
     findings,
     highlights,
@@ -57,6 +60,7 @@ export default function App() {
     markAddressed,
     decline,
     reopen,
+    clearFindings,
     flagMilestone,
     handleChange,
     importFromMarkdown,
@@ -211,6 +215,8 @@ export default function App() {
     setCurrentFindingId(null);
     setSelectionInterval(null);
     setJumpRequest(null);
+    setCalloutHit(null);
+    setJudgeOpen(false);
     setTargetBlockIndex(0);
     setEditorGeneration((generation) => generation + 1);
   }, [setTargetBlockIndex]);
@@ -229,6 +235,15 @@ export default function App() {
     setView("editor");
     void createDocument();
   }, [createDocument, leaveEditor]);
+
+  const deleteFromLibrary = useCallback(
+    async (documentId: string) => {
+      const deleted = await deleteDocument(documentId);
+      if (deleted && documentId === document?.id) leaveEditor();
+      return deleted;
+    },
+    [deleteDocument, document?.id, leaveEditor],
+  );
 
   const selection = useMemo(() => {
     if (document === null || selectionInterval === null) return null;
@@ -319,9 +334,25 @@ export default function App() {
             onExport={onExport}
             onImport={onImport}
             onFlagVersion={() => void flagMilestone("")}
+            onNew={startNewDocument}
             canExport={document !== null}
             canFlag={document !== null}
           />
+          {view === "editor" && document !== null && (
+            <button
+              type="button"
+              aria-expanded={presentation !== "hidden"}
+              aria-controls={RAIL_ELEMENT_ID}
+              title={presentation === "hidden" ? "Open the findings rail" : "Close the findings rail"}
+              onClick={presentation === "hidden" ? showRail : hideRail}
+              className="flex shrink-0 items-center gap-1.5 rounded border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors"
+            >
+              <span>Findings</span>
+              <span aria-hidden="true" className="tabular-nums text-faint-ink">
+                {openFindingCount}
+              </span>
+            </button>
+          )}
           <nav aria-label="Main navigation" className="flex items-center gap-1">
             {DESTINATIONS.map(({ id, label }) => {
               const isCurrent = isCurrentDestination(id, view);
@@ -386,6 +417,9 @@ export default function App() {
           onCreate={startNewDocument}
           lastBackedUp={lastBackedUp}
           backupError={backupError}
+          error={libraryError}
+          onDelete={deleteFromLibrary}
+          onDismissError={clearLibraryError}
           onBackup={onBackupLibrary}
           onRestore={onRestoreLibrary}
           onImportBundle={(json) => void onImportBundle(json)}
@@ -513,6 +547,7 @@ export default function App() {
             onAddress={markAddressed}
             onDecline={decline}
             onReopen={reopen}
+            onClearFindings={clearFindings}
             presentation={presentation}
             onHideRail={hideRail}
           />

@@ -7,6 +7,18 @@ release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- **Clear** in the findings rail moves every open finding out of the queue in one action. Nothing is
+  discarded: cleared findings sit behind **Show closed** and can be reopened, and the next save or
+  Review does not raise them again.
+- **New document** in the Document menu starts an empty document without leaving the Editor.
+- **Delete** in the Library removes one document with its revisions, findings and cached runs, after
+  an explicit confirmation.
+- A **Findings** control in the header opens and closes the rail, so closing the rail no longer
+  leaves the writer without a way back in. The status line's offer now says "Findings" rather than
+  "Rail".
+
 ### Removed
 
 - Audit, Reader accounts, the pass workbench, the prompt-authoring assistant, the metrics panel, the

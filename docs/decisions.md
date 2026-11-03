@@ -84,6 +84,10 @@ A backup never includes API keys. A restore replaces the library behind an expli
 document's old tags and status are kept in storage even though the UI no longer shows them. Old pass
 rows are kept and ignored rather than deleted.
 
+Clearing findings addresses them rather than deleting them, so a cleared queue is recoverable from
+Show closed and a later Run does not raise the same objection again. Deleting a document is the one
+destructive action, and it is explicit, confirmed, and removes only the document the writer chose.
+
 ## 12. Verification
 
 The constitution harness runs before any pass-prompt change. `pnpm run gates` keeps three build gates:

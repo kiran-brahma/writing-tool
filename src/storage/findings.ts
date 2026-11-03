@@ -203,3 +203,40 @@ export function reopenFinding(
 ): Promise<Finding | null> {
   return writeStatus(database, findingId, { status: "open" });
 }
+
+/**
+ * Clears the queue for a Document: every open Finding leaves it in one write,
+ * so the rail empties in a single action. The rows are kept and addressed
+ * rather than deleted — "Show closed" can reopen any of them, and because rule
+ * and model Runs reconcile a matched Finding against its stored status, the
+ * next save or Review does not raise the same objection again. A closed
+ * Finding keeps the status the Writer gave it.
+ *
+ * Serialised with Runs through `enqueueMutation`, like every other Finding
+ * write, so a Run's replacement cannot land between the read and the write.
+ * Returns how many Findings left the queue.
+ */
+export function clearFindings(
+  database: ObelusDatabase,
+  documentId: string,
+): Promise<number> {
+  return enqueueMutation(database, () =>
+    database.transaction("rw", database.findings, async () => {
+      const records = await database.findings
+        .where("documentId")
+        .equals(documentId)
+        .toArray();
+      const open = records.filter((record) => record.status === "open");
+      if (open.length === 0) return 0;
+
+      await database.findings.bulkPut(
+        open.map((record) => {
+          // A status that is not `declined` never keeps a stale reason.
+          const { declineReason: _previous, ...finding } = fromFindingRecord(record);
+          return toFindingRecord({ ...finding, status: "addressed" }, record.documentId);
+        }),
+      );
+      return open.length;
+    }),
+  );
+}

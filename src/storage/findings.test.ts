@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
 import { HEDGES_PASS, ORWELL_RULES_PASS } from "../core/starterPasses";
-import { loadOrCreateDocument, persistDocument, withTree } from "./documents";
+import { createDocument, loadOrCreateDocument, persistDocument, withTree } from "./documents";
 import {
+  clearFindings,
   listFindings,
   listFindingsForPass,
   replaceFindingsForPass,
@@ -456,5 +457,87 @@ describe("resolveDocumentFindings", () => {
 
     expect(resolution.findings).toHaveLength(1 + ruleFindings.length);
     expect(ruleFindings.length).toBeGreaterThan(0);
+  });
+});
+
+describe("clearFindings", () => {
+  /** A Document whose hedges rule has produced at least two open Findings. */
+  async function documentWithFindings() {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+    const saved = await save(
+      database,
+      document,
+      paragraphDoc("This is very really quite good."),
+      1_100,
+    );
+    const findings = await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_200 });
+    return { database, saved, findings };
+  }
+
+  it("moves every open Finding out of the queue and reports the count", async () => {
+    const { database, saved, findings } = await documentWithFindings();
+    expect(findings.length).toBeGreaterThan(1);
+
+    const cleared = await clearFindings(database, saved.id);
+
+    expect(cleared).toBe(findings.length);
+    const stored = await listFindings(database, saved.id);
+    expect(stored).toHaveLength(findings.length);
+    expect(stored.every((finding) => finding.status === "addressed")).toBe(true);
+  });
+
+  it("keeps them cleared when the rule Pass runs again on the same prose", async () => {
+    const { database, saved, findings } = await documentWithFindings();
+    await clearFindings(database, saved.id);
+
+    await runRulePasses(database, saved, { passes: [HEDGES_PASS], now: 1_300 });
+
+    const stored = await listFindings(database, saved.id);
+    expect(stored).toHaveLength(findings.length);
+    expect(stored.every((finding) => finding.status === "addressed")).toBe(true);
+  });
+
+  it("leaves a declined Finding and its reason as the Writer set them", async () => {
+    const { database, saved, findings } = await documentWithFindings();
+    const [declined, ...rest] = findings;
+    await declineFinding(database, declined.id, "violation");
+
+    const cleared = await clearFindings(database, saved.id);
+
+    expect(cleared).toBe(rest.length);
+    const stored = await listFindings(database, saved.id);
+    expect(stored.find((finding) => finding.id === declined.id)).toMatchObject({
+      status: "declined",
+      declineReason: "violation",
+    });
+  });
+
+  it("leaves another Document's queue open", async () => {
+    const { database, saved } = await documentWithFindings();
+    const other = await save(
+      database,
+      createDocument(2_000),
+      paragraphDoc("very good"),
+      2_100,
+    );
+    const otherFindings = await runRulePasses(database, other, {
+      passes: [HEDGES_PASS],
+      now: 2_200,
+    });
+    expect(otherFindings.length).toBeGreaterThan(0);
+
+    await clearFindings(database, saved.id);
+
+    const storedOther = await listFindings(database, other.id);
+    expect(storedOther).toHaveLength(otherFindings.length);
+    expect(storedOther.every((finding) => finding.status === "open")).toBe(true);
+  });
+
+  it("reports nothing to clear when no Finding is open", async () => {
+    const database = await openTestDatabase();
+    const document = await loadOrCreateDocument(database, 1_000);
+
+    await expect(clearFindings(database, document.id)).resolves.toBe(0);
   });
 });

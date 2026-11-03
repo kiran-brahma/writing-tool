@@ -5,18 +5,22 @@ export interface DocumentMenuProps {
   onImport: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   /** Flags the current revision as a milestone for the Judge. */
   onFlagVersion: () => void;
+  /** Starts a new empty Document without leaving the Editor. */
+  onNew: () => void;
   canExport?: boolean;
   canFlag?: boolean;
 }
 
 /**
- * Document actions behind one control: import and export Markdown, and flag the
- * current version. The word count is not here: the Status line carries it.
+ * Document actions behind one control: start a new Document, import and export
+ * Markdown, and flag the current version. The word count is not here: the
+ * Status line carries it.
  */
 export function DocumentMenu({
   onExport,
   onImport,
   onFlagVersion,
+  onNew,
   canExport = true,
   canFlag = true,
 }: DocumentMenuProps) {
@@ -90,6 +94,17 @@ export function DocumentMenu({
           aria-label="Document actions"
           className="absolute left-0 top-full mt-1.5 w-48 rounded border border-rule-soft bg-paper py-1 shadow-md z-30"
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onNew();
+            }}
+            className="flex w-full items-center px-3 py-1.5 text-xs text-quiet-ink hover:bg-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors text-left"
+          >
+            New document
+          </button>
           <button
             type="button"
             role="menuitem"

@@ -23,14 +23,14 @@ describe("wordCountLabel", () => {
 
 describe("railOfferLabel", () => {
   it("offers the Rail with the count of open Findings", () => {
-    expect(railOfferLabel(3)).toBe("Rail · 3 open");
+    expect(railOfferLabel(3)).toBe("Findings · 3 open");
   });
 
   it("still offers the Rail when nothing is open", () => {
-    expect(railOfferLabel(0)).toBe("Rail · 0 open");
+    expect(railOfferLabel(0)).toBe("Findings · 0 open");
   });
 
   it("groups thousands as the word count does", () => {
-    expect(railOfferLabel(1_204)).toBe("Rail · 1,204 open");
+    expect(railOfferLabel(1_204)).toBe("Findings · 1,204 open");
   });
 });

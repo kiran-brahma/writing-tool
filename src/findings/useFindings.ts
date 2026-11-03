@@ -5,6 +5,7 @@ import { openFindingsInPass } from "../core/finding";
 import type { Pass } from "../core/pass";
 import { describeError } from "../errors";
 import {
+  clearFindings as clearStoredFindings,
   declineFinding,
   markFindingAddressed,
   reopenFinding,
@@ -50,6 +51,11 @@ export interface FindingsHandle {
   declineRestOfPass: (passId: string) => Promise<boolean>;
   /** Story 181: return a Finding to the queue, clearing any declineReason. */
   reopen: (findingId: string) => Promise<boolean>;
+  /**
+   * Clears the queue: every open Finding becomes addressed in one write. Closed
+   * Findings keep their status, and all of them stay behind "Show closed".
+   */
+  clearFindings: () => Promise<boolean>;
 }
 
 export function useFindings(options: FindingsOptions): FindingsHandle {
@@ -196,6 +202,27 @@ export function useFindings(options: FindingsOptions): FindingsHandle {
     [applyStatus],
   );
 
+  /**
+   * Clears every open Finding for the current Document in one write, then
+   * re-resolves so the Highlights drop with the queue. A failure is surfaced
+   * like any other write failure, and `false` tells the caller nothing moved.
+   */
+  const clearFindings = useCallback(async (): Promise<boolean> => {
+    const database = databaseRef.current;
+    const current = documentRef.current;
+    if (database === null || current === null) return false;
+
+    try {
+      const cleared = await clearStoredFindings(database, current.id);
+      if (cleared === 0) return false;
+      await refreshFindings();
+      return true;
+    } catch (error) {
+      onError(describeError(error));
+      return false;
+    }
+  }, [databaseRef, documentRef, refreshFindings, onError]);
+
   return {
     findings,
     highlights,
@@ -210,5 +237,6 @@ export function useFindings(options: FindingsOptions): FindingsHandle {
     decline,
     declineRestOfPass,
     reopen,
+    clearFindings,
   };
 }

@@ -9,6 +9,10 @@ export interface LibraryViewProps {
   onCreate: () => void;
   lastBackedUp: number | null;
   backupError: string | null;
+  /** A Library action failure, such as a delete that could not complete. */
+  error: string | null;
+  onDelete: (documentId: string) => Promise<boolean>;
+  onDismissError: () => void;
   onBackup: () => void;
   onRestore: (json: string) => Promise<boolean>;
   onImportBundle: (json: string) => void;
@@ -28,6 +32,9 @@ export function LibraryView({
   onCreate,
   lastBackedUp,
   backupError,
+  error,
+  onDelete,
+  onDismissError,
   onBackup,
   onRestore,
   onImportBundle,
@@ -64,6 +71,19 @@ export function LibraryView({
           onDismissError={onDismissBackupError}
         />
 
+        {error !== null && (
+          <div className="mt-4 flex items-start justify-between gap-3 rounded border border-warning-rule bg-warning-surface p-3 text-sm text-warning">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={onDismissError}
+              className="shrink-0 text-warning-muted hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <div className="mt-6">
           <input
             type="search"
@@ -89,6 +109,7 @@ export function LibraryView({
               entry={entry}
               active={entry.id === activeDocumentId}
               onOpen={onOpen}
+              onDelete={onDelete}
             />
           ))}
         </ol>
@@ -101,11 +122,23 @@ function LibraryRow({
   entry,
   active,
   onOpen,
+  onDelete,
 }: {
   entry: LibraryEntry;
   active: boolean;
   onOpen: (documentId: string) => void;
+  onDelete: (documentId: string) => Promise<boolean>;
 }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    const deleted = await onDelete(entry.id);
+    setBusy(false);
+    if (deleted) setConfirming(false);
+  };
+
   return (
     <li
       className={
@@ -122,11 +155,22 @@ function LibraryRow({
         >
           {entry.title}
         </button>
-        {entry.scratchpad && (
-          <span className="rounded bg-sunk-strong px-1.5 py-0.5 text-xs font-medium text-quiet-ink">
-            Scratchpad
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {entry.scratchpad && (
+            <span className="rounded bg-sunk-strong px-1.5 py-0.5 text-xs font-medium text-quiet-ink">
+              Scratchpad
+            </span>
+          )}
+          {!confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="rounded px-1.5 py-0.5 text-xs font-medium text-faint-ink hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              Delete
+            </button>
+          )}
+        </div>
       </div>
 
       <p className="mt-1 text-xs text-faint-ink">
@@ -136,6 +180,34 @@ function LibraryRow({
           ? "no open findings"
           : `${entry.openFindings} open finding${entry.openFindings === 1 ? "" : "s"}`}
       </p>
+
+      {confirming && (
+        <div className="mt-3 rounded border border-warning-rule-strong bg-warning-surface p-3">
+          <p className="text-sm text-warning">
+            Delete “{entry.title}”? Its revisions, findings and cached runs go with it. This
+            cannot be undone unless it is in a backup.
+            {active && " Obelus will open your most recently edited other document."}
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={busy}
+              className="rounded bg-warning px-3 py-1.5 text-sm font-medium text-warning-surface hover:bg-warning-soft disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-focus focus-visible:ring-offset-2"
+            >
+              Delete document
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={busy}
+              className="rounded border border-rule bg-paper px-3 py-1.5 text-sm font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </li>
   );
 }

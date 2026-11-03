@@ -42,6 +42,9 @@ export interface DocumentHandle {
   openDocument: (documentId: string) => Promise<void>;
   createDocument: () => Promise<void>;
   renameDocument: (documentId: string, title: string) => Promise<void>;
+  deleteDocument: (documentId: string) => Promise<boolean>;
+  libraryError: string | null;
+  clearLibraryError: () => void;
   findings: Finding[];
   passes: Pass[];
   highlights: FindingInterval[];
@@ -71,6 +74,8 @@ export interface DocumentHandle {
   markAddressed: (findingId: string) => Promise<boolean>;
   decline: (findingId: string, reason?: DeclineReason) => Promise<boolean>;
   reopen: (findingId: string) => Promise<boolean>;
+  /** Clears the queue: every open Finding becomes addressed in one write. */
+  clearFindings: () => Promise<boolean>;
   saveRuleConfig: (passId: string, ruleConfig: RuleConfig) => Promise<void>;
   restoreStarterPack: () => Promise<void>;
   passSetError: string | null;
@@ -140,6 +145,7 @@ export function useDocument(): DocumentHandle {
     markAddressed,
     decline,
     reopen,
+    clearFindings,
   } = findingsHandle;
 
   /**
@@ -268,6 +274,9 @@ export function useDocument(): DocumentHandle {
     openDocument,
     createDocument,
     renameDocument,
+    deleteDocument,
+    libraryError,
+    clearLibraryError,
     importFromMarkdown,
     exportToMarkdown,
     handleChange,
@@ -293,6 +302,9 @@ export function useDocument(): DocumentHandle {
     openDocument,
     createDocument,
     renameDocument,
+    deleteDocument,
+    libraryError,
+    clearLibraryError,
     findings,
     passes,
     highlights,
@@ -322,6 +334,7 @@ export function useDocument(): DocumentHandle {
     markAddressed,
     decline,
     reopen,
+    clearFindings,
     saveRuleConfig,
     restoreStarterPack,
     passSetError,

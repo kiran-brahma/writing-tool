@@ -22,6 +22,7 @@ import { loadLastBackedUp } from "../storage/durability";
 import {
   applyMetadataPatch,
   createLibraryDocument,
+  deleteDocument as deleteDocumentRecord,
   listLibrary,
   updateDocumentMetadata,
   type DocumentMetadataPatch,
@@ -98,6 +99,11 @@ export interface DocumentLifecycleHandle {
   createDocument: () => Promise<void>;
   /** Story 20: rename a Document. */
   renameDocument: (documentId: string, title: string) => Promise<void>;
+  /** Removes a Document and everything derived from it, after a confirmation. */
+  deleteDocument: (documentId: string) => Promise<boolean>;
+  /** A Library action's failure, surfaced verbatim rather than swallowed. */
+  libraryError: string | null;
+  clearLibraryError: () => void;
   importFromMarkdown: (markdown: string) => Promise<void>;
   exportToMarkdown: () => string;
   handleChange: (tree: DocTree) => void;
@@ -148,6 +154,8 @@ export function useDocumentLifecycle(
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [lastBackedUp, setLastBackedUp] = useState<number | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  /** A Library action failure — a delete that could not complete. */
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   /**
    * The pending typing-pause timer. When it fires the shell catches up with
    * the Writer's text: the Document re-renders and Findings re-resolve.
@@ -526,6 +534,49 @@ export function useDocumentLifecycle(
     await openDocument(created.id);
   }, [databaseRef, persistenceRef, openDocument]);
 
+  /**
+   * Deletes one Document and every row derived from it. Deleting the open
+   * Document settles its pending save first, so no write that predates the
+   * delete can land afterwards, then opens the most recently edited Document
+   * that remains — or a new empty one when the Library is now empty. A failure
+   * is reported through `libraryError`, never swallowed.
+   */
+  const deleteDocument = useCallback(
+    async (documentId: string): Promise<boolean> => {
+      const database = databaseRef.current;
+      if (database === null) return false;
+
+      const deletingActive = documentRef.current?.id === documentId;
+      try {
+        if (deletingActive) await persistenceRef.current?.flush();
+        await deleteDocumentRecord(database, documentId);
+        setLibraryError(null);
+
+        if (deletingActive) {
+          const remaining = await database.documents.orderBy("updatedAt").reverse().first();
+          const next = remaining ?? (await createLibraryDocument(database));
+          runs.resetReadouts();
+          await enterDocument(database, next);
+        }
+        await readLibrary();
+        return true;
+      } catch (error) {
+        setLibraryError(describeError(error));
+        return false;
+      }
+    },
+    [
+      databaseRef,
+      persistenceRef,
+      documentRef,
+      runs.resetReadouts,
+      enterDocument,
+      readLibrary,
+    ],
+  );
+
+  const clearLibraryError = useCallback(() => setLibraryError(null), []);
+
   return {
     status,
     openError,
@@ -536,6 +587,9 @@ export function useDocumentLifecycle(
     openDocument,
     createDocument,
     renameDocument,
+    deleteDocument,
+    libraryError,
+    clearLibraryError,
     importFromMarkdown,
     exportToMarkdown,
     handleChange,

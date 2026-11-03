@@ -208,6 +208,17 @@ function HelpPanel() {
         </div>
 
         <div>
+          <h3 className="font-semibold text-ink">Documents and findings</h3>
+          <p className="mt-1 text-muted-ink">
+            The <strong className="text-soft-ink">Document</strong> menu starts a new document
+            without leaving the Editor. <strong className="text-soft-ink">Clear</strong> in the
+            findings rail moves every open finding to Show closed in one action, so none is lost
+            and any can be reopened. The Library deletes a document only after a second, explicit
+            confirmation.
+          </p>
+        </div>
+
+        <div>
           <h3 className="font-semibold text-ink">Shortcuts</h3>
           <p className="mt-1 text-muted-ink">
             In the findings rail, <kbd>j</kbd> and <kbd>k</kbd> step through open findings,{" "}

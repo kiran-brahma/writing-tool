@@ -10,8 +10,9 @@ export function wordCountLabel(count: number): string {
 /**
  * Story 253: how the Status line offers the Rail below 1024px, with the count
  * of open Findings, so the Writer sees how much work is waiting without
- * opening it. "open" is the word the Rail's own count uses.
+ * opening it. "open" is the word the Rail's own count uses, and the offered
+ * control is named for the rail itself — "Findings" — not the internal word.
  */
 export function railOfferLabel(openFindingCount: number): string {
-  return `Rail · ${openFindingCount.toLocaleString("en")} open`;
+  return `Findings · ${openFindingCount.toLocaleString("en")} open`;
 }

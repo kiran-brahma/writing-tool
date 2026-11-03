@@ -10,6 +10,7 @@ import {
 } from "./documents";
 import {
   createLibraryDocument,
+  deleteDocument,
   listLibrary,
   updateDocumentMetadata,
 } from "./library";
@@ -260,5 +261,45 @@ describe("createDocument", () => {
 
     expect(document.status).toBe("draft");
     expect(document.tags).toEqual([]);
+  });
+});
+
+describe("deleteDocument", () => {
+  it("removes the Document with its Findings and Revisions, leaving the rest", async () => {
+    const database = await openTestDatabase();
+    const kept = await createLibraryDocument(database, 1_000);
+    const doomed = await save(
+      database,
+      await createLibraryDocument(database, 2_000),
+      paragraphDoc("gone"),
+      2_100,
+    );
+    await database.findings.put(finding("f-kept", kept.id, "open"));
+    await database.findings.put(finding("f-doomed", doomed.id, "open"));
+    await database.revisions.put({
+      id: "r-doomed",
+      documentId: doomed.id,
+      parentId: null,
+      createdAt: 2_100,
+      wordCount: 1,
+      flagged: false,
+      note: null,
+      canonical: "gone\n",
+    });
+
+    await deleteDocument(database, doomed.id);
+
+    expect(await database.documents.get(doomed.id)).toBeUndefined();
+    expect(await database.documents.get(kept.id)).toMatchObject({ id: kept.id, title: "Untitled" });
+    const findings = await database.findings.toArray();
+    expect(findings.map((record) => record.id)).toEqual(["f-kept"]);
+    expect(await database.revisions.count()).toBe(0);
+  });
+
+  it("is a no-op for a Document that is already gone", async () => {
+    const database = await openTestDatabase();
+
+    await expect(deleteDocument(database, "missing")).resolves.toBeUndefined();
+    expect(await database.documents.count()).toBe(0);
   });
 });

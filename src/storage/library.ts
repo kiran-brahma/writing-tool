@@ -12,6 +12,7 @@ import {
   SCRATCHPAD_DOCUMENT_ID,
   type NormalizedDocumentRecord,
 } from "./documents";
+import { enqueueMutation } from "./mutationQueue";
 import type { DocumentRecord, ObelusDatabase } from "./obelusDatabase";
 
 /** Project one Document into its Library row. */
@@ -68,6 +69,44 @@ export async function createLibraryDocument(
   const document = createDocument(now);
   await database.documents.put(document);
   return document;
+}
+
+/**
+ * Deletes a Document and everything derived from it, in one transaction: the
+ * prose, its Findings, its Revisions, its cached Runs and every retained row
+ * that names it. A delete is the Writer's explicit, confirmed action, not a
+ * silent discard — nothing is removed unless they ask for this one Document.
+ *
+ * Ordered with Finding and Revision writes through `enqueueMutation`, so a
+ * running rule Pass cannot write Findings for the Document after it is gone.
+ */
+export function deleteDocument(
+  database: ObelusDatabase,
+  documentId: string,
+): Promise<void> {
+  return enqueueMutation(database, () =>
+    database.transaction(
+      "rw",
+      [
+        database.documents,
+        database.findings,
+        database.revisions,
+        database.runCache,
+        database.runResponses,
+        database.readerAccounts,
+        database.auditAccounts,
+      ],
+      async () => {
+        await database.documents.delete(documentId);
+        await database.findings.where("documentId").equals(documentId).delete();
+        await database.revisions.where("documentId").equals(documentId).delete();
+        await database.runCache.where("documentId").equals(documentId).delete();
+        await database.runResponses.where("documentId").equals(documentId).delete();
+        await database.readerAccounts.where("documentId").equals(documentId).delete();
+        await database.auditAccounts.where("documentId").equals(documentId).delete();
+      },
+    ),
+  );
 }
 
 /** The metadata fields the Writer may change without touching the prose. */

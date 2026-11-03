@@ -18,6 +18,8 @@ export interface FindingsRailProps {
   onAddress: (findingId: string) => Promise<boolean>;
   onDecline: (findingId: string, reason?: DeclineReason) => Promise<boolean>;
   onReopen: (findingId: string) => Promise<boolean>;
+  /** Moves every open Finding out of the queue in one action. */
+  onClearFindings: () => Promise<boolean>;
   presentation: RailPresentation;
   onHideRail: () => void;
 }
@@ -38,6 +40,7 @@ export function FindingsRail({
   onAddress,
   onDecline,
   onReopen,
+  onClearFindings,
   presentation,
   onHideRail,
 }: FindingsRailProps) {
@@ -123,13 +126,28 @@ export function FindingsRail({
               : `${open.length} open${closed.length > 0 ? ` · ${closed.length} closed` : ""}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onHideRail}
-          className="rounded px-2 py-1 text-xs font-medium text-muted-ink hover:bg-sunk hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          Close
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              void onClearFindings().then((cleared) => {
+                if (cleared) onSelectFinding(null);
+              });
+            }}
+            disabled={open.length === 0}
+            title="Move every open finding to Show closed"
+            className="rounded px-2 py-1 text-xs font-medium text-muted-ink underline underline-offset-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={onHideRail}
+            className="rounded px-2 py-1 text-xs font-medium text-muted-ink hover:bg-sunk hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            Close
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

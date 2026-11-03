@@ -56,14 +56,16 @@ repository. Review runs them one after another and adds their findings to the sa
 
 ## 4. The loop
 
-1. The writer types. Saves are debounced, and a `pagehide` save protects the last edits.
+1. The writer types. Saves are debounced, and a `pagehide` save protects the last edits. The
+   Document menu starts a new Document, imports or exports Markdown, and flags a version.
 2. The three rule passes run on save. Their findings are reconciled against the stored set.
 3. The writer presses **Review**. The three model passes run on the paragraph at the cursor. While
    they run, the same control offers **Cancel**; a cancelled run stores nothing. A failure is
    surfaced verbatim in a banner above the page.
 4. The findings rail lists every finding in document order, with the pass name on the row. `j`/`k`
    step through open findings, `a` addresses, `x` declines. Clicking a mark in the prose opens the
-   callout with the same verdicts.
+   callout with the same verdicts. **Clear** moves every open finding out of the queue in one
+   action; they join the closed findings behind **Show closed**, where any can be reopened.
 5. The writer may flag a version from the Document menu. **Compare** opens the Judge for the current
    section, or the selected span. The Judge makes two calls with the labels swapped and reports
    `Unstable` when they disagree.
@@ -74,13 +76,16 @@ repository. Review runs them one after another and adds their findings to the sa
 
 The last opened document opens here. The page carries the title, the prose, a quiet word count, and
 the findings rail. The first run shows one dismissible note; there is no separate empty-state note.
-The Outline appears in the left margin at 1440px and wider.
+The Outline appears in the left margin at 1440px and wider. The header carries the Document menu
+(New document, Flag this version, Import and Export Markdown) and a **Findings** control that opens
+or closes the rail, so closing the rail never strands the writer.
 
 ### Library
 
 A flat list of every document in this browser, newest edited first. Search covers titles and body
-text. The writer can create a document, open one, back up the whole library, restore from a backup, or
-import a document bundle. There are no tags, status fields or per-document bundle exports.
+text. The writer can create a document, open one, delete one after an explicit confirmation, back up
+the whole library, restore from a backup, or import a document bundle. There are no tags, status
+fields or per-document bundle exports.
 
 ### Settings
 
@@ -130,7 +135,10 @@ local daemon with `ollama signin`.
 - The app opens on the last document; three destinations; one first-run note.
 - Review runs only from the status line, on the current paragraph; a failure is visible and a run
   can be cancelled.
-- The findings rail is one flat list; the callout works; `j`/`k`/`a`/`x` work.
+- The findings rail is one flat list; the callout works; `j`/`k`/`a`/`x` work; Clear empties the
+  queue and the cleared findings stay closed after the next save.
+- The header opens the rail after it is closed; the Library deletes a document only after a second,
+  explicit confirmation.
 - Compare opens the Judge; the swapped double call runs.
 - Settings has Connections, Rules, Appearance and Help.
 - Library has search, backup/restore and bundle import.
