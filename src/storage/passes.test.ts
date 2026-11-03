@@ -1,13 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Pass } from "../core/pass";
-import { blankModelPass } from "../core/starterPasses";
+import { blankModelPass, HEDGES_PASS } from "../core/starterPasses";
 import { openObelusDatabase, type ObelusDatabase } from "./obelusDatabase";
 import {
   loadOrCreatePasses,
-  replacePasses,
   restoreStarterPasses,
-  savePass,
-  setPassEnabled,
   UnrunnablePassError,
   updateRuleConfig,
 } from "./passes";
@@ -36,121 +33,70 @@ describe("loadOrCreatePasses", () => {
 
     expect(passes.map((pass) => pass.id)).toEqual([
       "hedges",
-      "nominalizations",
-      "openers",
       "wordiness",
       "repetition",
-      "passive",
-      "ai-tells",
-      "banned-words",
-      "worn-phrases",
-      "orwell",
-      "characters-actions",
-      "topic-strings",
-      "paragraph-reorder",
       "paragraph-unity",
       "cut-candidates",
-      "cliche",
       "claim-strength",
-      "reader",
-      "audit",
     ]);
-    expect(passes.filter((pass) => pass.kind === "rule").map((pass) => pass.id)).toEqual([
-      "hedges",
-      "nominalizations",
-      "openers",
-      "wordiness",
-      "repetition",
-      "passive",
-      "ai-tells",
-      "banned-words",
-      "worn-phrases",
-      "orwell",
-    ]);
-    expect(passes.filter((pass) => pass.kind === "model").map((pass) => pass.id)).toEqual([
-      "characters-actions",
-      "topic-strings",
-      "paragraph-reorder",
-      "paragraph-unity",
-      "cut-candidates",
-      "cliche",
-      "claim-strength",
-      "reader",
-      "audit",
-    ]);
+    expect(passes.filter((pass) => pass.kind === "rule")).toHaveLength(3);
+    expect(passes.filter((pass) => pass.kind === "model")).toHaveLength(3);
   });
 
-  it("keeps the Writer's edit on the next open", async () => {
+  it("keeps the Writer's rule-word edit on the next open", async () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
-    await setPassEnabled(database, "hedges", false);
+    await updateRuleConfig(database, "hedges", { hedges: ["blatantly"] });
 
     const passes = await loadOrCreatePasses(database);
 
-    expect(passes.find((pass) => pass.id === "hedges")?.enabled).toBe(false);
+    expect(passes.find((pass) => pass.id === "hedges")?.ruleConfig).toEqual({
+      hedges: ["blatantly"],
+    });
+  });
+
+  it("forces a surviving rule pass on, whatever an old toggle stored", async () => {
+    const database = await openTestDatabase();
+    await loadOrCreatePasses(database);
+    await database.passes.put({ ...HEDGES_PASS, enabled: false });
+
+    const passes = await loadOrCreatePasses(database);
+
+    expect(passes.find((pass) => pass.id === "hedges")?.enabled).toBe(true);
   });
 
   it("introduces a Starter pass whose id is missing without touching the others", async () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
-    await setPassEnabled(database, "hedges", false);
+    await updateRuleConfig(database, "hedges", { hedges: ["blatantly"] });
     await database.passes.delete("wordiness");
 
     const passes = await loadOrCreatePasses(database);
 
     expect(passes.map((pass) => pass.id)).toContain("wordiness");
-    expect(passes.find((pass) => pass.id === "hedges")?.enabled).toBe(false);
+    expect(passes.find((pass) => pass.id === "hedges")?.ruleConfig).toEqual({
+      hedges: ["blatantly"],
+    });
   });
 
-  it("refuses a stored Pass whose output shape this build cannot run (story 158)", async () => {
+  it("refuses a stored Pack Pass whose output shape this build cannot run (story 158)", async () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
-    // A legacy row: the note shape was offered by an older Obelus.
-    await database.passes.put({
-      ...blankModelPass("legacy-note"),
-      output: "note",
-    } as unknown as Pass);
+    await database.passes.put({ ...HEDGES_PASS, output: "note" } as unknown as Pass);
 
     await expect(loadOrCreatePasses(database)).rejects.toBeInstanceOf(UnrunnablePassError);
     await expect(loadOrCreatePasses(database)).rejects.toThrow(/cannot run/i);
   });
-});
 
-describe("setPassEnabled", () => {
-  it("stores the flag and returns the updated Pass", async () => {
+  it("ignores a stored Pass outside the pack and leaves the row in place", async () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
+    await database.passes.put(blankModelPass("old-custom-pass"));
 
-    const updated = await setPassEnabled(database, "repetition", false);
+    const passes = await loadOrCreatePasses(database);
 
-    expect(updated?.enabled).toBe(false);
-    await expect(database.passes.get("repetition")).resolves.toMatchObject({ enabled: false });
-  });
-
-  it("returns null for an id that is not stored", async () => {
-    const database = await openTestDatabase();
-    await loadOrCreatePasses(database);
-
-    expect(await setPassEnabled(database, "missing", false)).toBeNull();
-  });
-
-  it("turns a model Pass on and off, and the flag survives a reload", async () => {
-    const database = await openTestDatabase();
-    await loadOrCreatePasses(database);
-
-    // Characters and actions ships enabled in v1.1 (ADR 0009).
-    await expect(database.passes.get("characters-actions")).resolves.toMatchObject({
-      enabled: true,
-    });
-
-    const disabled = await setPassEnabled(database, "characters-actions", false);
-    expect(disabled?.enabled).toBe(false);
-
-    const reloaded = await loadOrCreatePasses(database);
-    expect(reloaded.find((pass) => pass.id === "characters-actions")?.enabled).toBe(false);
-
-    const reenabled = await setPassEnabled(database, "characters-actions", true);
-    expect(reenabled?.enabled).toBe(true);
+    expect(passes.map((pass) => pass.id)).not.toContain("old-custom-pass");
+    await expect(database.passes.get("old-custom-pass")).resolves.toBeDefined();
   });
 });
 
@@ -166,62 +112,14 @@ describe("updateRuleConfig", () => {
       ruleConfig: { hedges: ["blatantly"] },
     });
   });
-
-  it("keeps the Writer's edit when the Rule config is reloaded", async () => {
-    const database = await openTestDatabase();
-    await loadOrCreatePasses(database);
-    await updateRuleConfig(database, "hedges", { hedges: ["blatantly"] });
-
-    const passes = await loadOrCreatePasses(database);
-
-    expect(passes.find((pass) => pass.id === "hedges")?.ruleConfig).toEqual({
-      hedges: ["blatantly"],
-    });
-  });
-});
-
-describe("savePass", () => {
-  it("stores a Pass the Writer wrote and returns it", async () => {
-    const database = await openTestDatabase();
-    await loadOrCreatePasses(database);
-    const pass = { ...blankModelPass("my-pass"), name: "My Pass" };
-
-    await savePass(database, pass);
-
-    await expect(database.passes.get("my-pass")).resolves.toMatchObject({ name: "My Pass" });
-  });
-
-  it("replaces an edited Pass in place", async () => {
-    const database = await openTestDatabase();
-    await loadOrCreatePasses(database);
-    const pass = blankModelPass("my-pass");
-    await savePass(database, pass);
-
-    await savePass(database, { ...pass, prompt: "A different prompt." });
-
-    const stored = await database.passes.get("my-pass");
-    expect(stored?.prompt).toBe("A different prompt.");
-  });
-});
-
-describe("replacePasses", () => {
-  it("replaces the whole set in one write", async () => {
-    const database = await openTestDatabase();
-    await loadOrCreatePasses(database);
-
-    await replacePasses(database, [blankModelPass("only-pass")]);
-
-    const stored = await database.passes.toArray();
-    expect(stored.map((pass) => pass.id)).toEqual(["only-pass"]);
-  });
 });
 
 describe("restoreStarterPasses", () => {
   it("brings the Starter pack back over the Writer's edits", async () => {
     const database = await openTestDatabase();
     await loadOrCreatePasses(database);
-    await setPassEnabled(database, "hedges", false);
-    await savePass(database, blankModelPass("my-pass"));
+    await database.passes.put({ ...HEDGES_PASS, enabled: false });
+    await database.passes.put(blankModelPass("my-pass"));
 
     await restoreStarterPasses(database);
     const passes = await loadOrCreatePasses(database);

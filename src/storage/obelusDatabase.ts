@@ -1,10 +1,8 @@
 import Dexie, { type Table } from "dexie";
-import type { AuditAccount } from "../core/audit";
 import type { DocTree } from "../core/docTree";
-import type { Finding, Interval, Violation } from "../core/finding";
+import type { Finding, Interval, Provenance, Violation } from "../core/finding";
 import type { DocumentStatus } from "../core/library";
 import type { Pass } from "../core/pass";
-import type { ReaderAccount } from "../core/reader";
 import type { SectionRef } from "../core/sections";
 import type { Connection } from "../wire/connection";
 import type { ModelUsage } from "../wire/modelRequest";
@@ -56,41 +54,38 @@ export interface FindingRecord extends Finding {
 }
 
 /**
- * A Reader account as stored, derived from a Section. It carries the Section's
- * identity so an account can be shown against the heading it was about, and the
- * `passId`/`promptHash` that produced it so a re-run replaces its own accounts
- * and a reload can still name the Pass. It is a separate record kind from a
- * Finding: reader output never mixes with the queue that still needs work.
+ * A Reader account retained from an older library. The Reader was removed; the
+ * table and type stay so a restore and an old backup still round-trip, but
+ * nothing in the app reads or writes them.
  */
-export interface ReaderAccountRecord extends ReaderAccount {
+export interface ReaderAccountRecord {
   id: string;
   documentId: string;
   passId: string;
   promptHash: string;
   section: SectionRef;
+  provenance: Provenance;
+  [field: string]: unknown;
 }
 
 /**
- * An Audit account as stored, derived from the whole Document. It carries the
- * `passId`/`promptHash` that produced it, exactly as a Reader account does, so
- * a re-run replaces its own accounts and a reload can still name the Pass. It
- * is a separate record kind from a Finding: a whole-piece judgment has no quote
- * to anchor to, and forcing one into the queue would break the `j`/`k`/`a`/`x`
- * loop the queue exists for.
+ * An Audit account retained from an older library. The Audit was removed; the
+ * table and type stay so a restore and an old backup still round-trip, but
+ * nothing in the app reads or writes them.
  */
-export interface AuditAccountRecord extends AuditAccount {
+export interface AuditAccountRecord {
   id: string;
   documentId: string;
   passId: string;
   promptHash: string;
+  provenance: Provenance;
+  [field: string]: unknown;
 }
 
 /**
- * The raw provider response behind a model Run, kept so the global
- * "show raw response" toggle can expose it for any Finding — including one
- * loaded after a reload. Keyed by Document, Pass and `promptHash`, so a Finding
- * kept from an earlier prompt shows the response that produced it. The Run
- * cache (#16) will key a fuller Run record on a still richer key.
+ * A raw provider response retained from an older library. The raw-response view
+ * was removed; the table and type stay so an old backup still round-trips, but
+ * nothing in the app reads or writes them.
  */
 export interface RunResponseRecord {
   documentId: string;

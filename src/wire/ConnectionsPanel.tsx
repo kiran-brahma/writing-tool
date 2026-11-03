@@ -9,14 +9,12 @@ import {
 import { allowOriginCommands, isLocalOllama, originNeedsAllowing, pageOrigin } from "./ollama";
 import { concurrencyGate, transport } from "./productionTransport";
 import { testConnection } from "./transport";
-import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 
 interface ConnectionsPanelProps {
   connections: Connection[];
   onSave: (connection: Connection) => void;
   onAddCustom: () => void;
   onRemove: (connectionId: string) => void;
-  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 interface Feedback {
@@ -39,7 +37,7 @@ const EFFORT_LABELS: Record<ReasoningEffort, string> = {
 /**
  * Story 2–14: the Writer's Connections. A Connection is a route: a Protocol, a
  * base URL, a key, a concurrency cap and the two output limits. The model is
- * chosen per Slot in the AI Settings view's Slots section, so it is not edited
+ * chosen per Slot in the Settings view's Slots section, so it is not edited
  * here. "Test connection"
  * runs through the one Transport, so the visible queue below the header tells
  * the truth about what is in flight.
@@ -49,7 +47,6 @@ export function ConnectionsPanel({
   onSave,
   onAddCustom,
   onRemove,
-  onOpenHelp,
 }: ConnectionsPanelProps) {
   const [queue, setQueue] = useState(() => concurrencyGate.total());
 
@@ -68,16 +65,6 @@ export function ConnectionsPanel({
         </span>
       </div>
 
-      <p className="border-b border-rule-soft px-4 py-2 text-xs text-faint-ink">
-        {PANEL_GLOSSES.connections.text}{" "}
-        <button
-          type="button"
-          onClick={() => onOpenHelp?.(PANEL_GLOSSES.connections.sectionId)}
-          className="underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          How this works
-        </button>
-      </p>
 
       <p className="px-4 py-2 text-xs text-faint-ink">
         A key is stored in this browser only, and sent only to the base URL of the connection you

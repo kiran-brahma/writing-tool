@@ -1,14 +1,11 @@
 import { resolveAnchor } from "../src/core/anchor";
-import { auditDocument, type AuditAccount } from "../src/core/audit";
 import { isContained } from "../src/core/containment";
 import { critique, type Target } from "../src/core/critique";
 import { describeError } from "../src/errors";
 import type { Finding, Violation } from "../src/core/finding";
 import { judge } from "../src/core/judge";
 import type { Pass } from "../src/core/pass";
-import { isAuditPass, isReaderPass } from "../src/core/pass";
 import { targetForPass } from "../src/core/passContext";
-import { readSection, type ReaderAccount } from "../src/core/reader";
 import { constitutionPromptClauses } from "../src/core/starterPasses";
 import { extractJson } from "../src/core/parseFindings";
 import type { Connection } from "../src/wire/connection";
@@ -69,10 +66,6 @@ export interface HarnessCaseResult {
   findings: Finding[];
   violations: Violation[];
   droppedAnchors: number;
-  /** The Reader account a section-summary Pass returned, if any. */
-  account: ReaderAccount | null;
-  /** The Audit account an audit Pass returned, if any. */
-  auditAccount: AuditAccount | null;
   /** Story 131: how many model calls the Run took; 1 when it fit. */
   chunks: number;
   rawResponse: string | null;
@@ -95,11 +88,6 @@ export interface HarnessOptions {
    * applies and a short fixture Document is never split.
    */
   characterLimit?: number;
-  /**
-   * Story 151: the Voice list for a Findings case, so the harness exercises the
-   * new system clause. Omitted, no Voice list is sent.
-   */
-  voiceList?: string[];
   /** One Transport per case, so each case can carry its own recorded response. */
   transportFor: (testCase: HarnessCase) => Transport;
   /** Fixed for a reproducible result; defaults to now. */
@@ -139,14 +127,6 @@ async function runCase(
   options: HarnessOptions,
   ranAt: number,
 ): Promise<HarnessCaseResult> {
-  // The Reader account is a different output shape with different checks: it
-  // has no Anchors to contain, but the same parser, linter and prompt clauses
-  // guard it. Dispatching here keeps one harness for every model Pass.
-  if (isReaderPass(pass)) return runReaderCase(testCase, pass, options, ranAt);
-  // The Audit is a different output shape again, document-scoped and schema-
-  // guided; it too shares the parser, linter and prompt clauses.
-  if (isAuditPass(pass)) return runAuditCase(testCase, pass, options, ranAt);
-
   let run;
   try {
     run = await critique(testCase.target, pass, options.connection, {
@@ -155,7 +135,6 @@ async function runCase(
       revisionId: "harness-revision",
       now: ranAt,
       ...(options.characterLimit === undefined ? {} : { characterLimit: options.characterLimit }),
-      ...(options.voiceList === undefined ? {} : { voiceList: options.voiceList }),
     });
   } catch (error) {
     // A response the parser cannot read is a failed case, not a thrown harness:
@@ -180,106 +159,6 @@ async function runCase(
     findings: run.findings,
     violations: run.violations,
     droppedAnchors: run.droppedAnchors,
-    account: null,
-    auditAccount: null,
-    chunks: run.chunks,
-    rawResponse: run.rawResponse,
-    error: null,
-  };
-}
-
-/**
- * The Reader-pass half of a harness case: the same parser, linter and prompt
- * checks as a Findings case, without Containment. A Reader account has no
- * Anchor to contain; the rewrite check is what proves its schema refuses
- * replacement prose.
- */
-async function runReaderCase(
-  testCase: HarnessCase,
-  pass: Pass,
-  options: HarnessOptions,
-  ranAt: number,
-): Promise<HarnessCaseResult> {
-  let run;
-  try {
-    run = await readSection(testCase.target, pass, options.connection, {
-      transport: options.transportFor(testCase),
-      screeningFrame: options.screeningFrame,
-      revisionId: "harness-revision",
-      now: ranAt,
-    });
-  } catch (error) {
-    return failureCase(testCase.documentId, testCase.passId, testCase.target, describeError(error));
-  }
-
-  const checks: HarnessCheck[] = [
-    parseCheck(run.rawResponse),
-    praiseCheck(run.violations),
-    accountRewriteCheck(run.account, run.violations),
-    promptCheck(pass),
-  ];
-
-  return {
-    documentId: testCase.documentId,
-    passId: testCase.passId,
-    target: testCase.target,
-    ok: checks.every((check) => check.ok),
-    checks,
-    findings: [],
-    violations: run.violations,
-    droppedAnchors: 0,
-    account: run.account,
-    auditAccount: null,
-    chunks: 1,
-    rawResponse: run.rawResponse,
-    error: null,
-  };
-}
-
-/**
- * The Audit-pass half of a harness case: the same parser, linter and prompt
- * checks as a Findings case, without Containment. An Audit account has no
- * Anchor to contain; the rewrite check is what proves its schema refuses
- * replacement prose, and the chunk count proves a long Document was split and
- * synthesized rather than silently cut.
- */
-async function runAuditCase(
-  testCase: HarnessCase,
-  pass: Pass,
-  options: HarnessOptions,
-  ranAt: number,
-): Promise<HarnessCaseResult> {
-  let run;
-  try {
-    run = await auditDocument(testCase.target, pass, options.connection, {
-      transport: options.transportFor(testCase),
-      screeningFrame: options.screeningFrame,
-      revisionId: "harness-revision",
-      now: ranAt,
-      ...(options.characterLimit === undefined ? {} : { characterLimit: options.characterLimit }),
-    });
-  } catch (error) {
-    return failureCase(testCase.documentId, testCase.passId, testCase.target, describeError(error));
-  }
-
-  const checks: HarnessCheck[] = [
-    parseCheck(run.rawResponse),
-    praiseCheck(run.violations),
-    auditRewriteCheck(run.account, run.violations),
-    promptCheck(pass),
-  ];
-
-  return {
-    documentId: testCase.documentId,
-    passId: testCase.passId,
-    target: testCase.target,
-    ok: checks.every((check) => check.ok),
-    checks,
-    findings: [],
-    violations: run.violations,
-    droppedAnchors: 0,
-    account: null,
-    auditAccount: run.account,
     chunks: run.chunks,
     rawResponse: run.rawResponse,
     error: null,
@@ -338,40 +217,6 @@ function rewriteCheck(findings: Finding[], violations: Violation[]): HarnessChec
 /** Every string a Finding carries, for the smuggled-prose check. */
 function findingText(finding: Finding): string {
   return [finding.issue, finding.diagnosis, finding.pattern ?? "", finding.anchor.quote].join("\n");
-}
-
-/** The reader-account half of the rewrite check: no rewrite field, quarantined. */
-function accountRewriteCheck(account: ReaderAccount, violations: Violation[]): HarnessCheck {
-  const leaked = "rewrite" in account;
-  const quarantined = violations.some(
-    (violation) => violation.kind === "rewrite" && violation.text === FIXTURE_REWRITE,
-  );
-  const ok = !leaked && quarantined;
-
-  return {
-    name: "noRewriteField",
-    ok,
-    detail: ok
-      ? `The Reader account carried no rewrite field; "${FIXTURE_REWRITE}" was quarantined.`
-      : `Reader account rewrite field leaked=${String(leaked)}; quarantined=${String(quarantined)}.`,
-  };
-}
-
-/** The Audit-account half of the rewrite check: no rewrite field, quarantined. */
-function auditRewriteCheck(account: AuditAccount, violations: Violation[]): HarnessCheck {
-  const leaked = "rewrite" in account;
-  const quarantined = violations.some(
-    (violation) => violation.kind === "rewrite" && violation.text === FIXTURE_REWRITE,
-  );
-  const ok = !leaked && quarantined;
-
-  return {
-    name: "noRewriteField",
-    ok,
-    detail: ok
-      ? `The Audit account carried no rewrite field; "${FIXTURE_REWRITE}" was quarantined.`
-      : `Audit account rewrite field leaked=${String(leaked)}; quarantined=${String(quarantined)}.`,
-  };
 }
 
 function containmentCheck(
@@ -446,8 +291,6 @@ function failureCase(
     findings: [],
     violations: [],
     droppedAnchors: 0,
-    account: null,
-    auditAccount: null,
     chunks: 0,
     rawResponse: null,
     error,

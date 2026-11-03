@@ -1,7 +1,7 @@
 import { resolveAnchor } from "../core/anchor";
 import { isContained } from "../core/containment";
 import { critique, type RunResult, type Target } from "../core/critique";
-import { responseKey, type Finding } from "../core/finding";
+import type { Finding } from "../core/finding";
 import { provenanceFor } from "../core/modelCall";
 import { hashPass, type Pass } from "../core/pass";
 import { reconcileFindings } from "../core/reconcile";
@@ -21,49 +21,12 @@ import {
 /**
  * The model-Run repository. A model Run is like a rule Run in one respect — it
  * reconciles a Pass's Finding set rather than appending — and unlike it in
- * another: it also records the raw provider response, so the global
- * "show raw response" toggle can expose it for a Finding loaded much later.
+ * another: it also records the provider's raw response for the Run cache.
  *
  * The Run cache lives here, at the storage boundary, because this is the door
  * every Run goes through and the only place the Document's canonical text, the
  * Pass, its `promptHash`, the Connection and the model are all in hand at once.
  */
-
-/** Stores the raw response of a Pass's Run for a Document, keyed by promptHash. */
-async function saveRunResponse(
-  database: ObelusDatabase,
-  documentId: string,
-  passId: string,
-  promptHash: string,
-  rawResponse: string,
-  at: number,
-): Promise<void> {
-  await database.runResponses.put({ documentId, passId, promptHash, rawResponse, at });
-}
-
-/** The raw response stored for a Pass at a given promptHash, or `null`. */
-export async function loadRunResponse(
-  database: ObelusDatabase,
-  documentId: string,
-  passId: string,
-  promptHash: string,
-): Promise<string | null> {
-  const record = await database.runResponses.get([documentId, passId, promptHash]);
-  return record?.rawResponse ?? null;
-}
-
-/** Every stored raw response for a Document, keyed by `responseKey`. */
-export async function listRunResponses(
-  database: ObelusDatabase,
-  documentId: string,
-): Promise<Record<string, string>> {
-  const records = await database.runResponses.where("documentId").equals(documentId).toArray();
-  const byKey: Record<string, string> = {};
-  for (const record of records) {
-    byKey[responseKey(record.passId, record.promptHash)] = record.rawResponse;
-  }
-  return byKey;
-}
 
 export interface ModelRunOptions {
   pass: Pass;
@@ -73,13 +36,6 @@ export interface ModelRunOptions {
   screeningFrame: boolean;
   /** Story 50: the character limit above which a document Run is chunked. */
   characterLimit: number;
-  /**
-   * Story 151: the Writer's Voice list, attached to the Findings request and
-   * used by the post-filter that annotates a surviving match. Omitted reads as
-   * the empty list, so a caller that does not have the setting yet is not an
-   * error.
-   */
-  voiceList?: string[];
   /** Story 54: cancels the Run; an aborted Run stores no Findings. */
   signal?: AbortSignal;
   now?: number;
@@ -128,7 +84,6 @@ async function runModelPassNow(
     extraHeaders: options.connection.extraHeaders,
     screeningFrame: options.screeningFrame,
     characterLimit: options.characterLimit,
-    voiceList: options.voiceList ?? [],
     // A local Pass's input depends on the cursor, so the Target interval joins
     // the key: the same Pass over the same Document in another Paragraph is a
     // different request and must not be served from this Run's entry.
@@ -143,8 +98,7 @@ async function runModelPassNow(
           screeningFrame: options.screeningFrame,
           revisionId: revision.id,
           characterLimit: options.characterLimit,
-          voiceList: options.voiceList ?? [],
-          ...(options.signal === undefined ? {} : { signal: options.signal }),
+                ...(options.signal === undefined ? {} : { signal: options.signal }),
           now,
         })
       : resultFromCache(cached, options.target, options.connection, revision.id, now);
@@ -157,7 +111,6 @@ async function runModelPassNow(
   const provenance = await provenanceLookup(database, existing);
   const merged = reconcileFindings(result.findings, existing, document.canonical, provenance);
   await replaceFindingsForPass(database, document.id, options.pass.id, merged);
-  await saveRunResponse(database, document.id, options.pass.id, input.promptHash, result.rawResponse, now);
 
   return { ...result, findings: merged };
 }

@@ -3,24 +3,27 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 export interface DocumentMenuProps {
   onExport: () => void;
   onImport: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  /** Flags the current revision as a milestone for the Judge. */
+  onFlagVersion: () => void;
   canExport?: boolean;
+  canFlag?: boolean;
 }
 
 /**
- * Story 191: Document actions (Import Markdown, Export Markdown) behind one
- * control, separated from navigation. The word count is not here: the Status
- * line carries it, at a glance rather than behind a menu (story 200).
+ * Document actions behind one control: import and export Markdown, and flag the
+ * current version. The word count is not here: the Status line carries it.
  */
 export function DocumentMenu({
   onExport,
   onImport,
+  onFlagVersion,
   canExport = true,
+  canFlag = true,
 }: DocumentMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Close on Escape and return focus to trigger button
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -33,14 +36,10 @@ export function DocumentMenu({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  // Close on outside pointer click
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (!containerRef.current?.contains(event.target as Node)) {
         setOpen(false);
       }
     };
@@ -57,6 +56,12 @@ export function DocumentMenu({
   const handleImport = (event: ChangeEvent<HTMLInputElement>) => {
     setOpen(false);
     void onImport(event);
+  };
+
+  const handleFlag = () => {
+    if (!canFlag) return;
+    setOpen(false);
+    onFlagVersion();
   };
 
   return (
@@ -83,8 +88,17 @@ export function DocumentMenu({
           id="document-actions-menu"
           role="menu"
           aria-label="Document actions"
-          className="absolute left-0 top-full mt-1.5 w-44 rounded border border-rule-soft bg-paper py-1 shadow-md z-30"
+          className="absolute left-0 top-full mt-1.5 w-48 rounded border border-rule-soft bg-paper py-1 shadow-md z-30"
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleFlag}
+            disabled={!canFlag}
+            className="flex w-full items-center px-3 py-1.5 text-xs text-quiet-ink hover:bg-ground disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors text-left"
+          >
+            Flag this version
+          </button>
           <label className="flex w-full cursor-pointer items-center px-3 py-1.5 text-xs text-quiet-ink hover:bg-ground has-focus-visible:outline-none has-focus-visible:ring-2 has-focus-visible:ring-focus transition-colors">
             Import Markdown
             <input

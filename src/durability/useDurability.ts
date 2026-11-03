@@ -10,22 +10,19 @@ import { useCallback, type RefObject } from "react";
 import type { PersistenceController } from "../editor/persistence";
 import { describeError } from "../errors";
 import {
-  exportDocumentBundle,
   exportLibraryBackup,
   importDocumentBundle,
   importLibraryBackup,
   parseDocumentBundle,
   parseLibraryBackup,
   saveLastBackedUp,
-  serializeDocumentBundle,
   serializeLibraryBackup,
 } from "../storage/durability";
-import type { DocumentRecord, ObelusDatabase } from "../storage/obelusDatabase";
+import type { ObelusDatabase } from "../storage/obelusDatabase";
 
 export interface DurabilityOptions {
   databaseRef: RefObject<ObelusDatabase | null>;
   persistenceRef: RefObject<PersistenceController | null>;
-  documentRef: RefObject<DocumentRecord | null>;
   /** Opens a Document by id, used after a bundle import. */
   openDocument: (documentId: string) => Promise<void>;
   /** Re-reads the whole in-memory view after a Library restore. */
@@ -45,8 +42,6 @@ export interface DurabilityHandle {
   backupLibrary: (includeKeys: boolean, deliver: (json: string) => void) => Promise<boolean>;
   /** Story 111: replaces the Library from a backup file's text. */
   restoreLibrary: (json: string) => Promise<boolean>;
-  /** Story 114: one Document as a bundle file's text, or null on failure. */
-  exportBundle: (documentId: string) => Promise<string | null>;
   /** Story 114: imports a Document bundle as a new Document and opens it. */
   importBundle: (json: string) => Promise<string | null>;
 }
@@ -55,7 +50,6 @@ export function useDurability(options: DurabilityOptions): DurabilityHandle {
   const {
     databaseRef,
     persistenceRef,
-    documentRef,
     openDocument,
     reloadLibrary,
     onBackedUp,
@@ -126,24 +120,6 @@ export function useDurability(options: DurabilityOptions): DurabilityHandle {
     [databaseRef, persistenceRef, reloadLibrary, onError],
   );
 
-  /** Story 114: one Document, with its Revisions and Findings, as file text. */
-  const exportBundle = useCallback(
-    async (documentId: string): Promise<string | null> => {
-      const database = databaseRef.current;
-      if (database === null) return null;
-      try {
-        // Export the on-screen prose for the active Document, not a stale save.
-        if (documentRef.current?.id === documentId) await persistenceRef.current?.flush();
-        const bundle = await exportDocumentBundle(database, documentId);
-        return bundle === null ? null : serializeDocumentBundle(bundle);
-      } catch (error) {
-        onError(describeError(error));
-        return null;
-      }
-    },
-    [databaseRef, persistenceRef, documentRef, onError],
-  );
-
   /** Story 114: imports a bundle as a new Document and opens it. */
   const importBundle = useCallback(
     async (json: string): Promise<string | null> => {
@@ -164,5 +140,5 @@ export function useDurability(options: DurabilityOptions): DurabilityHandle {
     [databaseRef, persistenceRef, openDocument, onError],
   );
 
-  return { backupLibrary, restoreLibrary, exportBundle, importBundle };
+  return { backupLibrary, restoreLibrary, importBundle };
 }

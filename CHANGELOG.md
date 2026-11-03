@@ -7,6 +7,38 @@ release is cut.
 
 ## [Unreleased]
 
+### Removed
+
+- Audit, Reader accounts, the pass workbench, the prompt-authoring assistant, the metrics panel, the
+  judge calibration prediction, cost estimates and the price table, raw provider responses, the voice
+  list, the screening-frame and character-limit settings, Library tags and status, per-document bundle
+  export, the old working-order bands and rail modes, seven rule passes and six model passes from the
+  Starter pack, and five build gates.
+- The old Help/Privacy destinations, the AI Guide, the separate Privacy page and the permanent panel
+  glosses.
+
+### Changed
+
+- The app has three destinations: Editor, Library and Settings. Help and Privacy live in Settings.
+- The Starter pack is three rule passes that run on save and three model passes that run only from
+  **Review**, on the paragraph at the cursor.
+- Findings are one flat list in document order, with the pass name on each row. The Judge opens from
+  **Compare** as a dialog.
+- Backups never include API keys. Whole-library restore and document-bundle import remain.
+- Settings is Connections, Rules, Appearance and Help. The three rule word lists are editable and
+  there is a Restore defaults action.
+
+### Fixed
+
+- A stored pass outside the Starter pack is ignored on load, so a removed pass cannot keep running or
+  lock the writer out with an output shape this build no longer runs.
+- A Review failure is shown in a banner instead of being set and never rendered, and the Status line
+  offers **Cancel** while a Review is in flight.
+- A rule pass stored as disabled by the removed per-pass toggle is turned back on at load, so all
+  three rule passes run.
+- Old tables and document metadata are left in place, invisible, so the simplification needs no
+  destructive Dexie migration.
+
 ## [0.3.0] - 2026-09-28
 
 ### Added

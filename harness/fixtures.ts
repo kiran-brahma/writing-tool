@@ -1,14 +1,6 @@
 import type { BlockNode, DocTree } from "../src/core/docTree";
-import type { Pass } from "../src/core/pass";
-import {
-  AUDIT_PASS,
-  CLAIM_STRENGTH_PASS,
-  CLICHE_PASS,
-  CUT_CANDIDATES_PASS,
-  PARAGRAPH_REORDER_PASS,
-  READER_PASS,
-  TOPIC_STRINGS_PASS,
-} from "../src/core/starterPasses";
+import { paragraphModelPasses, type Pass } from "../src/core/pass";
+import { STARTER_PASSES } from "../src/core/starterPasses";
 import type { Target } from "../src/core/critique";
 
 /**
@@ -142,33 +134,12 @@ export const HARNESS_DOCUMENTS: HarnessDocument[] = [
   },
 ];
 
-/** Exactly three real Starter model Passes: the matrix's other axis. */
-export const HARNESS_PASSES: Pass[] = [CLICHE_PASS, CLAIM_STRENGTH_PASS, CUT_CANDIDATES_PASS];
-
 /**
- * The two document-scope Starter Passes, run over the same fixtures as a second
- * matrix. They exercise the structural prompt shape and the whole-Document
- * Target, which the paragraph matrix above cannot: the `{{document}}`
- * placeholder must carry the whole Document, and a Finding anchored in what a
- * local Pass would call context must be kept.
+ * The model passes the harness exercises: exactly the ones Review runs in the
+ * shipped pack. Derived from the pack, not a second hardcoded list, so a new
+ * paragraph-scope model pass enters the matrix automatically.
  */
-export const HARNESS_DOCUMENT_PASSES: Pass[] = [TOPIC_STRINGS_PASS, PARAGRAPH_REORDER_PASS];
-
-/**
- * The Reader pass, run as a third matrix. Its output shape is a Reader account
- * rather than Findings, so it exercises the section-scope prompt and the
- * account parser: no Anchor to contain, but the same linter and rewrite checks.
- */
-export const HARNESS_READER_PASSES: Pass[] = [READER_PASS];
-
-/**
- * The Audit pass, run as a fourth matrix. Its output shape is an Audit account
- * and its scope is the whole Document, so it exercises the document-scope
- * prompt and the schema-guided parser: no Anchor to contain, but the same
- * linter, praise and rewrite checks, plus an account that must never carry a
- * rewrite field.
- */
-export const HARNESS_AUDIT_PASSES: Pass[] = [AUDIT_PASS];
+export const HARNESS_PASSES: Pass[] = paragraphModelPasses(STARTER_PASSES);
 
 /**
  * The misbehaving model response every case receives. It carries:
@@ -205,58 +176,6 @@ export function adversarialResponse(target: Target): string {
       },
     ],
   });
-}
-
-/**
- * The misbehaving Audit response every Audit case receives. It carries the same
- * breaches in the account's shape: praise the linter must flag in an authored
- * field, an out-of-schema `rewrite` string that must be quarantined rather than
- * kept, and a valid account so the case still parses.
- */
-export function adversarialAuditResponse(_target: Target): string {
-  return JSON.stringify({
-    type: "argument",
-    corePayload: `The piece claims a plan carries the week. This is ${FIXTURE_PRAISE}, honestly.`,
-    argumentMap: {
-      premises: ["Every Sunday a list is written."],
-      subConclusions: ["A list without habits is ignored by Tuesday."],
-      conclusion: "Keep the list short.",
-    },
-    reasoning: {
-      kind: "inductive",
-      soundness: "The premise that habits carry the plan is never established.",
-      enthymemes: ["Habits, not plans, do the work."],
-    },
-    fallacies: [
-      {
-        name: "False cause",
-        passage: "the low-hanging fruit is usually the first thing to rot",
-        why: "Correlation is treated as causation.",
-        missing: "Evidence that the fruit rots first.",
-      },
-    ],
-    definitions: { intensional: null, extensional: null },
-    priority: ["Establish that habits do the work."],
-    rewrite: FIXTURE_REWRITE,
-  });
-}
-
-/**
- * The misbehaving Reader response every Reader case receives. It carries the
- * same three breaches in the account's shape: praise the linter must flag, an
- * out-of-schema `rewrite` string that must be quarantined rather than kept, and
- * a valid account so the case still parses.
- */
-export function adversarialReaderResponse(_target: Target): string {
-  const account = JSON.stringify({
-    what_this_section_says: "It sets up the piece.",
-    what_a_distracted_reader_would_miss: "The turn in the argument.",
-    gap_between_intent_and_effect: "The claim arrives before its reason.",
-    rewrite: FIXTURE_REWRITE,
-  });
-  // The praise sits in the prose around the JSON, so the harness proves the
-  // Reader path lints the whole response, not only the account's fields.
-  return `This is ${FIXTURE_PRAISE}, honestly.\n${account}`;
 }
 
 /**

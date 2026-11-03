@@ -15,7 +15,6 @@ function key(overrides: Partial<RunCacheKeyInput> = {}): string {
     extraHeaders: {},
     screeningFrame: true,
     characterLimit: 20_000,
-    voiceList: [],
     target: { start: 0, end: 42 },
     ...overrides,
   });
@@ -57,9 +56,6 @@ describe("runCacheKey", () => {
     expect(key({ model: "gpt-4o-mini" })).not.toBe(base);
     expect(key({ screeningFrame: false })).not.toBe(base);
     expect(key({ characterLimit: 40 })).not.toBe(base);
-    // The Voice list is attached to the request and shapes the annotation, so a
-    // change to it must miss rather than reuse the previous list's Findings.
-    expect(key({ voiceList: ["leverage"] })).not.toBe(base);
     // A local Pass's Target is part of its input, so a different Paragraph or
     // Section is a different Run and must not reuse this entry.
     expect(key({ target: { start: 10, end: 42 } })).not.toBe(base);
