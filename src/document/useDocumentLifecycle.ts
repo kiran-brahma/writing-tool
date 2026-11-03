@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { reResolveFindings, type FindingResolution } from "../core/anchor";
 import type { DocTree } from "../core/docTree";
 import type { Finding } from "../core/finding";
-import type { DocumentStatus, LibraryEntry } from "../core/library";
+import type { LibraryEntry } from "../core/library";
 import type { Pass } from "../core/pass";
 import { describeError } from "../errors";
 import {
@@ -98,10 +98,6 @@ export interface DocumentLifecycleHandle {
   createDocument: () => Promise<void>;
   /** Story 20: rename a Document. */
   renameDocument: (documentId: string, title: string) => Promise<void>;
-  /** Story 23: set a Document's status. */
-  setDocumentStatus: (documentId: string, status: DocumentStatus) => Promise<void>;
-  /** Story 22: replace a Document's tags. */
-  setDocumentTags: (documentId: string, tags: string[]) => Promise<void>;
   importFromMarkdown: (markdown: string) => Promise<void>;
   exportToMarkdown: () => string;
   handleChange: (tree: DocTree) => void;
@@ -113,8 +109,6 @@ export interface DocumentLifecycleHandle {
   backupLibrary: (includeKeys: boolean, deliver: (json: string) => void) => Promise<boolean>;
   /** Story 111: replaces the whole Library from a backup file's text. */
   restoreLibrary: (json: string) => Promise<boolean>;
-  /** Story 114: one Document as a bundle file's text, or null on failure. */
-  exportBundle: (documentId: string) => Promise<string | null>;
   /** Story 114: imports a Document bundle as a new Document and opens it. */
   importBundle: (json: string) => Promise<string | null>;
   /** Story 113: when the Writer last backed up, or null when never. */
@@ -195,7 +189,6 @@ export function useDocumentLifecycle(
       canonicalsRef.current = new Map();
       setDocumentRecord(opened);
       applyResolution({ findings: [], highlights: [], changed: [] });
-      await runs.loadAnalysis(database, opened);
       await runRulePasses(database, opened, {
         passes: passesRef.current,
       });
@@ -208,7 +201,6 @@ export function useDocumentLifecycle(
       canonicalsRef,
       setDocumentRecord,
       applyResolution,
-      runs.loadAnalysis,
       passesRef,
         refreshFindings,
       refreshRevisions,
@@ -226,10 +218,9 @@ export function useDocumentLifecycle(
       await passes.load(database);
       await connections.load(database);
       await settings.load(database);
-      await runs.loadPriceTable(database);
       setLastBackedUp(await loadLastBackedUp(database));
     },
-    [passes.load, connections.load, settings.load, runs.loadPriceTable],
+    [passes.load, connections.load, settings.load],
   );
 
   useEffect(() => {
@@ -272,12 +263,7 @@ export function useDocumentLifecycle(
             await refreshRevisions();
             // The prose changed, so any Reader account describes text that is
             // gone. Clearing is the honest move; a Reader Run refreshes them.
-            if (savedCanonicalRef.current !== current.canonical) {
-              savedCanonicalRef.current = current.canonical;
-              // The Reader and Audit accounts describe text that is gone; an
-              // Audit Run (#27) refreshes them.
-              await runs.clearAnalysis(database, current.id);
-            }
+            savedCanonicalRef.current = current.canonical;
           },
           takeRevision: async () => {
             const current = documentRef.current;
@@ -318,7 +304,6 @@ export function useDocumentLifecycle(
     enterDocument,
     refreshRevisions,
     refreshFindings,
-    runs.clearAnalysis,
     onError,
   ]);
 
@@ -416,7 +401,6 @@ export function useDocumentLifecycle(
       documentRef.current = updated;
       savedCanonicalRef.current = updated.canonical;
       setDocumentRecord(updated);
-      runs.resetAnalysis();
 
       await runRulePasses(database, updated, {
         passes: passesRef.current,
@@ -430,7 +414,6 @@ export function useDocumentLifecycle(
       documentRef,
       savedCanonicalRef,
       setDocumentRecord,
-      runs.resetAnalysis,
       passesRef,
         refreshFindings,
       refreshRevisions,
@@ -487,10 +470,9 @@ export function useDocumentLifecycle(
     [loadGlobalState, runs.resetReadouts, enterDocument, readLibrary],
   );
 
-  const { backupLibrary, restoreLibrary, exportBundle, importBundle } = useDurability({
+  const { backupLibrary, restoreLibrary, importBundle } = useDurability({
     databaseRef,
     persistenceRef,
-    documentRef,
     openDocument,
     reloadLibrary,
     onBackedUp: setLastBackedUp,
@@ -534,18 +516,6 @@ export function useDocumentLifecycle(
     [applyDocumentMetadata],
   );
 
-  /** Story 23: move a Document between draft, revising and done. */
-  const setDocumentStatus = useCallback(
-    (documentId: string, status: DocumentStatus) => applyDocumentMetadata(documentId, { status }),
-    [applyDocumentMetadata],
-  );
-
-  /** Story 22: replace a Document's tags wholesale. */
-  const setDocumentTags = useCallback(
-    (documentId: string, tags: string[]) => applyDocumentMetadata(documentId, { tags }),
-    [applyDocumentMetadata],
-  );
-
   /** Creates a new empty Document and opens it, ready to write. */
   const createDocument = useCallback(async () => {
     const database = databaseRef.current;
@@ -566,15 +536,12 @@ export function useDocumentLifecycle(
     openDocument,
     createDocument,
     renameDocument,
-    setDocumentStatus,
-    setDocumentTags,
     importFromMarkdown,
     exportToMarkdown,
     handleChange,
     flagMilestone,
     backupLibrary,
     restoreLibrary,
-    exportBundle,
     importBundle,
     lastBackedUp,
     backupError,

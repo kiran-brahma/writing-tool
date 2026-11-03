@@ -5,7 +5,7 @@ import type { Slot, SlotAssignment, SlotBinding } from "../storage/connections";
 import type { Connection } from "../wire/connection";
 import { ConnectionsPanel } from "../wire/ConnectionsPanel";
 import { RuleConfigEditor } from "../editor/RuleConfigEditor";
-import { ColorSchemePanel, SlotsPanel } from "./ConnectionSettings";
+import { AppearancePanel, SlotsPanel } from "./SettingsPanels";
 
 export interface SettingsViewProps {
   connections: Connection[];
@@ -48,9 +48,6 @@ export function SettingsView({
   onRestoreDefaults,
 }: SettingsViewProps) {
   const rulePasses = passes.filter((pass) => pass.kind === "rule");
-  const scrollToHelp = () => {
-    window.document.getElementById("settings-help")?.scrollIntoView({ behavior: "smooth" });
-  };
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto">
@@ -58,7 +55,7 @@ export function SettingsView({
         <header>
           <h1 className="text-lg font-semibold tracking-tight text-ink">Settings</h1>
           <p className="mt-1 text-sm text-muted-ink">
-            Connections, the three rule passes, the colour scheme and the one-page help.
+            Connections, the three rule passes, the appearance and the one-page help.
           </p>
         </header>
 
@@ -79,7 +76,6 @@ export function SettingsView({
             onSave={onSaveConnection}
             onAddCustom={onAddCustom}
             onRemove={onRemoveConnection}
-            onOpenHelp={scrollToHelp}
           />
         </div>
 
@@ -121,7 +117,7 @@ export function SettingsView({
           </ul>
         </section>
 
-        <ColorSchemePanel colorScheme={colorScheme} onSetColorScheme={onSetColorScheme} />
+        <AppearancePanel colorScheme={colorScheme} onSetColorScheme={onSetColorScheme} />
 
         <HelpPanel />
       </div>
@@ -233,7 +229,7 @@ function HelpPanel() {
             <code className="rounded bg-sunk px-1 py-0.5 font-mono text-xs">
               OLLAMA_ORIGINS={"{this site's origin}"} ollama serve
             </code>
-            . The README has the full steps for macOS, Windows and Linux.
+            . docs/ollama.md has the full steps for macOS, Windows and Linux.
           </p>
         </div>
       </div>

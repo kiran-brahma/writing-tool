@@ -18,7 +18,7 @@ This app is my attempt to keep the editor's eye without giving it the pen.
 - **Work the findings rail**: every finding is anchored to the exact words it concerns. `j` and `k` step through the open ones, `a` marks one addressed, `x` declines it, and clicking a mark in the prose opens a small callout.
 - **Compare** two versions with the Judge. It compares the current section, or the span you selected, twice with the labels swapped. A verdict that flips is reported as unstable rather than as a preference.
 - **Library**: search every document in this browser, back up the whole library, restore it, or import a document bundle.
-- **Settings**: Connections, the three rule word lists, the colour scheme, and a one-page Help.
+- **Settings**: Connections, the three rule word lists, the appearance, and a one-page Help.
 
 Rule passes and model passes are both analysis. No model output can enter the document: the findings schema has no rewrite field, and there is no apply, accept or insert control for model text. Praise is forbidden by the prompts, caught by a client-side linter, and struck through rather than hidden.
 
@@ -46,7 +46,7 @@ For local Ollama, see [docs/ollama.md](docs/ollama.md). Ollama refuses origins i
 
 1. Write.
 2. The three rule passes mark problems as you save. No key, no network.
-3. Press **Review** when you want a closer read on the current paragraph.
+3. Press **Review** when you want a closer read on the current paragraph. While it runs, the same control offers **Cancel**; a failure is shown in a banner.
 4. Rewrite in your own words. Mark the finding addressed or decline it.
 5. Flag a version from the Document menu, then press **Compare** to ask the Judge whether the rewrite is clearer.
 

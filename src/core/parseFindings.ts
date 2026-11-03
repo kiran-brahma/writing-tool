@@ -94,7 +94,7 @@ export function parseFindings(raw: string, shape: OutputShape): ParsedFindings {
  * asked for. The span itself is not linted wholesale — a `quote`, `passage` or
  * `evidence_quote` inside it is the Writer's own prose, and a Violation is never
  * about the Writer's prose — so only the text outside it is scanned. One rule
- * for the Findings, Reader and Audit parsers, which used to spell it out each.
+ * for the Findings parser and its older siblings, which used to spell it out each.
  */
 export function lintProseAroundSpan(raw: string, span: string): Violation[] {
   return lintViolations(span === raw ? "" : raw.split(span).join(" "));

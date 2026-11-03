@@ -99,6 +99,6 @@ export function ollamaUnreachableAdvice(origin: string | null): string {
     `On macOS, run ${commands.macos} then quit Ollama from the menu bar and open it again. ` +
     `On Windows or Linux, set OLLAMA_ORIGINS to ${site} and restart Ollama. ` +
     `If OLLAMA_ORIGINS is already set, add ${site} to it, separated by a comma. ` +
-    `Then use "Test connection". The Ollama (local) card in AI Settings has the full steps.`
+    `Then use "Test connection". The Ollama (local) card in Settings has the full steps.`
   );
 }

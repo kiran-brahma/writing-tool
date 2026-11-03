@@ -32,6 +32,10 @@ release is cut.
 
 - A stored pass outside the Starter pack is ignored on load, so a removed pass cannot keep running or
   lock the writer out with an output shape this build no longer runs.
+- A Review failure is shown in a banner instead of being set and never rendered, and the Status line
+  offers **Cancel** while a Review is in flight.
+- A rule pass stored as disabled by the removed per-pass toggle is turned back on at load, so all
+  three rule passes run.
 - Old tables and document metadata are left in place, invisible, so the simplification needs no
   destructive Dexie migration.
 

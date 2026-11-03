@@ -42,11 +42,9 @@ export interface PassRequestOptions {
 }
 
 /**
- * The provider-agnostic request for one Pass call. The Screening frame and the
- * Voice list are the Critic's and are applied here, so a new output shape cannot
- * forget them or apply them to a Pass that does not take them. The two share one
- * system message when both are present, so a Provider sees a single standing
- * instruction rather than several.
+ * The provider-agnostic request for one Pass call. The Screening frame is the
+ * Critic's and is applied here, so a new output shape cannot forget it or apply
+ * it to a Pass that does not take it.
  */
 export function buildPassRequest(options: PassRequestOptions): ModelRequest {
   const { pass, connection, prompt, schema, screeningFrame, maxOutputTokens } = options;

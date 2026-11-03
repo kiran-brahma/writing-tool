@@ -1,14 +1,4 @@
-import { isOpenFinding, type Finding } from "../core/finding";
-
-/**
- * The queue the Writer works: every open Finding in document order. A Finding
- * the Writer addressed or declined has left the queue: it is not stepped
- * through and not counted as open again, though it stays stored so a later Run
- * does not raise the same objection twice.
- */
-export function openFindings(findings: Finding[]): Finding[] {
-  return findings.filter(isOpenFinding);
-}
+import type { Finding } from "../core/finding";
 
 /**
  * The id to select when the Writer steps with `j` or `k`. With no current

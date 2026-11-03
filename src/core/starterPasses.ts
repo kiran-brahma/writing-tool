@@ -3,8 +3,6 @@ import {
   AI_TELLS_PASS,
   BANNED_WORDS_PASS,
   HEDGES_PASS,
-  NOMINALIZATIONS_PASS,
-  OPENERS_PASS,
   ORWELL_RULES_PASS,
   PASSIVE_PASS,
   REPETITION_PASS,
@@ -16,8 +14,6 @@ export {
   AI_TELLS_PASS,
   BANNED_WORDS_PASS,
   HEDGES_PASS,
-  NOMINALIZATIONS_PASS,
-  OPENERS_PASS,
   ORWELL_RULES_PASS,
   PASSIVE_PASS,
   WORDINESS_PASS,
@@ -221,31 +217,6 @@ const SCOPE_PROMPT_CLAUSE: Record<PassScope, ConstitutionPromptClause> = {
 export function constitutionPromptClauses(scope: PassScope): ConstitutionPromptClause[] {
   return [SCOPE_PROMPT_CLAUSE[scope], ...SHARED_PROMPT_CLAUSES];
 }
-
-/**
- * Story 40: the actor should be the subject and the action should be the verb.
- * Story 146: it ships enabled in v1.1 — the source method's most satisfying win
- * is a default, not a gate (ADR 0009). The Writer can still turn it off.
- */
-export const CHARACTERS_ACTIONS_PASS: Pass = {
-  id: "characters-actions",
-  name: "Characters and actions",
-  description: "Flags sentences where the actor is missing from the subject position.",
-  kind: "model",
-  scope: "paragraph",
-  output: "findings",
-  slot: "critic",
-  enabled: true,
-  prompt: paragraphPassPrompt(
-    "Check one paragraph of a piece of writing for characters and actions.",
-    [
-      "Flag sentences in the TARGET PARAGRAPH where the actor is missing from the subject",
-      "position, or where the action is buried in a noun instead of carried by the verb. Say in",
-      "the diagnosis who or what is acting and what they are doing.",
-      PARAGRAPH_REPORTING_CLAUSE,
-    ].join("\n"),
-  ),
-};
 
 /**
  * Story 43: one paragraph, one idea. The Finding points at the sentence where

@@ -70,7 +70,11 @@ export async function loadOrCreatePasses(database: ObelusDatabase): Promise<Pass
 function orderPasses(byId: Map<string, Pass>): Pass[] {
   return STARTER_PASSES.flatMap((starter) => {
     const pass = byId.get(starter.id);
-    return pass === undefined ? [] : [pass];
+    if (pass === undefined) return [];
+    // The three rule passes always run. A library written by an older Obelus
+    // may carry enabled:false from the removed per-pass toggle; the stored row
+    // is kept, but the product no longer honours that flag for a rule pass.
+    return starter.kind === "rule" ? [{ ...pass, enabled: true }] : [pass];
   });
 }
 
@@ -93,15 +97,6 @@ function updatePass(
   });
 }
 
-/** Story 35: enable or disable one rule Pass, leaving every other Pass alone. */
-export function setPassEnabled(
-  database: ObelusDatabase,
-  passId: string,
-  enabled: boolean,
-): Promise<Pass | null> {
-  return updatePass(database, passId, (pass) => ({ ...pass, enabled }));
-}
-
 /** Story 34: replace a rule Pass's word lists and patterns. */
 export function updateRuleConfig(
   database: ObelusDatabase,
@@ -109,16 +104,6 @@ export function updateRuleConfig(
   ruleConfig: RuleConfig,
 ): Promise<Pass | null> {
   return updatePass(database, passId, (pass) => ({ ...pass, ruleConfig }));
-}
-
-/**
- * Story 98: stores a Pass the Writer wrote or edited. The whole record is
- * written as one unit, so a prompt and the scope and output shape that go with
- * it cannot be saved half-changed.
- */
-export async function savePass(database: ObelusDatabase, pass: Pass): Promise<Pass> {
-  await database.passes.put(pass);
-  return pass;
 }
 
 /**

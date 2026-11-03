@@ -21,8 +21,7 @@ import {
 /**
  * The model-Run repository. A model Run is like a rule Run in one respect — it
  * reconciles a Pass's Finding set rather than appending — and unlike it in
- * another: it also records the raw provider response, so the global
- * "show raw response" toggle can expose it for a Finding loaded much later.
+ * another: it also records the provider's raw response for the Run cache.
  *
  * The Run cache lives here, at the storage boundary, because this is the door
  * every Run goes through and the only place the Document's canonical text, the

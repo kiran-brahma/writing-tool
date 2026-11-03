@@ -2,7 +2,7 @@
  * Durability: the whole-Library backup, its import, and the single-Document
  * bundle. A backup is a JSON snapshot of every Library store; import replaces
  * the Library with that snapshot, so the file is a recovery path rather than a
- * merge. Keys are excluded by default and included only on explicit opt-in.
+ * merge. Keys are excluded; the app never opts in.
  *
  * Nothing here leaves the browser: these functions read and write IndexedDB and
  * return plain objects. The shell turns them into a download.

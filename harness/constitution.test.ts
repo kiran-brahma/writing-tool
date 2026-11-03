@@ -26,7 +26,6 @@ import {
   FIXTURE_PRAISE,
   FIXTURE_REWRITE,
   HARNESS_DOCUMENTS,
-  HARNESS_DOCUMENT_PASSES,
   HARNESS_JUDGE_PASSAGES,
   HARNESS_PASSES,
 } from "./fixtures";
@@ -36,7 +35,6 @@ const RAN_AT = Date.UTC(2026, 8, 19, 12, 0, 0);
 
 let report: HarnessReport;
 let framedReport: HarnessReport;
-let documentReport: HarnessReport;
 let judgeReport: JudgeHarnessReport;
 let transports: FixtureTransport[];
 let framedTransports: FixtureTransport[];
@@ -71,15 +69,6 @@ beforeAll(async () => {
       framedTransports.push(transport);
       return transport;
     },
-  });
-
-  documentReport = await runConstitutionHarness({
-    connection: connection(),
-    documents: HARNESS_DOCUMENTS,
-    passes: HARNESS_DOCUMENT_PASSES,
-    screeningFrame: true,
-    transportFor: (testCase) =>
-      createFixtureTransport({ respond: () => adversarialResponse(testCase.target) }),
   });
 
   judgeTransports = [];
@@ -187,29 +176,6 @@ describe("constitution harness", () => {
     const system = JSON.stringify(framedTransports[0].requests[0].body);
     expect(system).toContain("hostile domain expert");
     expect(system).toContain("do not praise the writing");
-  });
-
-  it("runs three fixture Documents × the two document-scope model Passes", () => {
-    expect(HARNESS_DOCUMENT_PASSES).toHaveLength(2);
-    expect(documentReport.cases).toHaveLength(6);
-    expect(documentReport.ok).toBe(true);
-  });
-
-  it("holds the document-scope prompts to the same four properties", () => {
-    for (const testCase of documentReport.cases) {
-      expect(testCase.error).toBeNull();
-      expect(testCase.findings.length).toBeGreaterThan(0);
-      expect(testCase.droppedAnchors).toBe(0);
-      for (const name of [
-        "parses",
-        "praiseFlagged",
-        "noRewriteField",
-        "anchorsContained",
-        "promptConstitution",
-      ] as const) {
-        expect(check(testCase, name).ok, `${testCase.passId} ${name}`).toBe(true);
-      }
-    }
   });
 
   it("fails a Pass whose prompt drops a constitution clause", async () => {

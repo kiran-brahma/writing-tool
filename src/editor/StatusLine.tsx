@@ -11,11 +11,11 @@ export interface StatusLineRailOffer {
 
 /**
  * The Status line, beneath the prose at every width: the word count, the Review
- * action, and the Judge's Compare action. Below 1024px it also offers the Rail
- * with the open-Finding count.
+ * action, the Judge's Compare action, and the findings-rail toggle.
  *
- * Review runs the three model passes on the paragraph at the cursor. Compare
- * opens the Judge for the current section, or the selected span.
+ * Review runs the three model passes on the paragraph at the cursor. While it
+ * runs, the same control offers Cancel. Compare opens the Judge for the current
+ * section, or the selected span.
  */
 export function StatusLine({
   wordCount,
@@ -23,6 +23,7 @@ export function StatusLine({
   onReview,
   reviewRunning = false,
   canReview = false,
+  onCancel,
   onCompare,
   canCompare = false,
 }: {
@@ -31,6 +32,7 @@ export function StatusLine({
   onReview?: () => void;
   reviewRunning?: boolean;
   canReview?: boolean;
+  onCancel?: () => void;
   onCompare?: () => void;
   canCompare?: boolean;
 }) {
@@ -39,16 +41,25 @@ export function StatusLine({
       <div className="obelus-column flex items-center justify-between gap-4 py-1.5 text-xs tabular-nums text-faint-ink">
         <p>{wordCountLabel(wordCount)}</p>
         <div className="flex items-center gap-3">
-          {onReview !== undefined && (
-            <button
-              type="button"
-              onClick={onReview}
-              disabled={!canReview || reviewRunning}
-              className="rounded px-1 font-medium text-muted-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              {reviewRunning ? "Reviewing…" : "Review"}
-            </button>
-          )}
+          {onReview !== undefined &&
+            (reviewRunning && onCancel !== undefined ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded px-1 font-medium text-muted-ink hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onReview}
+                disabled={!canReview || reviewRunning}
+                className="rounded px-1 font-medium text-muted-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                Review
+              </button>
+            ))}
           {onCompare !== undefined && (
             <button
               type="button"

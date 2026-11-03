@@ -16,10 +16,6 @@ import { ensureRevision } from "./revisions";
  */
 export interface RuleRunOptions {
   passes: Pass[];
-  /**
-   * Story 150: the Voice list. A rule match inside an entry is dropped, so a
-   * declared word leaves the queue outright; omitted reads as the empty list.
-   */
   now?: number;
 }
 
@@ -49,9 +45,6 @@ async function runRulePassesNow(
   for (const pass of rulePassesToRun(options.passes)) {
     runs.push({
       pass,
-      // The Voice list is applied to the matches themselves, before the
-      // `needsRevision` check, so a word the Writer declared theirs never mints
-      // a Finding or a Revision.
       matches: ruleMatches(document.canonical, pass),
       existing: await listFindingsForPass(database, document.id, pass.id),
     });

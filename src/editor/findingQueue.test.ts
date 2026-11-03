@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Finding, FindingStatus } from "../core/finding";
-import { openFindings, selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
+import { selectionAfterLeavingQueue, stepSelection } from "./findingQueue";
 
 function finding(id: string, passId: string, status: FindingStatus = "open"): Finding {
   return {
@@ -14,24 +14,6 @@ function finding(id: string, passId: string, status: FindingStatus = "open"): Fi
     provenance: { providerId: "local", model: "rule", at: 1, revisionId: "r1" },
   };
 }
-
-describe("openFindings", () => {
-  it("keeps only open Findings, in the sidebar's order", () => {
-    const queue = openFindings([
-      finding("a", "second"),
-      finding("b", "first"),
-      finding("c", "second", "addressed"),
-      finding("d", "first", "declined"),
-      finding("e", "second"),
-    ]);
-
-    expect(queue.map((entry) => entry.id)).toEqual(["a", "b", "e"]);
-  });
-
-  it("is empty when every Finding has left the queue", () => {
-    expect(openFindings([finding("a", "first", "declined")])).toEqual([]);
-  });
-});
 
 describe("stepSelection", () => {
   const open = ["a", "b", "c"].map((id) => finding(id, "first"));

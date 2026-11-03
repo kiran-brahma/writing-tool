@@ -75,6 +75,12 @@ describe("Starter pack", () => {
   it("keeps every model prompt's scope and constitution clauses", () => {
     for (const pass of STARTER_PASSES.filter((entry) => entry.kind === "model")) {
       const prompt = pass.prompt ?? "";
+      // The literal clauses, independent of the table the builder uses, so a
+      // change to both the builder and its table cannot hide a drift.
+      expect(prompt, pass.id).toContain(
+        "Do not praise the writing and do not suggest replacement prose.",
+      );
+      expect(prompt, pass.id).toMatch(/analyze only this paragraph/i);
       for (const clause of constitutionPromptClauses(pass.scope)) {
         expect(prompt, `${pass.id}: ${clause.name}`).toMatch(clause.pattern);
       }

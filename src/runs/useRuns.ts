@@ -28,7 +28,6 @@ export interface RunsOptions {
  */
 export interface RunsHandle {
   runningPassId: string | null;
-  runStartedAt: number | null;
   runError: string | null;
   cancelRun: () => void;
   runModelPass: (passId: string) => Promise<RunResult | null>;
@@ -38,15 +37,6 @@ export interface RunsHandle {
   runJudge: (before: string, after: string) => Promise<JudgeResult | null>;
   /** Clears the Run readouts when the Writer switches Document. */
   resetReadouts: () => void;
-  /**
-   * The document lifecycle still calls these three so an old library's
-   * analysis rows are left alone. They intentionally do nothing: the tables
-   * remain in the schema, but nothing reads or writes them.
-   */
-  loadAnalysis: (database: ObelusDatabase, document: DocumentRecord) => Promise<void>;
-  clearAnalysis: (database: ObelusDatabase, documentId: string) => Promise<void>;
-  resetAnalysis: () => void;
-  loadPriceTable: (database: ObelusDatabase) => Promise<void>;
 }
 
 export function useRuns(options: RunsOptions): RunsHandle {
@@ -62,7 +52,6 @@ export function useRuns(options: RunsOptions): RunsHandle {
   } = options;
 
   const [runningPassId, setRunningPassId] = useState<string | null>(null);
-  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
   const [judgeError, setJudgeError] = useState<string | null>(null);
@@ -101,7 +90,6 @@ export function useRuns(options: RunsOptions): RunsHandle {
       abortRef.current = controller;
       setRunError(null);
       setRunningPassId(passId);
-      setRunStartedAt(Date.now());
       try {
         const result = await runModelPassRecord(database, current, {
           pass,
@@ -123,7 +111,6 @@ export function useRuns(options: RunsOptions): RunsHandle {
         if (abortRef.current === controller) abortRef.current = null;
         runInFlightRef.current = false;
         setRunningPassId(null);
-        setRunStartedAt(null);
       }
     },
     [
@@ -177,14 +164,10 @@ export function useRuns(options: RunsOptions): RunsHandle {
     setJudgeError(null);
   }, []);
 
-  const loadAnalysis = useCallback(async () => {}, []);
-  const clearAnalysis = useCallback(async () => {}, []);
-  const resetAnalysis = useCallback(() => {}, []);
-  const loadPriceTable = useCallback(async () => {}, []);
+
 
   return {
     runningPassId,
-    runStartedAt,
     runError,
     cancelRun,
     runModelPass,
@@ -193,10 +176,6 @@ export function useRuns(options: RunsOptions): RunsHandle {
     judgeRunning,
     runJudge,
     resetReadouts,
-    loadAnalysis,
-    clearAnalysis,
-    resetAnalysis,
-    loadPriceTable,
   };
 }
 

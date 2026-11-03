@@ -58,8 +58,9 @@ repository. Review runs them one after another and adds their findings to the sa
 
 1. The writer types. Saves are debounced, and a `pagehide` save protects the last edits.
 2. The three rule passes run on save. Their findings are reconciled against the stored set.
-3. The writer presses **Review**. The three model passes run on the paragraph at the cursor. A failure
-   is surfaced verbatim; a cancelled run stores nothing.
+3. The writer presses **Review**. The three model passes run on the paragraph at the cursor. While
+   they run, the same control offers **Cancel**; a cancelled run stores nothing. A failure is
+   surfaced verbatim in a banner above the page.
 4. The findings rail lists every finding in document order, with the pass name on the row. `j`/`k`
    step through open findings, `a` addresses, `x` declines. Clicking a mark in the prose opens the
    callout with the same verdicts.
@@ -127,7 +128,8 @@ local daemon with `ollama signin`.
 - `pnpm run typecheck`, `pnpm test`, `pnpm run gates` and `pnpm run build` pass.
 - The constitution harness passes with the three surviving model passes and the Judge.
 - The app opens on the last document; three destinations; one first-run note.
-- Review runs only from the status line, on the current paragraph.
+- Review runs only from the status line, on the current paragraph; a failure is visible and a run
+  can be cancelled.
 - The findings rail is one flat list; the callout works; `j`/`k`/`a`/`x` work.
 - Compare opens the Judge; the swapped double call runs.
 - Settings has Connections, Rules, Appearance and Help.

@@ -67,7 +67,8 @@ export default function App() {
     lastBackedUp,
     backupError,
     clearBackupError,
-    criticConnection,
+    runError,
+    cancelRun,
     firstRunNoteDismissed,
     dismissFirstRunNote,
     colorScheme,
@@ -352,6 +353,12 @@ export default function App() {
         </div>
       )}
 
+      {runError !== null && (
+        <div className="border-b border-failure-rule bg-failure-surface px-6 py-2 text-sm text-failure">
+          {runError}
+        </div>
+      )}
+
       {storageNotice !== null && (
         <div className="flex items-center justify-between gap-4 border-b border-warning-rule bg-warning-surface px-6 py-2 text-sm text-warning">
           <span>{storageNotice}</span>
@@ -456,7 +463,8 @@ export default function App() {
                   }}
                   onReview={() => void reviewParagraph()}
                   reviewRunning={runningPassId !== null}
-                  canReview={criticConnection !== null && document.canonical.trim() !== ""}
+                  canReview={document.canonical.trim() !== ""}
+                  onCancel={cancelRun}
                   onCompare={() => setJudgeOpen(true)}
                   canCompare={revisions.length >= 2}
                 />

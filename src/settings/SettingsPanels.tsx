@@ -6,7 +6,7 @@ import type { Connection } from "../wire/connection";
 import { transport } from "../wire/productionTransport";
 
 /** Light, Dark or System. System follows the operating system as it changes. */
-export function ColorSchemePanel({
+export function AppearancePanel({
   colorScheme,
   onSetColorScheme,
 }: {
@@ -16,10 +16,10 @@ export function ColorSchemePanel({
   return (
     <section className="overflow-hidden rounded border border-rule bg-paper">
       <div className="border-b border-rule-soft px-4 py-2">
-        <h2 className="text-sm font-semibold">Colour scheme</h2>
+        <h2 className="text-sm font-semibold">Appearance</h2>
       </div>
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-        <div role="group" aria-label="Colour scheme" className="flex gap-1.5">
+        <div role="group" aria-label="Appearance" className="flex gap-1.5">
           {COLOR_SCHEME_SETTINGS.map(({ setting, label }) => {
             const active = setting === colorScheme;
             return (

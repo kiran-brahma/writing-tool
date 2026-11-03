@@ -26,7 +26,7 @@ export interface FindingsOptions {
  * The Finding queue and the Revision list for the current Document: resolution
  * against the canonical string, the Highlight intervals the Editor draws, the
  * status writes that move a Finding between open, addressed and declined, and
- * the rule re-run that a Pass or Voice-list change triggers.
+ * the rule re-run that a Pass change triggers.
  */
 export interface FindingsHandle {
   findings: Finding[];

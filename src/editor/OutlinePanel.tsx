@@ -1,5 +1,4 @@
 import type { Section } from "../core/sections";
-import { PANEL_GLOSSES, type HelpSectionId } from "../help/helpContent";
 import { outlineEntries } from "./outlineEntries";
 
 /**
@@ -13,14 +12,12 @@ export interface OutlinePanelProps {
   /** The heading block the cursor is inside, or null when it is in the preamble. */
   activeHeadingBlockIndex: number | null;
   onJump: (blockIndex: number) => void;
-  onOpenHelp?: (sectionId: HelpSectionId) => void;
 }
 
 export function OutlinePanel({
   sections,
   activeHeadingBlockIndex,
   onJump,
-  onOpenHelp,
 }: OutlinePanelProps) {
   return (
     <section className="border-b border-rule bg-sunk/60">
@@ -31,16 +28,6 @@ export function OutlinePanel({
         </span>
       </div>
 
-      <p className="border-b border-rule-soft px-4 py-2 text-xs text-muted-ink">
-        {PANEL_GLOSSES.outline.text}{" "}
-        <button
-          type="button"
-          onClick={() => onOpenHelp?.(PANEL_GLOSSES.outline.sectionId)}
-          className="rounded px-0.5 underline hover:text-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          How this works
-        </button>
-      </p>
 
       {sections.length === 0 ? (
         <p className="px-4 py-4 text-sm text-muted-ink">
@@ -82,10 +69,8 @@ export interface MarginOutlineProps {
 
 /**
  * Stories 241 and 243: the Outline in the left margin at 1440px and wider, in
- * the space the capped column leaves empty beside the page. It is a quiet list
- * of headings, without the Rail section's chrome, that marks the Section the
- * cursor is in and jumps on click exactly as the Rail's Outline does. Both
- * render; the stylesheet shows one, so no script decides where the Outline is.
+ * the space the capped column leaves empty beside the page. It is the one
+ * Outline now; the rail's copy is gone.
  */
 export function MarginOutline({ sections, activeHeadingBlockIndex, onJump }: MarginOutlineProps) {
   return (

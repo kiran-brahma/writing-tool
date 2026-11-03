@@ -6,7 +6,7 @@ import type { DocTree } from "./core/docTree";
 import { type DeclineReason, type Finding } from "./core/finding";
 import type { LibraryEntry } from "./core/library";
 import { type JudgeResult } from "./core/judge";
-import { type Pass, type RuleConfig } from "./core/pass";
+import { paragraphModelPasses, type Pass, type RuleConfig } from "./core/pass";
 import { STARTER_PASSES } from "./core/starterPasses";
 import type { PersistenceController } from "./editor/persistence";
 import {
@@ -48,7 +48,6 @@ export interface DocumentHandle {
   targetBlockIndex: number;
   setTargetBlockIndex: (index: number) => void;
   runningPassId: string | null;
-  runStartedAt: number | null;
   runError: string | null;
   cancelRun: () => void;
   runModelPass: (passId: string) => Promise<RunResult | null>;
@@ -217,7 +216,6 @@ export function useDocument(): DocumentHandle {
   });
   const {
     runningPassId,
-    runStartedAt,
     runError,
     cancelRun,
     runModelPass,
@@ -229,9 +227,7 @@ export function useDocument(): DocumentHandle {
 
   /** One Review: the three enabled model passes on the paragraph at the cursor. */
   const reviewParagraph = useCallback(async (): Promise<void> => {
-    const modelPasses = passesRef.current.filter(
-      (pass) => pass.kind === "model" && pass.enabled && pass.scope === "paragraph",
-    );
+    const modelPasses = paragraphModelPasses(passesRef.current);
     for (const pass of modelPasses) {
       const result = await runModelPass(pass.id);
       if (result === null) return;
@@ -303,7 +299,6 @@ export function useDocument(): DocumentHandle {
     targetBlockIndex,
     setTargetBlockIndex,
     runningPassId,
-    runStartedAt,
     runError,
     cancelRun,
     runModelPass,
