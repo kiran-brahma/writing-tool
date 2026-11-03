@@ -26,6 +26,11 @@ export default {
     }
 
     const headers = applySecurityHeaders(new Headers(asset.headers));
+    // A deploy must be picked up on the next navigation. Hashed assets can stay
+    // immutable; the HTML shell and navigations revalidate.
+    if ((asset.headers.get("Content-Type") ?? "").includes("text/html")) {
+      headers.set("Cache-Control", "no-cache");
+    }
     return new Response(asset.body, {
       status: asset.status,
       statusText: asset.statusText,

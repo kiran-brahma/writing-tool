@@ -36,6 +36,11 @@ release is cut.
   offers **Cancel** while a Review is in flight.
 - A rule pass stored as disabled by the removed per-pass toggle is turned back on at load, so all
   three rule passes run.
+- A deploy is picked up on the next navigation: the Worker sends `Cache-Control: no-cache` for the
+  HTML shell, and the offline shell's cache name moved to v2 so an old shell is discarded.
+- An uncaught render or effect error now shows the error and a Reload control instead of leaving only
+  the header on screen. A ready shell with no Document offers the Library and a Reload action instead
+  of an empty page.
 - Old tables and document metadata are left in place, invisible, so the simplification needs no
   destructive Dexie migration.
 

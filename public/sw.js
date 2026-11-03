@@ -22,7 +22,7 @@
 // successful online navigation, so a deploy or a rollback needs no worker
 // update. `activate` deleting other names only clears a cache this worker no
 // longer uses.
-const CACHE_NAME = "obelus-shell-v1";
+const CACHE_NAME = "obelus-shell-v2";
 const ASSET_PREFIX = "/assets/";
 const SHELL_STATIC_URLS = ["/manifest.webmanifest", "/icon.svg"];
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font", "manifest"]);

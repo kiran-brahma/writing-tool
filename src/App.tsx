@@ -416,7 +416,31 @@ export default function App() {
       {view === "editor" && (
         <div className="flex min-h-0 flex-1">
           <main className="flex min-h-0 flex-1 flex-col bg-paper">
-            {document !== null && (
+            {document === null ? (
+              <div className="mx-auto flex w-full max-w-xl flex-col items-start gap-3 px-6 py-12">
+                <h2 className="text-lg font-semibold text-ink">Obelus opened no Document</h2>
+                <p className="text-sm text-muted-ink">
+                  The Library opened, but no Document was loaded. Open the Library to choose one,
+                  or reload Obelus.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={goToLibrary}
+                    className="rounded bg-ink px-3 py-1.5 text-sm font-medium text-on-ink hover:bg-quiet-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+                  >
+                    Open the Library
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="rounded border border-rule bg-paper px-3 py-1.5 text-sm font-medium text-quiet-ink hover:bg-sunk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    Reload
+                  </button>
+                </div>
+              </div>
+            ) : (
               <>
                 {!firstRunNoteDismissed && (
                   <EditorNote
